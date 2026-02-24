@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   Clock,
@@ -8,6 +9,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Layout from "@/components/Layout";
+import { getCurrentUser } from "@/lib/auth";
 
 interface Task {
   id: string;
@@ -115,17 +117,61 @@ const platformConfig = {
 };
 
 export default function Dashboard() {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        navigate("/login");
+        return;
+      }
+      setUser(currentUser);
+      setLoading(false);
+    };
+
+    checkUser();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <Layout showNav={true}>
+        <div className="max-w-7xl mx-auto flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading your dashboard...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout showNav={true}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back, Agent! 👋
+            Welcome back, {user?.email?.split("@")[0] || "Agent"}! 👋
           </h1>
           <p className="text-muted-foreground">
             Here's what you need to focus on today
           </p>
+
+          {/* User Info Debug Box */}
+          <div className="mt-6 p-4 bg-clippy-50 border border-primary/20 rounded-lg text-sm">
+            <p className="text-foreground font-semibold mb-2">Your Account Details:</p>
+            <div className="space-y-1 text-muted-foreground font-mono text-xs">
+              <p><span className="font-semibold">Email:</span> {user?.email}</p>
+              <p><span className="font-semibold">User ID:</span> {user?.id}</p>
+              <p><span className="font-semibold">Status:</span> ✓ Logged In</p>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              💡 Check your Supabase dashboard under Authentication → Users to see this account.
+            </p>
+          </div>
         </div>
 
         {/* Stats Row */}

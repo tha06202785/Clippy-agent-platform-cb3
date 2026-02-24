@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Inbox,
@@ -11,8 +11,10 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,7 +23,17 @@ interface LayoutProps {
 
 export default function Layout({ children, showNav = true }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+    };
+    fetchUser();
+  }, []);
 
   const navigationItems = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -105,7 +117,13 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
             <Settings className="w-5 h-5 flex-shrink-0" />
             {sidebarOpen && <span className="font-medium">Settings</span>}
           </Link>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors">
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             {sidebarOpen && <span className="font-medium">Sign Out</span>}
           </button>
@@ -149,10 +167,14 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
 
             <div className="flex items-center gap-3 pl-4 border-l border-border">
               <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-sm font-bold text-primary">A</span>
+                <span className="text-sm font-bold text-primary">
+                  {user?.email?.charAt(0).toUpperCase() || "A"}
+                </span>
               </div>
               <div className="hidden sm:block">
-                <p className="text-sm font-semibold text-foreground">Agent</p>
+                <p className="text-sm font-semibold text-foreground truncate max-w-xs">
+                  {user?.email?.split("@")[0] || "Agent"}
+                </p>
                 <p className="text-xs text-muted-foreground">Active</p>
               </div>
             </div>
