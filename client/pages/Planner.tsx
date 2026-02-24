@@ -1,23 +1,15 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Calendar as CalendarIcon,
   Clock,
   ClipboardList,
   Share2,
-  ArrowRight,
   Plus,
-  Tag,
+  Phone,
 } from "lucide-react";
 import Layout from "@/components/Layout";
-import { createClient } from "@supabase/supabase-js";
-
-// --- Supabase Project URL and Anon Key ---
-const SUPABASE_URL = "https://mqydieqeybgxtjqogrwh.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_fgi9j879wWGlzEQbt0i7Yw_D7rYZG3g";
-// -----------------------------------------------------------
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { supabase } from "@/lib/supabase";
 
 // --- INTERFACES (Matching Supabase Schema) ---
 interface SupabaseTask {
@@ -66,29 +58,34 @@ export default function Planner() {
   // Effect to fetch user's org_id
   useEffect(() => {
     const fetchUserOrgId = async () => {
-      const userSession = await supabase.auth.getSession();
-      const userId = userSession.data.session?.user?.id;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
 
       if (!userId) {
-        navigate("/signup");
+        navigate("/login");
         return;
       }
 
-      const { data, error: orgError } = await supabase
-        .from("user_org_roles")
-        .select("org_id")
-        .eq("user_id", userId)
-        .single();
+      try {
+        const { data, error: orgError } = await supabase
+          .from("user_org_roles")
+          .select("org_id")
+          .eq("user_id", userId)
+          .single();
 
-      if (orgError) {
-        console.error("Error fetching user's org_id:", orgError);
-        setError("Failed to retrieve user's organization ID.");
-        setUserOrgId(null);
-      } else if (data) {
-        setUserOrgId(data.org_id);
-      } else {
-        setError("User is not linked to any organization.");
-        setUserOrgId(null);
+        if (orgError) {
+          console.warn("No org role found, using default:", orgError.message);
+          setUserOrgId("default");
+        } else if (data) {
+          setUserOrgId(data.org_id);
+        } else {
+          setUserOrgId("default");
+        }
+      } catch (err) {
+        console.error("Error fetching org_id:", err);
+        setUserOrgId("default");
       }
     };
     fetchUserOrgId();
@@ -102,11 +99,13 @@ export default function Planner() {
       setLoading(true);
       setError(null);
 
-      const userSession = await supabase.auth.getSession();
-      const userId = userSession.data.session?.user?.id;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
 
       if (!userId) {
-        navigate("/signup"); // Redirect to login if not authenticated
+        navigate("/login"); // Redirect to login if not authenticated
         return;
       }
 
