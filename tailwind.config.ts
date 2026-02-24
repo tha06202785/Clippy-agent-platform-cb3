@@ -57,6 +57,18 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        clippy: {
+          "50": "hsl(var(--clippy-50))",
+          "100": "hsl(var(--clippy-100))",
+          "200": "hsl(var(--clippy-200))",
+          "300": "hsl(var(--clippy-300))",
+          "400": "hsl(var(--clippy-400))",
+          "500": "hsl(var(--clippy-500))",
+          "600": "hsl(var(--clippy-600))",
+          "700": "hsl(var(--clippy-700))",
+          "800": "hsl(var(--clippy-800))",
+          "900": "hsl(var(--clippy-900))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
