@@ -7,31 +7,22 @@ import {
   Image,
   QrCode,
   Share2,
-  ListFilter,
   MapPin,
   Bed,
   Bath,
   Car,
   DollarSign,
-  Info,
+  ArrowLeft,
 } from "lucide-react";
 import Layout from "@/components/Layout";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
-// --- Supabase Project URL and Anon Key ---
-const SUPABASE_URL = "https://mqydieqeybgxtjqogrwh.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_fgi9j879wWGlzEQbt0i7Yw_D7rYZG3g";
-// -----------------------------------------------------------
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// --- INTERFACES (Matching Supabase Schema) ---
 interface Listing {
   id: string;
   org_id: string;
   agent_user_id: string | null;
-  status: string; // 'draft', 'active', 'pending', 'sold', 'leased', 'archived'
-  type_sale_rent: string; // 'sale', 'rent'
+  status: string;
+  type_sale_rent: string;
   address: string;
   suburb: string;
   state: string;
@@ -40,36 +31,23 @@ interface Listing {
   bedrooms: number | null;
   bathrooms: number | null;
   carspaces: number | null;
-  features_json: any; // JSONB
+  features_json?: any;
   description_raw: string | null;
-  media_urls_json: string[] | null; // JSONB as string array
-  source: string | null;
-  external_listing_id: string | null;
-  published_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
-// --- Configuration for Dropdowns ---
-const LISTING_STATUS_OPTIONS = [
-  "draft",
-  "active",
-  "pending",
-  "sold",
-  "leased",
-  "archived",
-];
+const LISTING_STATUS_OPTIONS = ["draft", "active", "pending", "sold"];
 const LISTING_TYPE_OPTIONS = ["sale", "rent"];
 
-export default function Listings() {
+export default function ListingsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingListing, setEditingListing] = useState<Listing | null>(null);
   const [userOrgId, setUserOrgId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false); // To toggle between list and form
-  const [editingListing, setEditingListing] = useState<Listing | null>(null); // For edit mode
+  const navigate = useNavigate();
 
-  // Form state for new/editing listing
   const [formData, setFormData] = useState<Partial<Listing>>({
     status: "draft",
     type_sale_rent: "sale",
@@ -81,69 +59,49 @@ export default function Listings() {
     bedrooms: null,
     bathrooms: null,
     carspaces: null,
-    features_json: {}, // Initialize as empty object
     description_raw: "",
-    media_urls_json: [],
   });
 
-  const navigate = useNavigate();
-
-  // Effect to fetch user's org_id
+  // Fetch user org ID and listings
   useEffect(() => {
-    const fetchUserOrgId = async () => {
-      const userSession = await supabase.auth.getSession();
-      const userId = userSession.data.session?.user?.id;
+    const fetchUserData = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (!userId) {
-        navigate("/signup");
+      if (!session?.user?.id) {
+        navigate("/login");
         return;
       }
 
-      const { data, error: orgError } = await supabase
-        .from("user_org_roles")
-        .select("org_id")
-        .eq("user_id", userId)
-        .single();
+      try {
+        // Try to get org_id from user_org_roles
+        const { data: orgRole } = await supabase
+          .from("user_org_roles")
+          .select("org_id")
+          .eq("user_id", session.user.id)
+          .single();
 
-      if (orgError) {
-        console.error("Error fetching user's org_id:", orgError);
-        setError("Failed to retrieve user's organization ID.");
-        setUserOrgId(null);
-      } else if (data) {
-        setUserOrgId(data.org_id);
-      } else {
-        setError("User is not linked to any organization.");
-        setUserOrgId(null);
+        const orgId = orgRole?.org_id || "default";
+        setUserOrgId(orgId);
+
+        // Fetch listings
+        const { data: listingsData } = await supabase
+          .from("listings")
+          .select("*")
+          .eq("org_id", orgId)
+          .order("created_at", { ascending: false });
+
+        if (listingsData) {
+          setListings(listingsData);
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
       }
     };
-    fetchUserOrgId();
+
+    fetchUserData();
   }, [navigate]);
-
-  // Effect to fetch listings
-  useEffect(() => {
-    const fetchListings = async () => {
-      if (!userOrgId) return; // Wait until org_id is available
-
-      setLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
-        .from("listings")
-        .select("*")
-        .eq("org_id", userOrgId)
-        .order("created_at", { ascending: false });
-
-      if (fetchError) {
-        console.error("Error fetching listings:", fetchError);
-        setError("Failed to load listings.");
-      } else {
-        setListings(data || []);
-      }
-      setLoading(false);
-    };
-
-    fetchListings();
-  }, [userOrgId, showForm]); // Re-fetch when org_id or form visibility changes
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -157,68 +115,65 @@ export default function Listings() {
     }));
   };
 
-  const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    try {
-      setFormData((prev) => ({
-        ...prev,
-        features_json: JSON.parse(e.target.value),
-      }));
-    } catch (err) {
-      // Keep as string if invalid JSON, error handling will be done on submit
-      setFormData((prev) => ({ ...prev, features_json: e.target.value as any }));
-    }
-  };
-
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userOrgId || !formData.address || !formData.suburb || !formData.state || !formData.postcode || !formData.type_sale_rent || !formData.status) {
-      setError("Please fill in all required listing details.");
+
+    if (
+      !userOrgId ||
+      !formData.address ||
+      !formData.suburb ||
+      !formData.state ||
+      !formData.postcode
+    ) {
+      alert("Please fill in all required fields");
       return;
     }
 
     setLoading(true);
-    setError(null);
 
-    const userSession = await supabase.auth.getSession();
-    const userId = userSession.data.session?.user?.id;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
 
-    if (!userId) {
-      setError("User ID not found. Please log in.");
-      setLoading(false);
-      return;
-    }
-
-    const listingDataToSave = {
+    const listingData = {
       ...formData,
       org_id: userOrgId,
       agent_user_id: userId,
-      features_json: typeof formData.features_json === 'string' ? JSON.parse(formData.features_json) : formData.features_json, // Ensure it's object
-      created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    let response;
-    if (editingListing) {
-      // Update existing listing
-      response = await supabase
-        .from("listings")
-        .update(listingDataToSave)
-        .eq("id", editingListing.id)
-        .eq("org_id", userOrgId)
-        .select();
-    } else {
-      // Insert new listing
-      response = await supabase
-        .from("listings")
-        .insert(listingDataToSave)
-        .select();
-    }
+    try {
+      if (editingListing) {
+        // Update
+        const { error } = await supabase
+          .from("listings")
+          .update(listingData)
+          .eq("id", editingListing.id)
+          .eq("org_id", userOrgId);
 
-    if (response.error) {
-      console.error("Error saving listing:", response.error);
-      setError(`Failed to save listing: ${response.error.message}`);
-    } else {
+        if (error) throw error;
+
+        setListings((prev) =>
+          prev.map((l) =>
+            l.id === editingListing.id ? { ...l, ...listingData } : l
+          )
+        );
+      } else {
+        // Insert
+        const { data: newListing, error } = await supabase
+          .from("listings")
+          .insert([listingData])
+          .select();
+
+        if (error) throw error;
+
+        if (newListing) {
+          setListings((prev) => [newListing[0], ...prev]);
+        }
+      }
+
+      // Reset form
       setFormData({
         status: "draft",
         type_sale_rent: "sale",
@@ -230,123 +185,437 @@ export default function Listings() {
         bedrooms: null,
         bathrooms: null,
         carspaces: null,
-        features_json: {},
         description_raw: "",
-        media_urls_json: [],
       });
       setEditingListing(null);
-      setShowForm(false); // Go back to list view
-      // Re-fetch listings to update the list
-      // This will be triggered by useEffect's dependency on showForm
+      setShowForm(false);
+    } catch (err) {
+      console.error("Error saving listing:", err);
+      alert("Failed to save listing");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleEditClick = (listing: Listing) => {
     setEditingListing(listing);
-    setFormData({
-      ...listing,
-      features_json: typeof listing.features_json === 'object' ? JSON.stringify(listing.features_json, null, 2) : listing.features_json, // Display as string for editing
-      media_urls_json: listing.media_urls_json || [] // Ensure it's an array
-    });
+    setFormData(listing);
     setShowForm(true);
   };
 
   const handleDeleteListing = async (listingId: string) => {
     if (!confirm("Are you sure you want to delete this listing?")) return;
-    if (!userOrgId) return;
 
     setLoading(true);
-    setError(null);
+    try {
+      const { error } = await supabase
+        .from("listings")
+        .delete()
+        .eq("id", listingId)
+        .eq("org_id", userOrgId);
 
-    const { error: deleteError } = await supabase
-      .from('listings')
-      .delete()
-      .eq('id', listingId)
-      .eq('org_id', userOrgId);
+      if (error) throw error;
 
-    if (deleteError) {
-      console.error("Error deleting listing:", deleteError);
-      setError("Failed to delete listing.");
-    } else {
-      setListings(prev => prev.filter(l => l.id !== listingId));
+      setListings((prev) => prev.filter((l) => l.id !== listingId));
+    } catch (err) {
+      console.error("Error deleting listing:", err);
+      alert("Failed to delete listing");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
-
-  if (loading && !listings.length) {
-    return (
-      <Layout showNav={true}>
-        <div className="max-w-7xl mx-auto p-6 text-center text-muted-foreground">
-          Loading listings...
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout showNav={true}>
-        <div className="max-w-7xl mx-auto p-6 text-center text-red-500">
-          {error}
-        </div>
-      </Layout>
-    );
-  }
 
   return (
     <Layout showNav={true}>
-      <div className="max-w-screen-2xl mx-auto p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-foreground">Listings</h1>
-          <button
-            onClick={() => {
-              setEditingListing(null); // Clear editing state for new form
-              setFormData({
-                status: "draft", type_sale_rent: "sale", address: "", suburb: "", state: "", postcode: "",
-                price_display: "", bedrooms: null, bathrooms: null, carspaces: null, features_json: {},
-                description_raw: "", media_urls_json: [],
-              });
-              setShowForm(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="w-5 h-5" /> New Listing
-          </button>
-        </div>
+      <div className="max-w-7xl mx-auto">
+        {!showForm ? (
+          <>
+            {/* Listings List View */}
+            <div className="flex justify-between items-center mb-8">
+              <h1 className="text-3xl font-bold text-foreground">Listings</h1>
+              <button
+                onClick={() => {
+                  setEditingListing(null);
+                  setFormData({
+                    status: "draft",
+                    type_sale_rent: "sale",
+                    address: "",
+                    suburb: "",
+                    state: "",
+                    postcode: "",
+                    price_display: "",
+                    bedrooms: null,
+                    bathrooms: null,
+                    carspaces: null,
+                    description_raw: "",
+                  });
+                  setShowForm(true);
+                }}
+                className="flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+              >
+                <Plus className="w-5 h-5" />
+                New Listing
+              </button>
+            </div>
 
-        {showForm ? (
-          // Listing Create/Edit Form
-          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-foreground mb-6">
-              {editingListing ? "Edit Listing" : "Create New Listing"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Address */}
-                <div className="form-group">
-                  <label htmlFor="address" className="label-style">Address *</label>
-                  <input type="text" id="address" value={formData.address || ""} onChange={handleInputChange} className="input-style" required />
+            {listings.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {listings.map((listing) => (
+                  <div
+                    key={listing.id}
+                    className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg transition-shadow"
+                  >
+                    {/* Listing Image Placeholder */}
+                    <div className="w-full h-48 bg-gradient-to-br from-clippy-100 to-clippy-200 flex items-center justify-center">
+                      <Image className="w-12 h-12 text-clippy-600/30" />
+                    </div>
+
+                    {/* Listing Info */}
+                    <div className="p-5">
+                      {/* Address */}
+                      <h3 className="font-bold text-lg text-foreground mb-1">
+                        {listing.address}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        {listing.suburb}, {listing.state} {listing.postcode}
+                      </p>
+
+                      {/* Price & Type */}
+                      <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-5 h-5 text-primary" />
+                          <span className="font-bold text-xl text-foreground">
+                            {listing.price_display || "TBD"}
+                          </span>
+                        </div>
+                        <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold">
+                          {listing.type_sale_rent === "sale" ? "For Sale" : "For Rent"}
+                        </span>
+                      </div>
+
+                      {/* Property Features */}
+                      <div className="flex gap-4 mb-5 text-sm text-muted-foreground">
+                        {listing.bedrooms !== null && (
+                          <div className="flex items-center gap-1">
+                            <Bed className="w-4 h-4" />
+                            {listing.bedrooms}
+                          </div>
+                        )}
+                        {listing.bathrooms !== null && (
+                          <div className="flex items-center gap-1">
+                            <Bath className="w-4 h-4" />
+                            {listing.bathrooms}
+                          </div>
+                        )}
+                        {listing.carspaces !== null && (
+                          <div className="flex items-center gap-1">
+                            <Car className="w-4 h-4" />
+                            {listing.carspaces}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Status */}
+                      <div className="flex items-center gap-2 mb-4">
+                        <div
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            listing.status === "active"
+                              ? "bg-green-100 text-green-700"
+                              : listing.status === "sold"
+                                ? "bg-gray-100 text-gray-700"
+                                : "bg-yellow-100 text-yellow-700"
+                          }`}
+                        >
+                          {listing.status.charAt(0).toUpperCase() +
+                            listing.status.slice(1)}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditClick(listing)}
+                          className="flex-1 flex items-center justify-center gap-2 py-2 px-3 border border-border rounded-lg hover:bg-muted transition-colors text-sm font-semibold text-foreground"
+                        >
+                          <Edit className="w-4 h-4" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteListing(listing.id)}
+                          className="flex-1 flex items-center justify-center gap-2 py-2 px-3 border border-destructive/30 rounded-lg hover:bg-destructive/10 transition-colors text-sm font-semibold text-destructive"
+                        >
+                          <Trash className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <Image className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  No listings yet
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Create your first listing to get started
+                </p>
+                <button
+                  onClick={() => {
+                    setEditingListing(null);
+                    setFormData({
+                      status: "draft",
+                      type_sale_rent: "sale",
+                      address: "",
+                      suburb: "",
+                      state: "",
+                      postcode: "",
+                      price_display: "",
+                      bedrooms: null,
+                      bathrooms: null,
+                      carspaces: null,
+                      description_raw: "",
+                    });
+                    setShowForm(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+                >
+                  <Plus className="w-5 h-5" />
+                  Create First Listing
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Listing Form */}
+            <div className="flex items-center gap-3 mb-6">
+              <button
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingListing(null);
+                }}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6 text-foreground" />
+              </button>
+              <h1 className="text-3xl font-bold text-foreground">
+                {editingListing ? "Edit Listing" : "Create New Listing"}
+              </h1>
+            </div>
+
+            <div className="bg-card rounded-2xl border border-border p-8 max-w-3xl">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Address */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Address *
+                    </label>
+                    <input
+                      type="text"
+                      id="address"
+                      value={formData.address || ""}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 123 Main Street"
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  {/* Suburb */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Suburb *
+                    </label>
+                    <input
+                      type="text"
+                      id="suburb"
+                      value={formData.suburb || ""}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Sydney"
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  {/* State */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      State *
+                    </label>
+                    <input
+                      type="text"
+                      id="state"
+                      value={formData.state || ""}
+                      onChange={handleInputChange}
+                      placeholder="e.g., NSW"
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  {/* Postcode */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Postcode *
+                    </label>
+                    <input
+                      type="text"
+                      id="postcode"
+                      value={formData.postcode || ""}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 2000"
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  {/* Type */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Type *
+                    </label>
+                    <select
+                      id="type_sale_rent"
+                      value={formData.type_sale_rent || "sale"}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {LISTING_TYPE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option === "sale" ? "For Sale" : "For Rent"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Status
+                    </label>
+                    <select
+                      id="status"
+                      value={formData.status || "draft"}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {LISTING_STATUS_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option.charAt(0).toUpperCase() + option.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Price */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Price
+                    </label>
+                    <input
+                      type="text"
+                      id="price_display"
+                      value={formData.price_display || ""}
+                      onChange={handleInputChange}
+                      placeholder="e.g., $750,000"
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  {/* Bedrooms */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Bedrooms
+                    </label>
+                    <input
+                      type="number"
+                      id="bedrooms"
+                      value={formData.bedrooms ?? ""}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 3"
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  {/* Bathrooms */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Bathrooms
+                    </label>
+                    <input
+                      type="number"
+                      id="bathrooms"
+                      value={formData.bathrooms ?? ""}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 2"
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  {/* Carspaces */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Carspaces
+                    </label>
+                    <input
+                      type="number"
+                      id="carspaces"
+                      value={formData.carspaces ?? ""}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 2"
+                      className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
                 </div>
-                {/* Suburb */}
-                <div className="form-group">
-                  <label htmlFor="suburb" className="label-style">Suburb *</label>
-                  <input type="text" id="suburb" value={formData.suburb || ""} onChange={handleInputChange} className="input-style" required />
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    id="description_raw"
+                    value={formData.description_raw || ""}
+                    onChange={handleInputChange}
+                    placeholder="Enter listing description..."
+                    className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    rows={5}
+                  />
                 </div>
-                {/* State */}
-                <div className="form-group">
-                  <label htmlFor="state" className="label-style">State *</label>
-                  <input type="text" id="state" value={formData.state || ""} onChange={handleInputChange} className="input-style" required />
+
+                {/* Submit Buttons */}
+                <div className="flex gap-3 pt-6">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-3 px-4 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading
+                      ? "Saving..."
+                      : editingListing
+                        ? "Update Listing"
+                        : "Create Listing"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingListing(null);
+                    }}
+                    className="flex-1 py-3 px-4 border border-border text-foreground font-semibold rounded-lg hover:bg-muted transition-colors"
+                  >
+                    Cancel
+                  </button>
                 </div>
-                {/* Postcode */}
-                <div className="form-group">
-                  <label htmlFor="postcode" className="label-style">Postcode *</label>
-                  <input type="text" id="postcode" value={formData.postcode || ""} onChange={handleInputChange} className="input-style" required />
-                </div>
-                {/* Type (Sale/Rent) */}
-                <div className="form-group">
-                  <label htmlFor="type_sale_rent" className="label-style">Type *</label>
-                  <select id="type_sale_rent" value={formData.type_sale_rent || "sale"} onChange={handleInputChange} className="input-style" required>
-                    {LISTING_TYPE_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{
-                        ...(truncated)...
+              </form>
+            </div>
+          </>
+        )}
+      </div>
+    </Layout>
+  );
+}
