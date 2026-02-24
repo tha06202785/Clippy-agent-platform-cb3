@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Inbox from "./pages/Inbox";
+import LeadInbox from "./pages/LeadInbox";
 import Listings from "./pages/Listings";
 import Planner from "./pages/Planner";
 import Integrations from "./pages/Integrations";
@@ -31,7 +31,7 @@ const App = () => (
           <Route path="/signup" element={<SignUp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/inbox" element={<Inbox />} />
+          <Route path="/inbox" element={<LeadInbox />} />
           <Route path="/listings" element={<Listings />} />
           <Route path="/planner" element={<Planner />} />
           <Route path="/integrations" element={<Integrations />} />
