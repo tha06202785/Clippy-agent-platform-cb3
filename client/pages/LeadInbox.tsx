@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; // Added useRef
 import { Link, useNavigate } from "react-router-dom";
 import {
   Search,
@@ -120,14 +120,51 @@ export default function LeadInbox() {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userOrgId, setUserOrgId] = useState<string | null>(null); // State to store user's org_id
   const navigate = useNavigate();
+  const messagesEndRef = useRef<HTMLDivElement>(null); // For auto-scrolling
 
   // --- Filter and Sort States ---
   const [filterStatus, setFilterStatus] = useState("all"); // 'new', 'active', 'hot', 'unreplied', 'all'
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Effect to fetch user's org_id
+  useEffect(() => {
+    const fetchUserOrgId = async () => {
+      const userSession = await supabase.auth.getSession();
+      const userId = userSession.data.session?.user?.id;
+
+      if (!userId) {
+        navigate("/signup");
+        return;
+      }
+
+      // Fetch org_id from user_org_roles table
+      const { data, error: orgError } = await supabase
+        .from('user_org_roles')
+        .select('org_id')
+        .eq('user_id', userId)
+        .single(); // Assuming one role per user per org for simplicity
+
+      if (orgError) {
+        console.error("Error fetching user's org_id:", orgError);
+        setError("Failed to retrieve user's organization ID.");
+        setUserOrgId(null);
+      } else if (data) {
+        setUserOrgId(data.org_id);
+      } else {
+        setError("User is not linked to any organization.");
+        setUserOrgId(null);
+      }
+    };
+    fetchUserOrgId();
+  }, [navigate]); // Run once on component mount or if navigate changes
+
+  // Effect to fetch leads
   useEffect(() => {
     const fetchLeads = async () => {
+      if (!userOrgId) return; // Wait until org_id is available
+
       setLoading(true);
       setError(null);
 
@@ -143,6 +180,7 @@ export default function LeadInbox() {
         .from("leads")
         .select("*")
         .eq("assigned_to_user_id", userId)
+        .eq("org_id", userOrgId) // Filter by user's org_id
         .order("last_contact_at", { ascending: false });
 
       // Apply filters
@@ -169,11 +207,12 @@ export default function LeadInbox() {
     };
 
     fetchLeads();
-  }, [filterStatus, searchTerm, navigate]); // Re-fetch when filters change
+  }, [filterStatus, searchTerm, navigate, userOrgId]); // Re-fetch when filters or org_id change
 
+  // Effect to fetch lead details (conversations, messages, events)
   useEffect(() => {
     const fetchLeadDetails = async () => {
-      if (!selectedLead) {
+      if (!selectedLead || !userOrgId) { // Wait for selectedLead and userOrgId
         setMessages([]);
         setConversations([]);
         return;
@@ -187,6 +226,7 @@ export default function LeadInbox() {
         .from("conversations")
         .select("*")
         .eq("lead_id", selectedLead.id)
+        .eq("org_id", userOrgId) // Filter by org_id
         .order("last_message_at", { ascending: false });
 
       if (convError) {
@@ -197,14 +237,14 @@ export default function LeadInbox() {
       }
       setConversations(convData || []);
 
-      // Fetch all messages and events for the selected lead (can combine or fetch separately)
-      // For simplicity, fetching messages from the first conversation for now
       let allTimelineItems: (Message | LeadEvent)[] = [];
+      // Fetch messages if a conversation exists
       if (convData && convData.length > 0) {
         const { data: msgData, error: msgError } = await supabase
           .from("messages")
           .select("*")
-          .eq("conversation_id", convData[0].id) // Assuming focusing on first conversation for now
+          .eq("conversation_id", convData[0].id)
+          .eq("org_id", userOrgId) // Filter by org_id
           .order("created_at", { ascending: true });
         if (msgError) {
           console.error("Error fetching messages:", msgError);
@@ -214,10 +254,12 @@ export default function LeadInbox() {
         }
       }
 
+      // Fetch lead events
       const { data: eventData, error: eventError } = await supabase
         .from("lead_events")
         .select("*")
         .eq("lead_id", selectedLead.id)
+        .eq("org_id", userOrgId) // Filter by org_id
         .order("created_at", { ascending: true });
 
       if (eventError) {
@@ -227,7 +269,6 @@ export default function LeadInbox() {
         allTimelineItems = [...allTimelineItems, ...(eventData || [])];
       }
 
-      // Sort all timeline items by created_at
       allTimelineItems.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       setMessages(allTimelineItems);
 
@@ -235,29 +276,59 @@ export default function LeadInbox() {
     };
 
     fetchLeadDetails();
-  }, [selectedLead]); // Re-fetch when selectedLead changes
+  }, [selectedLead, userOrgId]); // Re-fetch when selectedLead or org_id changes
+
+  // Auto-scroll messages to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!selectedLead || !newMessage.trim() || conversations.length === 0) return;
+    if (!selectedLead || !newMessage.trim() || !userOrgId) return; // Ensure org_id is present
 
     setLoading(true);
     setError(null);
 
-    const currentConversationId = conversations[0].id; // Use the first conversation for now
     const userSession = await supabase.auth.getSession();
     const userId = userSession.data.session?.user?.id;
 
-    if (!userId || !userSession.data.session?.user?.user_metadata?.org_id) {
-      setError("User or Organization ID not found for sending message.");
+    if (!userId) {
+      setError("User ID not found. Please log in.");
       setLoading(false);
       return;
     }
-    const orgId = userSession.data.session.user.user_metadata.org_id; // Assuming org_id is in user_metadata
 
+    let currentConversationId = conversations.length > 0 ? conversations[0].id : null;
+
+    // If no conversation exists, create one
+    if (!currentConversationId) {
+      const { data: newConv, error: createConvError } = await supabase
+        .from('conversations')
+        .insert({
+          org_id: userOrgId,
+          lead_id: selectedLead.id,
+          channel: selectedLead.primary_channel || 'manual', // Use primary channel or default
+          last_message_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createConvError) {
+        console.error("Error creating new conversation:", createConvError);
+        setError("Failed to start new conversation.");
+        setLoading(false);
+        return;
+      }
+      currentConversationId = newConv.id;
+      setConversations([newConv]); // Add new conversation to state
+    }
+
+    // Insert the new message
     const { data, error: messageError } = await supabase
       .from("messages")
       .insert({
-        org_id: orgId,
+        org_id: userOrgId,
         conversation_id: currentConversationId,
         direction_in_out: "out",
         text: newMessage.trim(),
@@ -270,10 +341,15 @@ export default function LeadInbox() {
       setError("Failed to send message.");
     } else {
       setNewMessage("");
-      // Re-fetch messages to update timeline, or optimistically add the new message
       if (data && data.length > 0) {
         setMessages(prev => [...prev, data[0]]);
       }
+
+      // Update lead's last_contact_at
+      await supabase
+        .from('leads')
+        .update({ last_contact_at: new Date().toISOString() })
+        .eq('id', selectedLead.id);
     }
     setLoading(false);
   };
@@ -389,6 +465,7 @@ export default function LeadInbox() {
                     )}
                   </div>
                 ))}
+                <div ref={messagesEndRef} /> {/* Auto-scroll target */}
               </div>
               <div className="p-4 border-t border-border flex items-center gap-2">
                 <button className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors">
@@ -401,11 +478,11 @@ export default function LeadInbox() {
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                  disabled={loading}
+                  disabled={loading || !userOrgId || !selectedLead} // Disable if loading or no org/lead
                 />
                 <button
-                  onClick={() => handleSendMessage()}
-                  disabled={loading || !newMessage.trim()}
+                  onClick={handleSendMessage}
+                  disabled={loading || !newMessage.trim() || !userOrgId || !selectedLead} // Disable if loading or no message/org/lead
                   className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="w-5 h-5" />
@@ -453,10 +530,34 @@ export default function LeadInbox() {
                   <label className="text-xs text-muted-foreground">Status</label>
                   <select
                     value={selectedLead.status}
-                    onChange={(e) =>
-                      setSelectedLead({ ...selectedLead, status: e.target.value })
-                    } // Update state (and eventually Supabase)
+                    onChange={async (e) => { // Added async
+                      if (selectedLead && userOrgId) {
+                        const newStatus = e.target.value;
+                        setSelectedLead({ ...selectedLead, status: newStatus });
+                        // Update Supabase
+                        const { error: updateError } = await supabase
+                          .from('leads')
+                          .update({ status: newStatus, updated_at: new Date().toISOString() })
+                          .eq('id', selectedLead.id)
+                          .eq('org_id', userOrgId);
+
+                        if (updateError) {
+                          console.error("Error updating lead status:", updateError);
+                          setError("Failed to update lead status.");
+                        } else {
+                          // Also create a lead event
+                          await supabase.from('lead_events').insert({
+                            org_id: userOrgId,
+                            lead_id: selectedLead.id,
+                            event_type: 'status_changed',
+                            payload_json: { old_status: selectedLead.status, new_status: newStatus },
+                            created_at: new Date().toISOString()
+                          });
+                        }
+                      }
+                    }}
                     className="w-full mt-1 p-1 border border-border rounded-md bg-background"
+                    disabled={loading || !userOrgId}
                   >
                     {Object.keys(leadStatusConfig).map((key) => (
                       <option key={key} value={key}>{leadStatusConfig[key]}</option>
@@ -467,10 +568,34 @@ export default function LeadInbox() {
                   <label className="text-xs text-muted-foreground">Stage</label>
                   <select
                     value={selectedLead.stage}
-                    onChange={(e) =>
-                      setSelectedLead({ ...selectedLead, stage: e.target.value })
-                    } // Update state (and eventually Supabase)
+                    onChange={async (e) => { // Added async
+                      if (selectedLead && userOrgId) {
+                        const newStage = e.target.value;
+                        setSelectedLead({ ...selectedLead, stage: newStage });
+                        // Update Supabase
+                        const { error: updateError } = await supabase
+                          .from('leads')
+                          .update({ stage: newStage, updated_at: new Date().toISOString() })
+                          .eq('id', selectedLead.id)
+                          .eq('org_id', userOrgId);
+
+                        if (updateError) {
+                          console.error("Error updating lead stage:", updateError);
+                          setError("Failed to update lead stage.");
+                        } else {
+                          // Also create a lead event
+                          await supabase.from('lead_events').insert({
+                            org_id: userOrgId,
+                            lead_id: selectedLead.id,
+                            event_type: 'status_changed', // Using status_changed for stage as well
+                            payload_json: { old_stage: selectedLead.stage, new_stage: newStage },
+                            created_at: new Date().toISOString()
+                          });
+                        }
+                      }
+                    }}
                     className="w-full mt-1 p-1 border border-border rounded-md bg-background"
+                    disabled={loading || !userOrgId}
                   >
                     {Object.keys(leadStageConfig).map((key) => (
                       <option key={key} value={key}>{leadStageConfig[key]}</option>
