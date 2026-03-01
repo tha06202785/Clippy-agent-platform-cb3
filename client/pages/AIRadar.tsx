@@ -16,6 +16,7 @@ import {
   Users,
   Flame,
   X,
+  Radio,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
@@ -104,7 +105,7 @@ export default function AIRadar() {
       label: "Total Insights",
       value: 0,
       icon: Radar,
-      color: "from-primary to-primary/60",
+      color: "from-cyan-400 to-blue-500",
       trend: 8,
       description: "Active alerts",
     },
@@ -120,7 +121,7 @@ export default function AIRadar() {
       label: "Hot Opportunities",
       value: 0,
       icon: Flame,
-      color: "from-orange-500 to-orange-600",
+      color: "from-orange-400 to-orange-600",
       trend: 15,
       description: "New prospects",
     },
@@ -128,7 +129,7 @@ export default function AIRadar() {
       label: "Market Insights",
       value: 0,
       icon: TrendingUp,
-      color: "from-green-500 to-green-600",
+      color: "from-emerald-400 to-green-600",
       trend: 3.5,
       description: "Weekly trends",
     },
@@ -317,13 +318,13 @@ export default function AIRadar() {
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "critical":
-        return "text-red-600 bg-red-50 border-red-200 hover:border-red-400 hover:shadow-lg hover:shadow-red-200/50";
+        return "text-red-600 bg-red-50 border-red-300 hover:border-red-500 hover:shadow-2xl hover:shadow-red-500/30";
       case "high":
-        return "text-orange-600 bg-orange-50 border-orange-200 hover:border-orange-400 hover:shadow-lg hover:shadow-orange-200/50";
+        return "text-orange-600 bg-orange-50 border-orange-300 hover:border-orange-500 hover:shadow-2xl hover:shadow-orange-500/30";
       case "medium":
-        return "text-amber-600 bg-amber-50 border-amber-200 hover:border-amber-400 hover:shadow-lg hover:shadow-amber-200/50";
+        return "text-amber-600 bg-amber-50 border-amber-300 hover:border-amber-500 hover:shadow-2xl hover:shadow-amber-500/30";
       case "low":
-        return "text-green-600 bg-green-50 border-green-200 hover:border-green-400 hover:shadow-lg hover:shadow-green-200/50";
+        return "text-green-600 bg-green-50 border-green-300 hover:border-green-500 hover:shadow-2xl hover:shadow-green-500/30";
       default:
         return "text-gray-600 bg-gray-50";
     }
@@ -346,66 +347,85 @@ export default function AIRadar() {
 
   const activeAlerts = radarItems.filter((item) => !handledItems.has(item.id));
   const hotLeadsCount = activeAlerts.filter((i) => i.type === "hot_lead").length;
+  const criticalCount = activeAlerts.filter((i) => i.urgency === "critical" || i.urgency === "high").length;
 
   return (
     <Layout showNav={true}>
-      {/* Background radar grid pattern */}
+      {/* DEEP NAVY BACKGROUND WITH ANIMATED GRADIENTS */}
+      <div className="fixed inset-0 -z-30 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900" />
+
+      {/* ANIMATED GRADIENT ORBS - Premium depth layer */}
+      <div className="fixed inset-0 -z-20 overflow-hidden pointer-events-none">
+        {/* Large orbital gradients */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-cyan-500/20 to-blue-600/10 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "8s" }} />
+        <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-gradient-to-br from-blue-500/15 to-cyan-600/10 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "10s", animationDelay: "1s" }} />
+        <div className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-gradient-to-tl from-cyan-500/10 to-blue-600/5 rounded-full blur-3xl" />
+      </div>
+
+      {/* ANIMATED RADAR GRID PATTERN - Ultra-premium background */}
       <div className="fixed inset-0 -z-20 overflow-hidden pointer-events-none">
         <svg
-          className="absolute inset-0 w-full h-full opacity-[0.02]"
+          className="absolute inset-0 w-full h-full opacity-[0.08]"
           preserveAspectRatio="none"
         >
           <defs>
             <pattern id="radar-grid" x="40" y="40" width="40" height="40" patternUnits="userSpaceOnUse">
-              <circle cx="20" cy="20" r="20" fill="none" stroke="currentColor" className="text-primary" />
-              <line x1="0" y1="20" x2="40" y2="20" stroke="currentColor" className="text-primary" />
-              <line x1="20" y1="0" x2="20" y2="40" stroke="currentColor" className="text-primary" />
+              <circle cx="20" cy="20" r="20" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-cyan-400" />
+              <line x1="0" y1="20" x2="40" y2="20" stroke="currentColor" strokeWidth="0.5" className="text-cyan-400" />
+              <line x1="20" y1="0" x2="20" y2="40" stroke="currentColor" strokeWidth="0.5" className="text-cyan-400" />
+              <circle cx="20" cy="20" r="2" fill="currentColor" className="text-cyan-500" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#radar-grid)" />
         </svg>
       </div>
 
-      {/* Floating Next Best Action Bar - Top */}
+      {/* FLOATING AI SUGGESTS BAR - Premium top-right positioning with intense glow */}
       {hotLeadsCount > 0 && (
-        <div className="fixed top-32 right-8 max-w-sm animate-in slide-in-from-right-8 duration-700 z-40">
-          <div className="bg-gradient-to-r from-primary via-primary/90 to-primary/80 rounded-2xl p-5 shadow-2xl border border-primary/40 group cursor-pointer hover:shadow-3xl hover:border-primary/60 transition-all duration-300 backdrop-blur-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-start gap-3 flex-1">
-                <div className="p-2.5 bg-white/20 rounded-xl mt-0.5 animate-pulse">
-                  <Sparkles className="w-5 h-5 text-white" />
+        <div className="fixed top-32 right-8 max-w-sm z-50 animate-in slide-in-from-right-8 duration-700">
+          <div className="relative group">
+            {/* Intense glow effect behind bar */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/50 via-blue-500/50 to-cyan-500/50 rounded-3xl blur-2xl opacity-75 group-hover:opacity-100 animate-pulse transition-opacity" />
+            
+            {/* Main card with gradient border */}
+            <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 rounded-3xl p-6 border-2 border-cyan-400/60 group-hover:border-cyan-300 shadow-2xl shadow-cyan-500/40 group-hover:shadow-cyan-500/60 transition-all duration-300 backdrop-blur-xl">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="p-3 bg-gradient-to-br from-cyan-400/40 to-blue-500/40 rounded-2xl mt-0.5 animate-pulse border border-cyan-400/40">
+                    <Sparkles className="w-6 h-6 text-cyan-300 drop-shadow-lg" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-cyan-300 uppercase tracking-widest drop-shadow-lg">
+                      🎯 AI SUGGESTS
+                    </p>
+                    <p className="text-base font-black text-white mt-2 drop-shadow-lg">
+                      Follow up with {hotLeadsCount} hot {hotLeadsCount === 1 ? "lead" : "leads"} now
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest">
-                    AI SUGGESTS
-                  </p>
-                  <p className="text-sm font-bold text-white mt-1.5">
-                    Follow up with {hotLeadsCount} hot {hotLeadsCount === 1 ? "lead" : "leads"} now
-                  </p>
-                </div>
+                <ArrowRight className="w-6 h-6 text-cyan-300 flex-shrink-0 group-hover:translate-x-2 transition-transform drop-shadow-lg" />
               </div>
-              <ArrowRight className="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform" />
+              {/* Shimmer effect on hover */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse" />
             </div>
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary/0 via-white/10 to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto space-y-8 relative z-10">
-        {/* Header */}
-        <div className="pt-4 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto space-y-10 relative z-10 px-4">
+        {/* PREMIUM HEADER */}
+        <div className="pt-6 flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-4 mb-3">
-              <div className="p-4 bg-gradient-to-br from-primary/40 to-primary/20 rounded-2xl relative group">
-                <Radar className="w-8 h-8 text-primary animate-pulse" />
-                <div className="absolute inset-0 rounded-2xl border border-primary/30 group-hover:border-primary/60 transition-colors" />
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-4 bg-gradient-to-br from-cyan-500/40 to-blue-600/40 rounded-2xl relative group border-2 border-cyan-400/60 shadow-lg shadow-cyan-500/30">
+                <Radar className="w-8 h-8 text-cyan-300 animate-pulse drop-shadow-lg" />
               </div>
               <div>
-                <h1 className="text-5xl font-black bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+                <h1 className="text-6xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">
                   AI Radar
                 </h1>
-                <p className="text-sm text-muted-foreground font-semibold mt-1">
-                  Intelligent real-time platform for real estate excellence
+                <p className="text-sm text-cyan-200/80 font-semibold mt-2 drop-shadow">
+                  Enterprise-Grade Real-Time Intelligence Platform
                 </p>
               </div>
             </div>
@@ -413,7 +433,7 @@ export default function AIRadar() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="p-4 rounded-2xl bg-primary/10 hover:bg-primary/20 text-primary transition-all group disabled:opacity-50 hover:shadow-lg"
+            className="p-4 rounded-2xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 hover:from-cyan-500/50 hover:to-blue-600/50 text-cyan-300 transition-all group disabled:opacity-50 hover:shadow-2xl hover:shadow-cyan-500/40 border-2 border-cyan-400/60 backdrop-blur-sm"
             title="Refresh AI Radar"
           >
             <RefreshCw
@@ -422,99 +442,130 @@ export default function AIRadar() {
           </button>
         </div>
 
-        {/* MASSIVE HERO SECTION - Premium Dramatic */}
-        <div className="bg-gradient-to-br from-primary/20 via-primary/10 to-background border-2 border-primary/30 rounded-3xl p-10 md:p-14 hover:border-primary/50 transition-all duration-500 relative overflow-hidden group">
-          {/* Multi-layer animated background */}
+        {/* ⚡ MASSIVE HERO SECTION - BILLION-DOLLAR PREMIUM ⚡ */}
+        <div className="relative overflow-hidden rounded-3xl group">
+          {/* Intense animated background with multiple layers */}
           <div className="absolute inset-0 -z-10">
-            {/* Rotating radar circles */}
-            <div className="absolute top-1/2 right-1/4 w-96 h-96 rounded-full border-2 border-primary/20 -translate-y-1/2 animate-spin" style={{ animationDuration: "20s" }} />
-            <div className="absolute top-1/2 right-1/4 w-72 h-72 rounded-full border-2 border-primary/15 -translate-y-1/2 animate-spin" style={{ animationDuration: "15s", animationDirection: "reverse" }} />
-            <div className="absolute top-1/2 right-1/4 w-48 h-48 rounded-full border-2 border-primary/10 -translate-y-1/2 animate-pulse" style={{ animationDuration: "4s" }} />
+            {/* Primary rotating radar circles with teal glow */}
+            <div className="absolute top-1/2 right-1/4 w-96 h-96 rounded-full border-3 border-cyan-400/40 -translate-y-1/2 animate-spin shadow-2xl shadow-cyan-500/30" style={{ animationDuration: "25s" }} />
+            <div className="absolute top-1/2 right-1/4 w-72 h-72 rounded-full border-2 border-cyan-400/30 -translate-y-1/2 animate-spin shadow-xl shadow-cyan-500/20" style={{ animationDuration: "18s", animationDirection: "reverse" }} />
+            <div className="absolute top-1/2 right-1/4 w-48 h-48 rounded-full border-2 border-cyan-400/20 -translate-y-1/2 animate-pulse shadow-lg shadow-cyan-500/15" style={{ animationDuration: "5s" }} />
 
-            {/* Glowing orbs */}
-            <div className="absolute top-1/3 right-1/3 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "6s" }} />
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-            <div className="absolute top-0 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "8s" }} />
+            {/* Massive glowing orbs */}
+            <div className="absolute top-1/4 right-1/3 w-96 h-96 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full blur-3xl animate-pulse shadow-2xl shadow-cyan-500/40" style={{ animationDuration: "7s" }} />
+            <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-tr from-blue-500/25 to-cyan-600/15 rounded-full blur-3xl shadow-2xl shadow-blue-500/30" style={{ animationDuration: "8s", animationDelay: "1s" }} />
+            <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-gradient-to-br from-cyan-400/20 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: "9s" }} />
           </div>
 
-          <div className="relative z-10 flex items-start justify-between gap-12">
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-blue-600/2 to-slate-950/40 -z-10" />
+
+          {/* Border glow effect */}
+          <div className="absolute inset-0 rounded-3xl border-2 border-cyan-400/40 group-hover:border-cyan-400/70 transition-all duration-500 -z-10 shadow-2xl shadow-cyan-500/30 group-hover:shadow-cyan-500/50" />
+
+          {/* Content */}
+          <div className="relative z-10 p-12 md:p-16 flex items-start justify-between gap-12">
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/25 rounded-full border border-primary/40 hover:border-primary/60 transition-colors">
-                  <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-                  <span className="text-xs font-black text-primary uppercase tracking-widest">
-                    AI Recommendation
+              {/* AI Recommendation Badge */}
+              <div className="flex items-center gap-3 mb-8">
+                <div className="inline-flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-cyan-500/30 to-blue-600/30 rounded-full border-2 border-cyan-400/60 group-hover:border-cyan-400/80 transition-all backdrop-blur-sm group-hover:shadow-lg group-hover:shadow-cyan-500/40">
+                  <Radio className="w-5 h-5 text-cyan-300 animate-pulse" />
+                  <span className="text-xs font-black text-cyan-200 uppercase tracking-widest drop-shadow">
+                    🚨 Live AI Recommendation
                   </span>
                 </div>
               </div>
 
-              <h2 className="text-5xl md:text-6xl font-black text-foreground mb-5 leading-tight">
+              {/* Main headline */}
+              <h2 className="text-6xl md:text-7xl font-black text-white mb-6 leading-tight drop-shadow-lg">
                 {radarItems.length > 0
-                  ? `${activeAlerts.filter((i) => i.urgency === "critical" || i.urgency === "high").length} Urgent Opportunities Await`
+                  ? `${criticalCount} Urgent Opportunities Await`
                   : "24/7 AI Intelligence at Your Command"}
               </h2>
 
-              <p className="text-xl text-muted-foreground mb-10 max-w-2xl leading-relaxed font-medium">
+              {/* Subheading */}
+              <p className="text-xl text-cyan-100/90 mb-12 max-w-2xl leading-relaxed font-semibold drop-shadow">
                 {radarItems.length > 0
-                  ? `Your AI has identified ${hotLeadsCount} hot leads, ${activeAlerts.filter((i) => i.type === "market_alert").length} market opportunities, and ${activeAlerts.filter((i) => i.urgency === "critical").length} critical items. Act now to maximize your competitive edge.`
-                  : "Connect your Supabase database to unlock enterprise-grade market intelligence, AI-powered lead scoring, and real-time opportunity discovery."}
+                  ? `Your AI has identified ${hotLeadsCount} hot leads, ${activeAlerts.filter((i) => i.type === "market_alert").length} market opportunities, and ${criticalCount} critical items requiring immediate action. Your competitive advantage awaits.`
+                  : "Connect your Supabase database to unlock enterprise-grade market intelligence, AI-powered lead scoring, and real-time opportunity discovery 24/7."}
               </p>
 
-              <div className="flex flex-wrap gap-4">
-                <button className="group/btn inline-flex items-center justify-center gap-3 px-10 py-5 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-2xl font-bold text-lg hover:shadow-3xl hover:shadow-primary/50 transition-all duration-300 hover:scale-105 active:scale-95">
+              {/* CTA Buttons with intense glow */}
+              <div className="flex flex-wrap gap-5">
+                {/* Primary Action - Intense Glow */}
+                <button className="group/btn relative inline-flex items-center justify-center gap-3 px-12 py-6 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 text-slate-900 rounded-2xl font-black text-lg transition-all duration-300 hover:shadow-3xl hover:shadow-cyan-500/70 hover:scale-105 active:scale-95 border-2 border-cyan-300/80 group-hover/btn:border-cyan-200">
+                  {/* Glow behind button */}
+                  <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400/50 to-blue-400/50 rounded-2xl blur-xl opacity-75 group-hover/btn:opacity-100 -z-10 animate-pulse" />
+                  
                   <Target className="w-6 h-6 group-hover/btn:rotate-12 transition-transform" />
                   Take Action Now
-                  <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                  <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
                 </button>
-                <button className="inline-flex items-center justify-center gap-3 px-10 py-5 bg-background text-foreground border-2 border-primary/40 rounded-2xl font-bold text-lg hover:border-primary/60 hover:bg-primary/5 transition-all group/btn2">
+
+                {/* Secondary Action - Glowing border */}
+                <button className="group/btn2 relative inline-flex items-center justify-center gap-3 px-12 py-6 bg-gradient-to-br from-slate-800/80 to-blue-900/60 text-cyan-300 rounded-2xl font-bold text-lg border-2 border-cyan-400/60 group-hover/btn2:border-cyan-400/100 hover:bg-gradient-to-br hover:from-slate-800 hover:to-blue-900 transition-all group-hover/btn2:shadow-2xl group-hover/btn2:shadow-cyan-500/50 backdrop-blur-sm">
                   <Activity className="w-6 h-6" />
                   View All Opportunities
-                  <ArrowRight className="w-5 h-5 group-hover/btn2:translate-x-1 transition-transform" />
+                  <ArrowRight className="w-5 h-5 group-hover/btn2:translate-x-2 transition-transform" />
                 </button>
               </div>
             </div>
 
-            {/* Premium animated radar visualization */}
-            <div className="hidden lg:flex flex-col items-center justify-center relative w-64 h-64 flex-shrink-0">
-              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 200">
-                {/* Concentric circles */}
-                <circle cx="100" cy="100" r="90" fill="none" stroke="currentColor" strokeWidth="1" className="text-primary/20 animate-pulse" />
-                <circle cx="100" cy="100" r="60" fill="none" stroke="currentColor" strokeWidth="1" className="text-primary/30 animate-pulse" style={{ animationDelay: "0.1s" }} />
-                <circle cx="100" cy="100" r="30" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/50" />
+            {/* PREMIUM ANIMATED RADAR VISUALIZATION */}
+            <div className="hidden lg:flex flex-col items-center justify-center relative w-80 h-80 flex-shrink-0">
+              {/* Outer glow aura */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-600/20 blur-2xl -z-10 animate-pulse" style={{ animationDuration: "4s" }} />
 
-                {/* Radar sweep */}
+              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 200">
+                <defs>
+                  <radialGradient id="radarGradient" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#0284c7" stopOpacity="0.1" />
+                  </radialGradient>
+                </defs>
+
+                {/* Pulsing concentric circles with teal glow */}
+                <circle cx="100" cy="100" r="90" fill="none" stroke="#06b6d4" strokeWidth="2" opacity="0.4" className="animate-pulse" />
+                <circle cx="100" cy="100" r="60" fill="none" stroke="#0ea5e9" strokeWidth="1.5" opacity="0.5" className="animate-pulse" style={{ animationDelay: "0.1s" }} />
+                <circle cx="100" cy="100" r="30" fill="none" stroke="#06b6d4" strokeWidth="2.5" opacity="0.7" className="animate-pulse" style={{ animationDelay: "0.2s" }} />
+
+                {/* Animated radar sweep with glow */}
                 <g className="animate-spin" style={{ transformOrigin: "100px 100px", animationDuration: "8s" }}>
-                  <line x1="100" y1="100" x2="100" y2="20" stroke="currentColor" strokeWidth="2" className="text-primary/60" />
-                  <polygon points="100,100 105,35 100,25 95,35" fill="currentColor" className="text-primary/40" />
+                  <line x1="100" y1="100" x2="100" y2="15" stroke="#06b6d4" strokeWidth="3" opacity="0.8" />
+                  <polygon points="100,100 106,30 100,15 94,30" fill="#0ea5e9" opacity="0.6" />
+                  {/* Sweep glow */}
+                  <polygon points="100,100 108,40 100,15 92,40" fill="url(#radarGradient)" />
                 </g>
 
-                {/* Center dot */}
-                <circle cx="100" cy="100" r="8" fill="currentColor" className="text-primary animate-pulse" />
+                {/* Center pulsing dot */}
+                <circle cx="100" cy="100" r="8" fill="#06b6d4" opacity="0.9" className="animate-pulse" />
+                <circle cx="100" cy="100" r="12" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.4" className="animate-pulse" style={{ animationDuration: "2s" }} />
               </svg>
 
-              <Radar className="absolute w-32 h-32 text-primary opacity-40 animate-pulse" style={{ animationDuration: "4s" }} />
+              {/* Outer radar icon for depth */}
+              <Radar className="absolute w-40 h-40 text-cyan-400 opacity-30 animate-pulse" style={{ animationDuration: "5s" }} />
             </div>
           </div>
 
-          {/* Top border accent line */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+          {/* Top border accent line with glow */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent shadow-lg shadow-cyan-500/50" />
         </div>
 
-        {/* Performance Snapshot - PREMIUM ANIMATED METRICS */}
+        {/* PERFORMANCE SNAPSHOT - PREMIUM ANIMATED METRICS */}
         <div>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-10">
             <div>
-              <h2 className="text-3xl font-black text-foreground flex items-center gap-3">
-                <TrendingUp className="w-7 h-7 text-primary" />
+              <h2 className="text-4xl font-black text-white flex items-center gap-3 drop-shadow-lg">
+                <TrendingUp className="w-8 h-8 text-cyan-400" />
                 Performance Snapshot
               </h2>
-              <p className="text-base text-muted-foreground font-semibold mt-2">
-                Real-time AI-analyzed metrics with live trend indicators
+              <p className="text-base text-cyan-200/70 font-semibold mt-3 drop-shadow">
+                Real-time AI-analyzed metrics with live trend indicators and predictive analytics
               </p>
             </div>
-            <div className="inline-flex items-center gap-3 px-4 py-2 bg-green-100 border-2 border-green-300 rounded-full">
-              <Activity className="w-4 h-4 text-green-600 animate-pulse" />
-              <span className="text-sm font-bold text-green-700">LIVE STREAM</span>
+            <div className="inline-flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-emerald-500/40 to-green-600/40 border-2 border-emerald-400/70 rounded-full backdrop-blur-sm shadow-lg shadow-emerald-500/30">
+              <Activity className="w-5 h-5 text-emerald-300 animate-pulse" style={{ animationDuration: "1.5s" }} />
+              <span className="text-sm font-black text-emerald-200 drop-shadow">🟢 LIVE STREAM</span>
             </div>
           </div>
 
@@ -527,102 +578,111 @@ export default function AIRadar() {
               return (
                 <div
                   key={idx}
-                  className="bg-card rounded-2xl border-2 border-border p-7 hover:shadow-2xl hover:border-primary/50 transition-all duration-300 group cursor-pointer relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500"
-                  style={{ animationDelay: `${idx * 100}ms` }}
+                  className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/40 group-hover:border-cyan-400/80 hover:shadow-2xl hover:shadow-cyan-500/40 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)",
+                    animationDelay: `${idx * 100}ms`
+                  }}
                 >
-                  {/* Hover glow */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/15 to-transparent rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {/* Hover glow effect */}
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
 
-                  <div className="flex items-start justify-between mb-8">
-                    <div className={`bg-gradient-to-br ${metric.color} p-5 rounded-xl shadow-xl group-hover:scale-110 transition-transform duration-300`}>
-                      <Icon className="w-7 h-7 text-white" />
+                  <div className="relative p-8 z-10">
+                    {/* Header with icon and trend */}
+                    <div className="flex items-start justify-between mb-8">
+                      <div className={`bg-gradient-to-br ${metric.color} p-4 rounded-2xl shadow-2xl group-hover:scale-110 transition-transform duration-300 border border-white/20`}>
+                        <Icon className="w-8 h-8 text-white drop-shadow-lg" />
+                      </div>
+                      <div
+                        className={`text-sm font-black px-3 py-2 rounded-full font-mono transition-all duration-300 border border-white/30 backdrop-blur-sm ${
+                          isPositive
+                            ? "bg-emerald-500/30 text-emerald-200 shadow-lg shadow-emerald-500/30"
+                            : "bg-red-500/30 text-red-200 shadow-lg shadow-red-500/30"
+                        }`}
+                      >
+                        {isPositive ? "↑" : "↓"} {Math.abs(metric.trend)}%
+                      </div>
                     </div>
-                    <div
-                      className={`text-sm font-bold px-3 py-1.5 rounded-full font-mono transition-all duration-300 ${
-                        isPositive
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {isPositive ? "↑" : "↓"} {Math.abs(metric.trend)}%
+
+                    {/* Metric content */}
+                    <div>
+                      <p className="text-sm text-cyan-200/80 font-bold mb-3 uppercase tracking-widest">
+                        {metric.label}
+                      </p>
+                      <p className="text-6xl font-black text-cyan-300 mb-4 tabular-nums drop-shadow-lg">
+                        {displayValue}
+                      </p>
+                      <p className="text-sm text-cyan-100/60 font-semibold">
+                        {metric.description}
+                      </p>
                     </div>
-                  </div>
 
-                  <div>
-                    <p className="text-base text-muted-foreground font-semibold mb-3">
-                      {metric.label}
-                    </p>
-                    <p className="text-5xl font-black text-foreground mb-4 tabular-nums">
-                      {displayValue}
-                    </p>
-                    <p className="text-sm text-muted-foreground font-medium mb-6">
-                      {metric.description}
-                    </p>
-                  </div>
+                    {/* Premium animated sparkline */}
+                    <div className="mt-8 pt-8 border-t-2 border-cyan-400/20">
+                      <svg
+                        viewBox="0 0 100 40"
+                        className="w-full h-14 opacity-60 group-hover:opacity-100 transition-opacity"
+                        preserveAspectRatio="none"
+                      >
+                        <defs>
+                          <linearGradient id={`sparkline-${idx}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.5" />
+                            <stop offset="100%" stopColor="#0284c7" stopOpacity="0.1" />
+                          </linearGradient>
+                        </defs>
+                        {/* Thick premium sparkline */}
+                        <path
+                          d={`M0,${30 - Math.random() * 10} Q25,${15 + Math.random() * 10} 50,${20 + Math.random() * 10} T100,${25 - Math.random() * 10}`}
+                          fill="none"
+                          stroke="#06b6d4"
+                          strokeWidth="3.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          opacity="0.8"
+                        />
+                        {/* Gradient fill */}
+                        <path
+                          d={`M0,${30 - Math.random() * 10} Q25,${15 + Math.random() * 10} 50,${20 + Math.random() * 10} T100,${25 - Math.random() * 10} L100,40 L0,40 Z`}
+                          fill={`url(#sparkline-${idx})`}
+                        />
+                      </svg>
+                    </div>
 
-                  {/* Animated sparkline */}
-                  <div className="mt-6 pt-6 border-t-2 border-border">
-                    <svg
-                      viewBox="0 0 100 40"
-                      className="w-full h-12 opacity-70 group-hover:opacity-100 transition-opacity"
-                      preserveAspectRatio="none"
-                    >
-                      <defs>
-                        <linearGradient id={`sparkline-${idx}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="currentColor" className="text-primary" stopOpacity="0.3" />
-                          <stop offset="100%" stopColor="currentColor" className="text-primary" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      <path
-                        d={`M0,${30 - Math.random() * 10} Q25,${15 + Math.random() * 10} 50,${20 + Math.random() * 10} T100,${25 - Math.random() * 10}`}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        className="text-primary"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                      <path
-                        d={`M0,${30 - Math.random() * 10} Q25,${15 + Math.random() * 10} 50,${20 + Math.random() * 10} T100,${25 - Math.random() * 10}`}
-                        fill={`url(#sparkline-${idx})`}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    </svg>
+                    {/* Pulse animation overlay */}
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-400/10 to-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
                   </div>
-
-                  {/* Pulse animation */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Live Radar Feed - PREMIUM DYNAMIC ALERTS */}
+        {/* LIVE RADAR FEED - PREMIUM DYNAMIC ALERTS */}
         <div>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-10">
             <div>
-              <h2 className="text-3xl font-black text-foreground flex items-center gap-3">
-                <Zap className="w-7 h-7 text-orange-500" />
+              <h2 className="text-4xl font-black text-white flex items-center gap-3 drop-shadow-lg">
+                <Zap className="w-8 h-8 text-orange-400 animate-pulse" style={{ animationDuration: "1s" }} />
                 Live Radar Feed
               </h2>
-              <p className="text-base text-muted-foreground font-semibold mt-2">
-                AI-prioritized alerts sorted by urgency and business impact
+              <p className="text-base text-cyan-200/70 font-semibold mt-3 drop-shadow">
+                AI-prioritized alerts sorted by urgency, impact, and conversion probability
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 px-4 py-2 bg-red-100 border-2 border-red-300 rounded-full animate-pulse">
-                <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
-                <span className="text-sm font-bold text-red-700">LIVE</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-red-600/50 to-red-700/40 border-2 border-red-500/80 rounded-full animate-pulse backdrop-blur-sm shadow-lg shadow-red-600/40">
+                <Radio className="w-5 h-5 text-red-300 animate-pulse" style={{ animationDuration: "1s" }} />
+                <span className="text-sm font-black text-red-200 drop-shadow">🔴 LIVE</span>
               </div>
             </div>
           </div>
 
           {error && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 text-red-700 mb-6 flex items-start gap-4">
-              <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" />
+            <div className="bg-gradient-to-br from-red-600/30 to-red-700/20 border-2 border-red-500/60 rounded-2xl p-6 text-red-200 mb-8 flex items-start gap-4 backdrop-blur-sm shadow-lg shadow-red-600/30">
+              <AlertCircle className="w-6 h-6 flex-shrink-0 mt-1 drop-shadow" />
               <div>
-                <p className="font-bold">Error loading alerts</p>
-                <p className="text-sm">{error}</p>
+                <p className="font-bold text-lg drop-shadow">Error loading alerts</p>
+                <p className="text-sm opacity-90 mt-2">{error}</p>
               </div>
             </div>
           )}
@@ -632,20 +692,20 @@ export default function AIRadar() {
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="h-32 bg-card rounded-2xl border-2 border-border animate-pulse"
+                  className="h-40 bg-gradient-to-br from-slate-800/40 to-blue-900/30 rounded-2xl border-2 border-cyan-400/20 animate-pulse backdrop-blur-sm"
                 />
               ))}
             </div>
           ) : activeAlerts.length === 0 ? (
-            <div className="text-center py-24 px-6 bg-gradient-to-br from-primary/8 to-transparent rounded-3xl border-2 border-dashed border-primary/30">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-primary/20 rounded-2xl mb-6">
-                <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+            <div className="text-center py-28 px-8 bg-gradient-to-br from-cyan-500/10 via-blue-600/5 to-slate-950/40 rounded-3xl border-2 border-dashed border-cyan-400/40 hover:border-cyan-400/60 transition-all">
+              <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-2xl mb-6 shadow-lg shadow-cyan-500/30">
+                <Sparkles className="w-12 h-12 text-cyan-300 animate-pulse drop-shadow-lg" />
               </div>
-              <p className="text-3xl font-black text-foreground mb-3">
+              <p className="text-4xl font-black text-white mb-4 drop-shadow-lg">
                 All Systems Optimal! 🎉
               </p>
-              <p className="text-lg text-muted-foreground max-w-md mx-auto font-medium">
-                No active alerts right now. Your AI is continuously monitoring markets, analyzing leads, and scanning for emerging opportunities 24/7.
+              <p className="text-lg text-cyan-200/80 max-w-md mx-auto font-semibold drop-shadow">
+                No active alerts right now. Your AI is continuously monitoring markets, analyzing leads, and scanning for emerging opportunities 24/7 across all your territories.
               </p>
             </div>
           ) : (
@@ -653,80 +713,90 @@ export default function AIRadar() {
               {activeAlerts.map((item, index) => (
                 <div
                   key={item.id}
-                  className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 hover:shadow-2xl cursor-pointer ${getUrgencyColor(
+                  className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 backdrop-blur-sm cursor-pointer ${getUrgencyColor(
                     item.urgency
-                  )} animate-in fade-in slide-in-from-left-4 duration-500 hover:scale-105 hover:-translate-y-1`}
-                  style={{ animationDelay: `${index * 100}ms` }}
+                  )} hover:scale-105 hover:-translate-y-1 animate-in fade-in slide-in-from-left-4 duration-500`}
+                  style={{ 
+                    background: getUrgencyColor(item.urgency).includes('bg-red') 
+                      ? "linear-gradient(135deg, rgba(127, 29, 29, 0.3) 0%, rgba(159, 18, 57, 0.1) 100%)"
+                      : getUrgencyColor(item.urgency).includes('bg-orange')
+                      ? "linear-gradient(135deg, rgba(124, 45, 18, 0.3) 0%, rgba(154, 52, 18, 0.1) 100%)"
+                      : getUrgencyColor(item.urgency).includes('bg-amber')
+                      ? "linear-gradient(135deg, rgba(120, 53, 15, 0.3) 0%, rgba(146, 64, 14, 0.1) 100%)"
+                      : "linear-gradient(135deg, rgba(20, 83, 45, 0.3) 0%, rgba(34, 197, 94, 0.1) 100%)",
+                    animationDelay: `${index * 100}ms`,
+                    boxShadow: `0 0 30px ${item.urgency === 'critical' ? 'rgba(239, 68, 68, 0.3)' : item.urgency === 'high' ? 'rgba(249, 115, 22, 0.3)' : item.urgency === 'medium' ? 'rgba(217, 119, 6, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`
+                  }}
                 >
-                  {/* Radar sweep animation on left border */}
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-current to-transparent opacity-0 group-hover:opacity-100 transition-opacity animate-pulse" />
+                  {/* Animated left accent bar with glow */}
+                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 group-hover:w-2 transition-all ${getUrgencyBadgeColor(item.urgency)} opacity-0 group-hover:opacity-100 shadow-lg`} />
 
-                  {/* Hover glow */}
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-20 bg-gradient-to-r from-current to-transparent transition-opacity" />
+                  {/* Hover shimmer effect */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-30 bg-gradient-to-r from-white via-transparent to-white transition-opacity animate-pulse" />
 
-                  <div className="relative p-6 flex items-start gap-5">
-                    {/* Left color bar */}
-                    <div className={`w-2 rounded-full flex-shrink-0 group-hover:w-3 transition-all ${getUrgencyBadgeColor(item.urgency)}`} style={{ height: "100%" }} />
+                  <div className="relative p-7 flex items-start gap-6">
+                    {/* Icon indicator */}
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-2 animate-pulse shadow-lg ${getUrgencyBadgeColor(item.urgency)}`} style={{ boxShadow: `0 0 20px ${item.urgency === 'critical' ? 'rgb(239, 68, 68)' : item.urgency === 'high' ? 'rgb(249, 115, 22)' : item.urgency === 'medium' ? 'rgb(217, 119, 6)' : 'rgb(34, 197, 94)'}` }} />
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4 mb-4">
+                      <div className="flex items-start justify-between gap-4 mb-5">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 flex-wrap mb-2">
-                            <h3 className="font-black text-lg">
+                          <div className="flex items-center gap-3 flex-wrap mb-3">
+                            <h3 className="font-black text-lg drop-shadow">
                               {item.title}
                             </h3>
-                            <span className={`text-xs font-black px-3 py-1 rounded-full whitespace-nowrap animate-pulse ${getUrgencyBadgeColor(item.urgency)}`}>
+                            <span className={`text-xs font-black px-4 py-1.5 rounded-full whitespace-nowrap animate-pulse ${getUrgencyBadgeColor(item.urgency)} shadow-lg`} style={{ boxShadow: `0 0 15px ${item.urgency === 'critical' ? 'rgba(239, 68, 68, 0.5)' : item.urgency === 'high' ? 'rgba(249, 115, 22, 0.5)' : item.urgency === 'medium' ? 'rgba(217, 119, 6, 0.5)' : 'rgba(34, 197, 94, 0.5)'}` }}>
                               {item.urgency.toUpperCase()}
                             </span>
                           </div>
-                          <p className="text-base text-current opacity-90 font-semibold">
+                          <p className="text-base opacity-90 font-semibold drop-shadow">
                             {item.description}
                           </p>
                           {item.value && (
-                            <p className="text-sm opacity-75 font-mono mt-3 bg-black/10 px-3 py-1.5 rounded-lg w-fit">
+                            <p className="text-sm opacity-75 font-mono mt-4 bg-black/30 px-4 py-2 rounded-xl w-fit border border-white/20 drop-shadow backdrop-blur-sm">
                               📧 {item.value}
                             </p>
                           )}
                         </div>
                       </div>
 
-                      {/* Meta info */}
-                      <div className="flex items-center justify-between flex-wrap gap-3 text-sm opacity-80 pt-4 border-t border-current border-opacity-30">
-                        <div className="flex items-center gap-3">
+                      {/* Meta info with premium styling */}
+                      <div className="flex items-center justify-between flex-wrap gap-4 text-sm opacity-85 pt-5 border-t border-white/20">
+                        <div className="flex items-center gap-4">
                           {item.location && (
-                            <div className="flex items-center gap-2">
-                              <Home className="w-4 h-4" />
-                              <span className="font-semibold">{item.location}</span>
+                            <div className="flex items-center gap-2 font-bold drop-shadow">
+                              <Home className="w-5 h-5" />
+                              <span>{item.location}</span>
                             </div>
                           )}
                           {item.trend !== undefined && (
-                            <div className="flex items-center gap-2 font-bold">
-                              <TrendingUp className="w-4 h-4" />
+                            <div className="flex items-center gap-2 font-bold drop-shadow">
+                              <TrendingUp className="w-5 h-5" />
                               {item.trend > 0 ? "+" : ""}{item.trend}%
                             </div>
                           )}
                         </div>
 
                         {item.timestamp && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            <span className="font-semibold">{formatTimeAgo(new Date(item.timestamp))}</span>
+                          <div className="flex items-center gap-2 font-bold drop-shadow">
+                            <Clock className="w-5 h-5" />
+                            <span>{formatTimeAgo(new Date(item.timestamp))}</span>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Right action buttons */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Right action buttons with glow */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
                       <button
                         onClick={() => handleMarkHandled(item.id)}
-                        className="p-2 rounded-lg bg-current/20 hover:bg-current/40 transition-colors group/check"
+                        className="p-3 rounded-xl transition-all group/check opacity-70 group-hover:opacity-100 hover:bg-white/20 backdrop-blur-sm"
                         title="Mark as handled"
                       >
-                        <CheckCircle2 className="w-6 h-6 group-hover/check:scale-110 transition-transform" />
+                        <CheckCircle2 className="w-6 h-6 group-hover/check:scale-125 transition-transform drop-shadow" />
                       </button>
-                      <ArrowRight className="w-6 h-6 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                      <ArrowRight className="w-6 h-6 opacity-40 group-hover:opacity-100 group-hover:translate-x-2 transition-all drop-shadow flex-shrink-0" />
                     </div>
                   </div>
                 </div>
@@ -735,29 +805,32 @@ export default function AIRadar() {
           )}
         </div>
 
-        {/* Footer - Premium Powered by Badge */}
-        <div className="border-t-2 border-border pt-12 mt-16">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary/15 via-primary/8 to-background border-2 border-primary/30 p-8 hover:border-primary/50 transition-all group">
-            {/* Animated background gradient */}
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-20 bg-gradient-to-r from-primary to-transparent transition-opacity" />
+        {/* PREMIUM FOOTER - Powered by Clippy AI */}
+        <div className="border-t-2 border-cyan-400/20 pt-16 pb-8">
+          <div className="relative overflow-hidden rounded-3xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/40 hover:border-cyan-400/80 group hover:shadow-2xl hover:shadow-cyan-500/40 p-10">
+            {/* Gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/15 via-blue-600/10 to-slate-950 -z-10" />
+            
+            {/* Hover glow */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-30 bg-gradient-to-r from-cyan-500 via-transparent to-blue-600 transition-opacity -z-10" />
 
-            <div className="relative z-10 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary/25 rounded-2xl group-hover:scale-110 transition-transform">
-                  <Radar className="w-6 h-6 text-primary animate-pulse" style={{ animationDuration: "3s" }} />
+            <div className="relative z-10 flex items-center justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className="p-4 bg-gradient-to-br from-cyan-500/40 to-blue-600/30 rounded-2xl group-hover:scale-110 transition-transform border border-cyan-400/60 shadow-lg shadow-cyan-500/30">
+                  <Radar className="w-7 h-7 text-cyan-300 animate-pulse" style={{ animationDuration: "3s" }} />
                 </div>
                 <div>
-                  <p className="font-black text-foreground text-lg">Powered by Clippy AI</p>
-                  <p className="text-sm text-muted-foreground font-semibold mt-0.5">
-                    24/7 Enterprise Intelligence • Premium Real Estate Platform • Your Competitive Advantage
+                  <p className="font-black text-white text-lg drop-shadow-lg">Powered by Clippy AI</p>
+                  <p className="text-sm text-cyan-200/70 font-semibold mt-1 drop-shadow">
+                    Enterprise Intelligence • Premium Platform • Competitive Advantage 24/7
                   </p>
                 </div>
               </div>
-              <Sparkles className="w-8 h-8 text-primary opacity-40 flex-shrink-0 animate-pulse" style={{ animationDuration: "4s" }} />
+              <Sparkles className="w-10 h-10 text-cyan-400 opacity-50 flex-shrink-0 animate-pulse" style={{ animationDuration: "4s" }} />
             </div>
 
-            {/* Top border accent */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+            {/* Top border accent with glow */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent shadow-lg shadow-cyan-500/40" />
           </div>
         </div>
       </div>
