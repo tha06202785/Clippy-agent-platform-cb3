@@ -38,7 +38,7 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
     fetchUser();
   }, []);
 
-  const mainNavigationItems = [
+  const navigationItems = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { path: "/ai-radar", label: "AI Radar", icon: Radar, premium: true },
     { path: "/inbox", label: "Lead Inbox", icon: Inbox },
@@ -93,7 +93,7 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {/* Main Navigation */}
-          {mainNavigationItems.map((item) => {
+          {navigationItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
             const isPremium = item.premium;
