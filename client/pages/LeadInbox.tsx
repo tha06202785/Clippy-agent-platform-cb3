@@ -105,74 +105,6 @@ const channelConfig: { [key: string]: { icon: React.ElementType; color: string }
   // Add more as needed
 };
 
-// Sample data for demonstration
-const SAMPLE_LEADS: Lead[] = [
-  {
-    id: "sample-1",
-    org_id: "default",
-    full_name: "Sarah Johnson",
-    email: "sarah.johnson@email.com",
-    phone: "+1 (555) 123-4567",
-    status: "new",
-    stage: "inquiry",
-    primary_channel: "email",
-    source: "web",
-    buyer_type: "first_time",
-    notes: "Interested in 3-bedroom homes",
-    last_contact_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    assigned_to_user_id: "sample-user",
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: "sample-2",
-    org_id: "default",
-    full_name: "Michael Chen",
-    email: "m.chen@company.com",
-    phone: "+1 (555) 234-5678",
-    status: "qualified",
-    stage: "viewing",
-    primary_channel: "phone",
-    source: "phone",
-    buyer_type: "investor",
-    notes: "Looking for investment properties",
-    last_contact_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    assigned_to_user_id: "sample-user",
-    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
-
-const SAMPLE_MESSAGES: Message[] = [
-  {
-    id: "msg-1",
-    org_id: "default",
-    conversation_id: "conv-1",
-    direction_in_out: "in",
-    text: "Hi, I'm interested in the property at 123 Main St. Can you tell me more about it?",
-    raw_json: null,
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "msg-2",
-    org_id: "default",
-    conversation_id: "conv-1",
-    direction_in_out: "out",
-    text: "Of course! The property is a beautiful 3-bedroom home with recently renovated kitchen and modern amenities. Would you like to schedule a viewing?",
-    raw_json: null,
-    created_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "msg-3",
-    org_id: "default",
-    conversation_id: "conv-1",
-    direction_in_out: "in",
-    text: "Yes, that would be great! How about next Saturday at 2 PM?",
-    raw_json: null,
-    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
 export default function LeadInbox() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -182,7 +114,6 @@ export default function LeadInbox() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userOrgId, setUserOrgId] = useState<string | null>(null); // State to store user's org_id
-  const [usingSampleData, setUsingSampleData] = useState(false); // Track if using demo data
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null); // For auto-scrolling
 
@@ -268,21 +199,14 @@ export default function LeadInbox() {
         const { data, error: fetchError } = await query;
 
         if (fetchError) {
-          console.warn("Leads fetch warning:", fetchError.message);
-          setUsingSampleData(true);
-          setLeads(SAMPLE_LEADS);
-        } else if (data && data.length > 0) {
-          setLeads(data);
-          setUsingSampleData(false);
+          console.error("Error fetching leads:", fetchError);
+          setError("Failed to load leads.");
         } else {
-          console.log("No leads found in database, using sample data for demo");
-          setUsingSampleData(true);
-          setLeads(SAMPLE_LEADS);
+          setLeads(data || []);
         }
       } catch (err: any) {
         console.error("Error fetching leads:", err);
-        setUsingSampleData(true);
-        setLeads(SAMPLE_LEADS);
+        setError("Failed to load leads.");
       }
       setLoading(false);
     };
@@ -312,14 +236,8 @@ export default function LeadInbox() {
           .order("last_message_at", { ascending: false });
 
         if (convError) {
-          console.warn("Conversations fetch warning:", convError.message);
-          // Use sample messages for demo
-          if (usingSampleData && selectedLead.id === SAMPLE_LEADS[0].id) {
-            setMessages(SAMPLE_MESSAGES);
-          } else {
-            setMessages([]);
-          }
-          setConversations([]);
+          console.error("Error fetching conversations:", convError);
+          setError("Failed to load conversations.");
           setLoading(false);
           return;
         }
@@ -335,7 +253,8 @@ export default function LeadInbox() {
             .eq("org_id", userOrgId) // Filter by org_id
             .order("created_at", { ascending: true });
           if (msgError) {
-            console.warn("Messages fetch warning:", msgError.message);
+            console.error("Error fetching messages:", msgError);
+            setError("Failed to load messages.");
           } else {
             allTimelineItems = [...(msgData || [])];
           }
@@ -350,31 +269,24 @@ export default function LeadInbox() {
           .order("created_at", { ascending: true });
 
         if (eventError) {
-          console.warn("Events fetch warning:", eventError.message);
+          console.error("Error fetching events:", eventError);
+          setError("Failed to load events.");
         } else {
           allTimelineItems = [...allTimelineItems, ...(eventData || [])];
         }
 
         allTimelineItems.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-        // If no messages and using sample data, show sample messages
-        if (allTimelineItems.length === 0 && usingSampleData && selectedLead.id === SAMPLE_LEADS[0].id) {
-          setMessages(SAMPLE_MESSAGES);
-        } else {
-          setMessages(allTimelineItems);
-        }
+        setMessages(allTimelineItems);
       } catch (err: any) {
         console.error("Error fetching lead details:", err);
-        if (usingSampleData && selectedLead.id === SAMPLE_LEADS[0].id) {
-          setMessages(SAMPLE_MESSAGES);
-        }
+        setError("Failed to load lead details.");
       }
 
       setLoading(false);
     };
 
     fetchLeadDetails();
-  }, [selectedLead, userOrgId, usingSampleData]); // Re-fetch when selectedLead or org_id changes
+  }, [selectedLead, userOrgId]); // Re-fetch when selectedLead or org_id changes
 
   // Auto-scroll messages to bottom
   useEffect(() => {
@@ -461,13 +373,6 @@ export default function LeadInbox() {
           <div className="mb-4">
             <h2 className="text-xl font-bold text-foreground">Lead Inbox</h2>
           </div>
-          {usingSampleData && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-              <p className="text-xs text-blue-700">
-                💡 <span className="font-semibold">Demo Data</span> - Add real leads to your Supabase database to see your actual leads here.
-              </p>
-            </div>
-          )}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
