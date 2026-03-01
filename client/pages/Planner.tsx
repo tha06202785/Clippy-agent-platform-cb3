@@ -38,12 +38,12 @@ interface SupabaseListing {
 
 // --- CONFIGS for Task/Post Types ---
 const taskTypeConfig: { [key: string]: { bg: string; text: string; label: string; icon: React.ElementType } } = {
-  "follow_up_24h": { bg: "bg-blue-50", text: "text-blue-700", label: "Follow-up", icon: Clock },
-  "inspection_book": { bg: "bg-purple-50", text: "text-purple-700", label: "Inspection", icon: CalendarIcon },
-  "send_contract": { bg: "bg-orange-50", text: "text-orange-700", label: "Contract", icon: ClipboardList },
-  "post_facebook": { bg: "bg-green-50", text: "text-green-700", label: "Post FB", icon: Share2 },
-  "post_instagram": { bg: "bg-pink-50", text: "text-pink-700", label: "Post IG", icon: Share2 },
-  "call": { bg: "bg-yellow-50", text: "text-yellow-700", label: "Call", icon: Phone },
+  "follow_up_24h": { bg: "bg-blue-900/40", text: "text-blue-300", label: "Follow-up", icon: Clock },
+  "inspection_book": { bg: "bg-purple-900/40", text: "text-purple-300", label: "Inspection", icon: CalendarIcon },
+  "send_contract": { bg: "bg-orange-900/40", text: "text-orange-300", label: "Contract", icon: ClipboardList },
+  "post_facebook": { bg: "bg-emerald-900/40", text: "text-emerald-300", label: "Post FB", icon: Share2 },
+  "post_instagram": { bg: "bg-pink-900/40", text: "text-pink-300", label: "Post IG", icon: Share2 },
+  "call": { bg: "bg-yellow-900/40", text: "text-yellow-300", label: "Call", icon: Phone },
   // Add more as needed based on your 'tasks.type' enum/values
 };
 

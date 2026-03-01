@@ -281,8 +281,8 @@ export default function ListingsPage() {
                     className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg transition-shadow"
                   >
                     {/* Listing Image Placeholder */}
-                    <div className="w-full h-48 bg-gradient-to-br from-clippy-100 to-clippy-200 flex items-center justify-center">
-                      <Image className="w-12 h-12 text-clippy-600/30" />
+                    <div className="w-full h-48 bg-gradient-to-br from-cyan-900 to-slate-900 flex items-center justify-center">
+                      <Image className="w-12 h-12 text-cyan-400/30" />
                     </div>
 
                     {/* Listing Info */}
@@ -334,14 +334,14 @@ export default function ListingsPage() {
                       {/* Status */}
                       <div className="flex items-center gap-2 mb-4">
                         <div
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            listing.status === "active"
-                              ? "bg-green-100 text-green-700"
-                              : listing.status === "sold"
-                                ? "bg-gray-100 text-gray-700"
-                                : "bg-yellow-100 text-yellow-700"
-                          }`}
-                        >
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          listing.status === "active"
+                            ? "bg-emerald-900/40 text-emerald-300"
+                            : listing.status === "sold"
+                              ? "bg-slate-700/40 text-slate-300"
+                              : "bg-yellow-900/40 text-yellow-300"
+                        }`}
+                      >
                           {listing.status.charAt(0).toUpperCase() +
                             listing.status.slice(1)}
                         </div>
@@ -387,11 +387,11 @@ export default function ListingsPage() {
                     Create professional listings with high-quality details, images, and AI-powered descriptions to maximize engagement.
                   </p>
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8 text-left">
-                    <p className="text-sm text-blue-900 font-semibold mb-3">Why create listings?</p>
-                    <ul className="space-y-2 text-xs text-blue-800">
+                  <div className="bg-cyan-900/40 border-2 border-cyan-400/40 rounded-xl p-4 mb-8 text-left backdrop-blur-sm">
+                    <p className="text-sm text-cyan-200 font-semibold mb-3">Why create listings?</p>
+                    <ul className="space-y-2 text-xs text-cyan-300/90">
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-600 font-bold mt-0.5">✓</span>
+                        <span className="text-cyan-400 font-bold mt-0.5">✓</span>
                         Reach thousands of qualified prospects
                       </li>
                       <li className="flex items-start gap-2">

@@ -657,10 +657,10 @@ export default function LeadInbox() {
                   <Link to="/listings/new" className="text-primary text-xs mt-2 block hover:underline">Link Listing</Link>
                 </div>
                 {/* Next Best Action Placeholder */}
-                <div className="border border-yellow-300 bg-yellow-50 rounded-lg p-3 mt-4">
-                  <p className="text-sm font-semibold text-yellow-800 flex items-center gap-2 mb-1"><Info className="w-4 h-4" /> Next Best Action:</p>
-                  <p className="text-yellow-700 text-xs">Qualify Lead - Ask 3 questions</p>
-                  <button className="text-yellow-700 text-xs mt-2 block hover:underline">Mark as Done</button>
+                <div className="border-2 border-cyan-400/40 bg-cyan-900/30 rounded-lg p-3 mt-4 backdrop-blur-sm">
+                  <p className="text-sm font-semibold text-cyan-200 flex items-center gap-2 mb-1"><Info className="w-4 h-4" /> Next Best Action:</p>
+                  <p className="text-cyan-300/80 text-xs">Qualify Lead - Ask 3 questions</p>
+                  <button className="text-cyan-300 text-xs mt-2 block hover:text-cyan-200 transition-colors">Mark as Done</button>
                 </div>
               </div>
             </>
