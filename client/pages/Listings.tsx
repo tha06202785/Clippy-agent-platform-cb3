@@ -13,6 +13,8 @@ import {
   Car,
   DollarSign,
   ArrowLeft,
+  Sparkles,
+  TrendingUp,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
@@ -232,30 +234,43 @@ export default function ListingsPage() {
           <>
             {/* Listings List View */}
             <div className="flex justify-between items-center mb-8">
-              <h1 className="text-3xl font-bold text-foreground">Listings</h1>
-              <button
-                onClick={() => {
-                  setEditingListing(null);
-                  setFormData({
-                    status: "draft",
-                    type_sale_rent: "sale",
-                    address: "",
-                    suburb: "",
-                    state: "",
-                    postcode: "",
-                    price_display: "",
-                    bedrooms: null,
-                    bathrooms: null,
-                    carspaces: null,
-                    description_raw: "",
-                  });
-                  setShowForm(true);
-                }}
-                className="flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold"
-              >
-                <Plus className="w-5 h-5" />
-                New Listing
-              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Listings</h1>
+                <p className="text-muted-foreground">Manage all your property listings in one place</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  disabled
+                  title="AI-powered suggestions coming soon"
+                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-primary/20 to-primary/10 text-primary rounded-lg border border-primary/30 hover:border-primary/50 transition-colors font-semibold cursor-not-allowed opacity-60"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  AI Suggest Listings
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingListing(null);
+                    setFormData({
+                      status: "draft",
+                      type_sale_rent: "sale",
+                      address: "",
+                      suburb: "",
+                      state: "",
+                      postcode: "",
+                      price_display: "",
+                      bedrooms: null,
+                      bathrooms: null,
+                      carspaces: null,
+                      description_raw: "",
+                    });
+                    setShowForm(true);
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 hover:shadow-lg transition-all font-semibold"
+                >
+                  <Plus className="w-5 h-5" />
+                  New Listing
+                </button>
+              </div>
             </div>
 
             {listings.length > 0 ? (
@@ -354,37 +369,83 @@ export default function ListingsPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-16">
-                <Image className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
-                <h3 className="text-xl font-semibold text-foreground mb-2">
-                  No listings yet
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  Create your first listing to get started
-                </p>
-                <button
-                  onClick={() => {
-                    setEditingListing(null);
-                    setFormData({
-                      status: "draft",
-                      type_sale_rent: "sale",
-                      address: "",
-                      suburb: "",
-                      state: "",
-                      postcode: "",
-                      price_display: "",
-                      bedrooms: null,
-                      bathrooms: null,
-                      carspaces: null,
-                      description_raw: "",
-                    });
-                    setShowForm(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold"
-                >
-                  <Plus className="w-5 h-5" />
-                  Create First Listing
-                </button>
+              <div className="text-center py-20 px-6">
+                {/* Premium Empty State */}
+                <div className="max-w-md mx-auto">
+                  <div className="mb-6 inline-flex items-center justify-center">
+                    <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl">
+                      <TrendingUp className="w-12 h-12 text-primary" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-bold text-foreground mb-3">
+                    Ready to List Your First Property?
+                  </h3>
+                  <p className="text-muted-foreground mb-2">
+                    Start showcasing your properties to potential buyers and renters.
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-8">
+                    Create professional listings with high-quality details, images, and AI-powered descriptions to maximize engagement.
+                  </p>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8 text-left">
+                    <p className="text-sm text-blue-900 font-semibold mb-3">Why create listings?</p>
+                    <ul className="space-y-2 text-xs text-blue-800">
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 font-bold mt-0.5">✓</span>
+                        Reach thousands of qualified prospects
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 font-bold mt-0.5">✓</span>
+                        AI-powered recommendations for pricing
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 font-bold mt-0.5">✓</span>
+                        Market insights and neighborhood data
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 font-bold mt-0.5">✓</span>
+                        Schedule showings directly in Clippy
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={() => {
+                        setEditingListing(null);
+                        setFormData({
+                          status: "draft",
+                          type_sale_rent: "sale",
+                          address: "",
+                          suburb: "",
+                          state: "",
+                          postcode: "",
+                          price_display: "",
+                          bedrooms: null,
+                          bathrooms: null,
+                          carspaces: null,
+                          description_raw: "",
+                        });
+                        setShowForm(true);
+                      }}
+                      className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg hover:shadow-lg hover:shadow-primary/50 transition-all font-bold text-lg"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Create First Listing
+                    </button>
+                    <button
+                      disabled
+                      className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-primary/10 text-primary rounded-lg border border-primary/30 font-semibold cursor-not-allowed opacity-60"
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      Get AI Suggestions
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground mt-6">
+                    💡 Tip: Use AI Radar to discover properties in high-demand areas
+                  </p>
+                </div>
               </div>
             )}
           </>

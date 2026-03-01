@@ -10,6 +10,8 @@ import {
   Plus,
   Menu,
   X,
+  Radar,
+  ChevronDown,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,7 @@ interface LayoutProps {
 
 export default function Layout({ children, showNav = true }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,12 +38,17 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
     fetchUser();
   }, []);
 
-  const navigationItems = [
+  const mainNavigationItems = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/ai-radar", label: "AI Radar", icon: Radar, premium: true },
     { path: "/inbox", label: "Lead Inbox", icon: Inbox },
     { path: "/listings", label: "Listings", icon: FileText },
     { path: "/planner", label: "Planner", icon: Calendar },
+  ];
+
+  const adminItems = [
     { path: "/integrations", label: "Integrations", icon: Settings },
+    { path: "/settings", label: "Settings", icon: Settings },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -83,46 +91,97 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto">
-          {navigationItems.map((item) => {
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {/* Main Navigation */}
+          {mainNavigationItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
+            const isPremium = item.premium;
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 relative group ${
                   active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    ? isPremium
+                      ? "bg-gradient-to-r from-primary/40 to-primary/20 text-primary-foreground shadow-lg shadow-primary/30 border border-primary/50"
+                      : "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : isPremium
+                    ? "text-primary hover:bg-primary/10 hover:shadow-md hover:shadow-primary/20"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 }`}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && <span className="font-medium">{item.label}</span>}
+                <Icon className={`w-5 h-5 flex-shrink-0 ${isPremium && active ? "animate-pulse" : ""}`} />
+                {sidebarOpen && (
+                  <>
+                    <span className="font-medium">{item.label}</span>
+                    {isPremium && (
+                      <span className="ml-auto text-xs bg-gradient-to-r from-primary to-primary/70 text-white px-2 py-0.5 rounded-full font-semibold">
+                        AI
+                      </span>
+                    )}
+                  </>
+                )}
+                {isPremium && !active && (
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
               </Link>
             );
           })}
+
+          {/* Admin Section */}
+          <div className="pt-2 mt-4 border-t border-sidebar-border">
+            <button
+              onClick={() => setAdminOpen(!adminOpen)}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors group"
+            >
+              <Settings className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && (
+                <>
+                  <span className="font-medium text-sm">Admin</span>
+                  <ChevronDown
+                    className={`ml-auto w-4 h-4 transition-transform duration-200 ${
+                      adminOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </>
+              )}
+            </button>
+
+            {/* Admin Submenu */}
+            {adminOpen && sidebarOpen && (
+              <div className="mt-1 ml-2 pl-2 border-l-2 border-sidebar-accent space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                {adminItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors ${
+                        active
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="font-medium">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </nav>
 
-        {/* Settings & Logout */}
-        <div className="border-t border-sidebar-border p-3 space-y-2">
-          <Link
-            to="/settings"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/settings")
-                ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            }`}
-          >
-            <Settings className="w-5 h-5 flex-shrink-0" />
-            {sidebarOpen && <span className="font-medium">Settings</span>}
-          </Link>
+        {/* Logout */}
+        <div className="border-t border-sidebar-border p-3">
           <button
             onClick={async () => {
               await supabase.auth.signOut();
               navigate("/login");
             }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             {sidebarOpen && <span className="font-medium">Sign Out</span>}
