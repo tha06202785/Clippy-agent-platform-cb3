@@ -97,11 +97,11 @@ const leadStageConfig: { [key: string]: string } = {
 };
 
 const channelConfig: { [key: string]: { icon: React.ElementType; color: string } } = {
-  email: { icon: Mail, color: "text-blue-500" },
-  phone: { icon: Phone, color: "text-green-500" },
-  instagram: { icon: MessageSquare, color: "text-purple-500" },
-  facebook: { icon: MessageSquare, color: "text-blue-700" },
-  whatsapp: { icon: MessageSquare, color: "text-green-600" },
+  email: { icon: Mail, color: "text-cyan-400" },
+  phone: { icon: Phone, color: "text-emerald-400" },
+  instagram: { icon: MessageSquare, color: "text-purple-400" },
+  facebook: { icon: MessageSquare, color: "text-cyan-400" },
+  whatsapp: { icon: MessageSquare, color: "text-emerald-400" },
   // Add more as needed
 };
 
