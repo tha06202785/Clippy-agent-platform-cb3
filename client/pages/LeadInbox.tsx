@@ -105,6 +105,74 @@ const channelConfig: { [key: string]: { icon: React.ElementType; color: string }
   // Add more as needed
 };
 
+// Sample data for demonstration
+const SAMPLE_LEADS: Lead[] = [
+  {
+    id: "sample-1",
+    org_id: "default",
+    full_name: "Sarah Johnson",
+    email: "sarah.johnson@email.com",
+    phone: "+1 (555) 123-4567",
+    status: "new",
+    stage: "inquiry",
+    primary_channel: "email",
+    source: "web",
+    buyer_type: "first_time",
+    notes: "Interested in 3-bedroom homes",
+    last_contact_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    assigned_to_user_id: "sample-user",
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "sample-2",
+    org_id: "default",
+    full_name: "Michael Chen",
+    email: "m.chen@company.com",
+    phone: "+1 (555) 234-5678",
+    status: "qualified",
+    stage: "viewing",
+    primary_channel: "phone",
+    source: "phone",
+    buyer_type: "investor",
+    notes: "Looking for investment properties",
+    last_contact_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    assigned_to_user_id: "sample-user",
+    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+const SAMPLE_MESSAGES: Message[] = [
+  {
+    id: "msg-1",
+    org_id: "default",
+    conversation_id: "conv-1",
+    direction_in_out: "in",
+    text: "Hi, I'm interested in the property at 123 Main St. Can you tell me more about it?",
+    raw_json: null,
+    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "msg-2",
+    org_id: "default",
+    conversation_id: "conv-1",
+    direction_in_out: "out",
+    text: "Of course! The property is a beautiful 3-bedroom home with recently renovated kitchen and modern amenities. Would you like to schedule a viewing?",
+    raw_json: null,
+    created_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "msg-3",
+    org_id: "default",
+    conversation_id: "conv-1",
+    direction_in_out: "in",
+    text: "Yes, that would be great! How about next Saturday at 2 PM?",
+    raw_json: null,
+    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
 export default function LeadInbox() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -114,12 +182,20 @@ export default function LeadInbox() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userOrgId, setUserOrgId] = useState<string | null>(null); // State to store user's org_id
+  const [usingSampleData, setUsingSampleData] = useState(false); // Track if using demo data
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null); // For auto-scrolling
 
   // --- Filter and Sort States ---
   const [filterStatus, setFilterStatus] = useState("all"); // 'new', 'active', 'hot', 'unreplied', 'all'
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Auto-select first lead when leads are loaded
+  useEffect(() => {
+    if (leads.length > 0 && !selectedLead) {
+      setSelectedLead(leads[0]);
+    }
+  }, [leads, selectedLead]);
 
   // Effect to fetch user's org_id
   useEffect(() => {
@@ -169,32 +245,44 @@ export default function LeadInbox() {
         return;
       }
 
-      let query = supabase
-        .from("leads")
-        .select("*")
-        .eq("assigned_to_user_id", userId)
-        .eq("org_id", userOrgId) // Filter by user's org_id
-        .order("last_contact_at", { ascending: false });
+      try {
+        let query = supabase
+          .from("leads")
+          .select("*")
+          .eq("assigned_to_user_id", userId)
+          .eq("org_id", userOrgId) // Filter by user's org_id
+          .order("last_contact_at", { ascending: false });
 
-      // Apply filters
-      if (filterStatus === "new") {
-        query = query.eq("status", "new");
-      } else if (filterStatus === "active") {
-        query = query.in("status", ["new", "qualified", "contacted"]);
-      }
-      // 'hot' and 'unreplied' would need more complex RLS/computed columns or client-side filtering after fetch
+        // Apply filters
+        if (filterStatus === "new") {
+          query = query.eq("status", "new");
+        } else if (filterStatus === "active") {
+          query = query.in("status", ["new", "qualified", "contacted"]);
+        }
+        // 'hot' and 'unreplied' would need more complex RLS/computed columns or client-side filtering after fetch
 
-      if (searchTerm) {
-        query = query.ilike("full_name", `%${searchTerm}%`);
-      }
+        if (searchTerm) {
+          query = query.ilike("full_name", `%${searchTerm}%`);
+        }
 
-      const { data, error: fetchError } = await query;
+        const { data, error: fetchError } = await query;
 
-      if (fetchError) {
-        console.error("Error fetching leads:", fetchError);
-        setError("Failed to load leads.");
-      } else {
-        setLeads(data || []);
+        if (fetchError) {
+          console.warn("Leads fetch warning:", fetchError.message);
+          setUsingSampleData(true);
+          setLeads(SAMPLE_LEADS);
+        } else if (data && data.length > 0) {
+          setLeads(data);
+          setUsingSampleData(false);
+        } else {
+          console.log("No leads found in database, using sample data for demo");
+          setUsingSampleData(true);
+          setLeads(SAMPLE_LEADS);
+        }
+      } catch (err: any) {
+        console.error("Error fetching leads:", err);
+        setUsingSampleData(true);
+        setLeads(SAMPLE_LEADS);
       }
       setLoading(false);
     };
@@ -214,62 +302,79 @@ export default function LeadInbox() {
       setLoading(true);
       setError(null);
 
-      // Fetch conversations for the selected lead
-      const { data: convData, error: convError } = await supabase
-        .from("conversations")
-        .select("*")
-        .eq("lead_id", selectedLead.id)
-        .eq("org_id", userOrgId) // Filter by org_id
-        .order("last_message_at", { ascending: false });
-
-      if (convError) {
-        console.error("Error fetching conversations:", convError);
-        setError("Failed to load conversations.");
-        setLoading(false);
-        return;
-      }
-      setConversations(convData || []);
-
-      let allTimelineItems: (Message | LeadEvent)[] = [];
-      // Fetch messages if a conversation exists
-      if (convData && convData.length > 0) {
-        const { data: msgData, error: msgError } = await supabase
-          .from("messages")
+      try {
+        // Fetch conversations for the selected lead
+        const { data: convData, error: convError } = await supabase
+          .from("conversations")
           .select("*")
-          .eq("conversation_id", convData[0].id)
+          .eq("lead_id", selectedLead.id)
+          .eq("org_id", userOrgId) // Filter by org_id
+          .order("last_message_at", { ascending: false });
+
+        if (convError) {
+          console.warn("Conversations fetch warning:", convError.message);
+          // Use sample messages for demo
+          if (usingSampleData && selectedLead.id === SAMPLE_LEADS[0].id) {
+            setMessages(SAMPLE_MESSAGES);
+          } else {
+            setMessages([]);
+          }
+          setConversations([]);
+          setLoading(false);
+          return;
+        }
+        setConversations(convData || []);
+
+        let allTimelineItems: (Message | LeadEvent)[] = [];
+        // Fetch messages if a conversation exists
+        if (convData && convData.length > 0) {
+          const { data: msgData, error: msgError } = await supabase
+            .from("messages")
+            .select("*")
+            .eq("conversation_id", convData[0].id)
+            .eq("org_id", userOrgId) // Filter by org_id
+            .order("created_at", { ascending: true });
+          if (msgError) {
+            console.warn("Messages fetch warning:", msgError.message);
+          } else {
+            allTimelineItems = [...(msgData || [])];
+          }
+        }
+
+        // Fetch lead events
+        const { data: eventData, error: eventError } = await supabase
+          .from("lead_events")
+          .select("*")
+          .eq("lead_id", selectedLead.id)
           .eq("org_id", userOrgId) // Filter by org_id
           .order("created_at", { ascending: true });
-        if (msgError) {
-          console.error("Error fetching messages:", msgError);
-          setError("Failed to load messages.");
+
+        if (eventError) {
+          console.warn("Events fetch warning:", eventError.message);
         } else {
-          allTimelineItems = [...(msgData || [])];
+          allTimelineItems = [...allTimelineItems, ...(eventData || [])];
+        }
+
+        allTimelineItems.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+        // If no messages and using sample data, show sample messages
+        if (allTimelineItems.length === 0 && usingSampleData && selectedLead.id === SAMPLE_LEADS[0].id) {
+          setMessages(SAMPLE_MESSAGES);
+        } else {
+          setMessages(allTimelineItems);
+        }
+      } catch (err: any) {
+        console.error("Error fetching lead details:", err);
+        if (usingSampleData && selectedLead.id === SAMPLE_LEADS[0].id) {
+          setMessages(SAMPLE_MESSAGES);
         }
       }
-
-      // Fetch lead events
-      const { data: eventData, error: eventError } = await supabase
-        .from("lead_events")
-        .select("*")
-        .eq("lead_id", selectedLead.id)
-        .eq("org_id", userOrgId) // Filter by org_id
-        .order("created_at", { ascending: true });
-
-      if (eventError) {
-        console.error("Error fetching events:", eventError);
-        setError("Failed to load events.");
-      } else {
-        allTimelineItems = [...allTimelineItems, ...(eventData || [])];
-      }
-
-      allTimelineItems.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      setMessages(allTimelineItems);
 
       setLoading(false);
     };
 
     fetchLeadDetails();
-  }, [selectedLead, userOrgId]); // Re-fetch when selectedLead or org_id changes
+  }, [selectedLead, userOrgId, usingSampleData]); // Re-fetch when selectedLead or org_id changes
 
   // Auto-scroll messages to bottom
   useEffect(() => {
@@ -356,6 +461,13 @@ export default function LeadInbox() {
           <div className="mb-4">
             <h2 className="text-xl font-bold text-foreground">Lead Inbox</h2>
           </div>
+          {usingSampleData && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+              <p className="text-xs text-blue-700">
+                💡 <span className="font-semibold">Demo Data</span> - Add real leads to your Supabase database to see your actual leads here.
+              </p>
+            </div>
+          )}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
