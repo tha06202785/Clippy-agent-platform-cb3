@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"; // Added useRef
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Search,
@@ -21,14 +22,7 @@ import {
   Plus,
 } from "lucide-react";
 import Layout from "@/components/Layout";
-import { createClient } from "@supabase/supabase-js";
-
-// --- Supabase Project URL and Anon Key ---
-const SUPABASE_URL = "https://mqydieqeybgxtjqogrwh.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_fgi9j879wWGlzEQbt0i7Yw_D7rYZG3g";
-// -----------------------------------------------------------
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { supabase } from "@/lib/supabase";
 
 // --- INTERFACES (Matching Supabase Schema) ---
 interface Lead {
