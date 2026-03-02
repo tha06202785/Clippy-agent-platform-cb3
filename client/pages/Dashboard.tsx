@@ -303,72 +303,74 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto relative z-10">
-        {/* Header with Hero Section */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+      <div className="max-w-7xl mx-auto relative z-10 px-3 md:px-4">
+        {/* Header with Hero Section - Responsive */}
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-1 md:mb-2">
             Welcome back! 👋
           </h1>
-          <p className="text-muted-foreground mb-6">
-            Here's your AI-powered business dashboard
+          <p className="text-xs sm:text-sm md:text-base text-muted-foreground mb-4 md:mb-6">
+            AI-powered dashboard
           </p>
 
-          {/* Premium Hero Card - AI Focus Today */}
-          <div className="relative overflow-hidden rounded-3xl group mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
-            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/60 via-blue-500/60 to-cyan-500/60 rounded-3xl blur-2xl opacity-60 group-hover:opacity-100 animate-pulse transition-opacity" style={{ animationDuration: "4s" }} />
-            
-            <div className="relative bg-gradient-to-br from-slate-900/95 via-blue-900/80 to-slate-950/95 rounded-3xl p-12 border-2 border-cyan-400/80 group-hover:border-cyan-300 shadow-2xl shadow-cyan-500/40 group-hover:shadow-cyan-500/60 transition-all duration-300 backdrop-blur-xl">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/25 rounded-full blur-3xl -z-10 animate-pulse" style={{ animationDuration: "7s" }} />
-              <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl -z-10 animate-pulse" style={{ animationDuration: "9s", animationDelay: "1s" }} />
+          {/* Premium Hero Card - AI Focus Today - Responsive */}
+          <div className="relative overflow-hidden rounded-2xl md:rounded-3xl group mb-6 md:mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
+            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/60 via-blue-500/60 to-cyan-500/60 rounded-2xl md:rounded-3xl blur-2xl opacity-60 group-hover:opacity-100 animate-pulse transition-opacity" style={{ animationDuration: "4s" }} />
 
-              <div className="flex items-start justify-between gap-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="p-2 bg-gradient-to-br from-cyan-400/50 to-blue-500/50 rounded-lg border border-cyan-300/60 shadow-lg shadow-cyan-400/40">
-                      <Sparkles className="w-5 h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "1.5s" }} />
+            <div className="relative bg-gradient-to-br from-slate-900/95 via-blue-900/80 to-slate-950/95 rounded-2xl md:rounded-3xl p-5 md:p-12 border-2 border-cyan-400/80 group-hover:border-cyan-300 shadow-2xl shadow-cyan-500/40 group-hover:shadow-cyan-500/60 transition-all duration-300 backdrop-blur-xl">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/25 rounded-full blur-3xl -z-10 animate-pulse hidden md:block" style={{ animationDuration: "7s" }} />
+              <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl -z-10 animate-pulse hidden md:block" style={{ animationDuration: "9s", animationDelay: "1s" }} />
+
+              <div className="flex flex-col md:flex-row items-start justify-between gap-4 md:gap-6">
+                <div className="w-full md:w-auto">
+                  <div className="flex items-center gap-2 mb-3 md:mb-4">
+                    <div className="p-1.5 md:p-2 bg-gradient-to-br from-cyan-400/50 to-blue-500/50 rounded-lg border border-cyan-300/60 shadow-lg shadow-cyan-400/40 flex-shrink-0">
+                      <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "1.5s" }} />
                     </div>
-                    <span className="text-sm font-black text-cyan-200 uppercase tracking-widest drop-shadow-lg">
-                      🚀 AI Co-Pilot
+                    <span className="text-xs md:text-sm font-black text-cyan-200 uppercase tracking-widest drop-shadow-lg">
+                      🚀 AI
                     </span>
                   </div>
-                  <h2 className="text-5xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent mb-4 drop-shadow-lg">
-                    Your AI Focus Today
+                  <h2 className="text-2xl sm:text-3xl md:text-5xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent mb-3 md:mb-4 drop-shadow-lg">
+                    Your Focus Today
                   </h2>
-                  <p className="text-cyan-100/80 mb-8 max-w-lg font-semibold text-lg drop-shadow">
+                  <p className="text-cyan-100/80 mb-4 md:mb-8 max-w-lg font-semibold text-sm md:text-lg drop-shadow line-clamp-3">
                     {newLeads.length > 0
-                      ? `🎯 ${newLeads.length} hot ${newLeads.length === 1 ? "lead" : "leads"} waiting. Prioritize follow-ups and convert them into wins.`
+                      ? `🎯 ${newLeads.length} hot ${newLeads.length === 1 ? "lead" : "leads"} waiting`
                       : tasksToday.length > 0
-                      ? `📋 Focus on your ${tasksToday.length} tasks for today to stay on track.`
-                      : "✅ No urgent items right now. Great job! Review upcoming tasks for tomorrow."}
+                      ? `📋 ${tasksToday.length} tasks today`
+                      : "✅ All set!"}
                   </p>
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-2 md:gap-4">
                     {newLeads.length > 0 && (
                       <Link
                         to="/inbox"
-                        className="group/btn relative inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 text-slate-900 rounded-2xl font-black text-base transition-all duration-300 hover:shadow-3xl hover:shadow-cyan-500/70 hover:scale-110 active:scale-95 border-2 border-cyan-300/80 group-hover/btn:border-cyan-100"
+                        className="group/btn relative inline-flex items-center justify-center gap-2 px-5 md:px-8 py-2.5 md:py-4 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 text-slate-900 rounded-xl md:rounded-2xl font-black text-xs md:text-base transition-all duration-300 hover:shadow-3xl hover:shadow-cyan-500/70 hover:scale-105 md:hover:scale-110 active:scale-95 border-2 border-cyan-300/80 group-hover/btn:border-cyan-100 touch-manipulation flex-1 sm:flex-none"
                       >
-                        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/50 to-blue-500/50 rounded-2xl blur-xl opacity-60 group-hover/btn:opacity-100 -z-10 animate-pulse" />
-                        <Target className="w-5 h-5 group-hover/btn:rotate-12 transition-transform" />
-                        Action This Lead
-                        <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
+                        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/50 to-blue-500/50 rounded-xl md:rounded-2xl blur-xl opacity-60 group-hover/btn:opacity-100 -z-10 animate-pulse" />
+                        <Target className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:rotate-12 transition-transform" />
+                        <span className="hidden sm:inline">Action Lead</span>
+                        <span className="sm:hidden">Action</span>
+                        <ArrowRight className="w-3.5 h-3.5 md:w-5 md:h-5 group-hover/btn:translate-x-2 transition-transform" />
                       </Link>
                     )}
                     <Link
                       to="/ai-radar"
-                      className="group/btn2 relative inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-br from-slate-800/80 to-blue-900/60 text-cyan-300 rounded-2xl font-bold text-base border-2 border-cyan-400/70 group-hover/btn2:border-cyan-300 hover:bg-gradient-to-br hover:from-slate-700 hover:to-blue-800 transition-all group-hover/btn2:shadow-2xl group-hover/btn2:shadow-cyan-500/50 active:scale-95 backdrop-blur-sm"
+                      className="group/btn2 relative inline-flex items-center justify-center gap-2 px-5 md:px-8 py-2.5 md:py-4 bg-gradient-to-br from-slate-800/80 to-blue-900/60 text-cyan-300 rounded-xl md:rounded-2xl font-bold text-xs md:text-base border-2 border-cyan-400/70 group-hover/btn2:border-cyan-300 hover:bg-gradient-to-br hover:from-slate-700 hover:to-blue-800 transition-all group-hover/btn2:shadow-2xl group-hover/btn2:shadow-cyan-500/50 active:scale-95 backdrop-blur-sm touch-manipulation flex-1 sm:flex-none"
                     >
-                      <Zap className="w-5 h-5 group-hover/btn2:scale-125 transition-transform" />
-                      View AI Radar
-                      <ArrowRight className="w-5 h-5 group-hover/btn2:translate-x-2 transition-transform" />
+                      <Zap className="w-4 h-4 md:w-5 md:h-5 group-hover/btn2:scale-125 transition-transform" />
+                      <span className="hidden sm:inline">AI Radar</span>
+                      <span className="sm:hidden">Radar</span>
+                      <ArrowRight className="w-3.5 h-3.5 md:w-5 md:h-5 group-hover/btn2:translate-x-2 transition-transform" />
                     </Link>
                   </div>
                 </div>
-                <div className="hidden lg:flex flex-col items-center justify-center">
-                  <div className="relative w-40 h-40">
+                <div className="hidden lg:flex flex-col items-center justify-center flex-shrink-0">
+                  <div className="relative w-32 h-32 lg:w-40 lg:h-40">
                     <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500/40 to-transparent animate-spin" style={{ animationDuration: "8s" }} />
                     <div className="absolute inset-6 rounded-full bg-gradient-to-br from-cyan-500/30 to-transparent animate-spin" style={{ animationDuration: "12s", animationDirection: "reverse" }} />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Sparkles className="w-20 h-20 text-cyan-300 opacity-80 animate-pulse" style={{ animationDuration: "2s" }} />
+                      <Sparkles className="w-12 h-12 lg:w-20 lg:h-20 text-cyan-300 opacity-80 animate-pulse" style={{ animationDuration: "2s" }} />
                     </div>
                   </div>
                 </div>
@@ -376,15 +378,15 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* User Info Box */}
+          {/* User Info Box - Responsive */}
           {usingSampleData && (
-            <div className="p-4 bg-cyan-600/20 border border-cyan-500/40 rounded-lg text-sm mb-6 backdrop-blur-sm">
+            <div className="p-3 md:p-4 bg-cyan-600/20 border border-cyan-500/40 rounded-lg text-xs md:text-sm mb-4 md:mb-6 backdrop-blur-sm">
               <div className="flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 text-cyan-300 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-cyan-300 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-cyan-200 font-semibold">Demo Mode</p>
-                  <p className="text-cyan-300/70 text-xs mt-1">
-                    You're viewing sample data. Connect your Supabase database to see real leads, tasks, and insights.
+                  <p className="text-cyan-300/70 text-xs mt-0.5">
+                    Sample data. Connect Supabase for real data.
                   </p>
                 </div>
               </div>
@@ -392,24 +394,24 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Performance Snapshot - Stats Row */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-4xl font-black text-white flex items-center gap-3 drop-shadow-lg">
-              <div className="p-2 bg-gradient-to-br from-cyan-500/50 to-blue-600/40 rounded-lg border border-cyan-400/60 shadow-lg shadow-cyan-500/40">
-                <BarChart3 className="w-6 h-6 text-cyan-300" />
+        {/* Performance Snapshot - Stats Row - Responsive */}
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-0 mb-4 md:mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white flex items-center gap-2 md:gap-3 drop-shadow-lg">
+              <div className="p-1.5 md:p-2 bg-gradient-to-br from-cyan-500/50 to-blue-600/40 rounded-lg border border-cyan-400/60 shadow-lg shadow-cyan-500/40 flex-shrink-0">
+                <BarChart3 className="w-5 h-5 md:w-6 md:h-6 text-cyan-300" />
               </div>
-              Performance Snapshot
+              <span>Performance</span>
             </h2>
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <div className="absolute -inset-1 bg-gradient-to-r from-red-600/60 to-red-500/60 rounded-full blur-lg opacity-70 animate-pulse" style={{ animationDuration: "1.5s" }} />
-              <div className="relative flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-600/70 to-red-700/60 border-2 border-red-400/90 rounded-full animate-pulse backdrop-blur-sm shadow-2xl shadow-red-600/50" style={{ animationDuration: "2s" }}>
-                <div className="w-3 h-3 rounded-full bg-red-300 animate-pulse shadow-lg shadow-red-400" style={{ animationDuration: "1s" }} />
-                <span className="text-sm font-black text-red-100 drop-shadow">🔴 LIVE</span>
+              <div className="relative flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-red-600/70 to-red-700/60 border-2 border-red-400/90 rounded-full animate-pulse backdrop-blur-sm shadow-2xl shadow-red-600/50" style={{ animationDuration: "2s" }}>
+                <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-red-300 animate-pulse shadow-lg shadow-red-400" style={{ animationDuration: "1s" }} />
+                <span className="text-xs md:text-sm font-black text-red-100 drop-shadow">🔴 LIVE</span>
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             <StatCard
               title="Tasks Today"
               displayValue={animatedMetrics[0] || 0}
@@ -450,71 +452,71 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Market Pulse - Alerts Feed */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        {/* Market Pulse - Alerts Feed - Responsive */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8 mb-6 md:mb-8">
           <div className="lg:col-span-2">
-            <h2 className="text-4xl font-black text-white mb-6 flex items-center gap-3 drop-shadow-lg">
-              <div className="p-2 bg-gradient-to-br from-orange-500/50 to-red-600/40 rounded-lg border border-orange-400/80 shadow-lg shadow-orange-500/40">
-                <Zap className="w-6 h-6 text-orange-200 animate-pulse" style={{ animationDuration: "1.2s" }} />
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white mb-3 md:mb-6 flex items-center gap-2 md:gap-3 drop-shadow-lg">
+              <div className="p-1.5 md:p-2 bg-gradient-to-br from-orange-500/50 to-red-600/40 rounded-lg border border-orange-400/80 shadow-lg shadow-orange-500/40 flex-shrink-0">
+                <Zap className="w-5 h-5 md:w-6 md:h-6 text-orange-200 animate-pulse" style={{ animationDuration: "1.2s" }} />
               </div>
-              Market Pulse
+              <span className="truncate">Market Pulse</span>
             </h2>
-            <div className="space-y-4">
-              <div className="group relative overflow-hidden rounded-2xl border-2 border-orange-500/50 group-hover:border-orange-400 backdrop-blur-sm cursor-pointer hover:scale-105 hover:-translate-y-2 active:scale-95 animate-in fade-in slide-in-from-left-4 duration-500 transition-all" style={{ background: "linear-gradient(135deg, rgba(124, 45, 18, 0.3) 0%, rgba(154, 52, 18, 0.1) 100%)", boxShadow: "0 0 40px rgba(249, 115, 22, 0.3)" }}>
+            <div className="space-y-3 md:space-y-4">
+              <div className="group relative overflow-hidden rounded-2xl border-2 border-orange-500/50 group-hover:border-orange-400 backdrop-blur-sm cursor-pointer hover:md:scale-105 hover:md:-translate-y-2 active:scale-95 animate-in fade-in slide-in-from-left-4 duration-500 transition-all touch-manipulation" style={{ background: "linear-gradient(135deg, rgba(124, 45, 18, 0.3) 0%, rgba(154, 52, 18, 0.1) 100%)", boxShadow: "0 0 40px rgba(249, 115, 22, 0.3)" }}>
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 group-hover:w-2 transition-all bg-orange-500 opacity-0 group-hover:opacity-100 shadow-lg" />
-                <div className="relative p-6 flex items-start gap-4">
-                  <div className="p-3 bg-orange-600/40 rounded-xl group-hover:scale-110 transition-transform border border-orange-400/40 shadow-lg shadow-orange-500/30">
-                    <TrendingUp className="w-5 h-5 text-orange-300" />
+                <div className="relative p-4 md:p-6 flex items-start gap-3 md:gap-4">
+                  <div className="p-2 md:p-3 bg-orange-600/40 rounded-xl group-hover:scale-110 transition-transform border border-orange-400/40 shadow-lg shadow-orange-500/30 flex-shrink-0">
+                    <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-orange-300" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white text-base drop-shadow">
-                      Suburb Prices Up 2.3% WoW
+                    <p className="font-semibold text-white text-sm md:text-base drop-shadow">
+                      Suburb Prices Up 2.3%
                     </p>
-                    <p className="text-sm text-orange-200/70 mt-2 drop-shadow">
-                      Sydney's eastern suburbs showing strong momentum
+                    <p className="text-xs md:text-sm text-orange-200/70 mt-1 md:mt-2 drop-shadow line-clamp-2">
+                      Eastern suburbs momentum
                     </p>
                   </div>
-                  <span className="text-sm text-emerald-200 font-black px-4 py-2 bg-emerald-600/60 rounded-full whitespace-nowrap shadow-lg shadow-emerald-500/30 drop-shadow">
+                  <span className="text-xs md:text-sm text-emerald-200 font-black px-2.5 md:px-4 py-1 md:py-2 bg-emerald-600/60 rounded-full whitespace-nowrap shadow-lg shadow-emerald-500/30 drop-shadow flex-shrink-0">
                     +2.3%
                   </span>
                 </div>
               </div>
 
-              <div className="group relative overflow-hidden rounded-2xl border-2 border-blue-500/50 group-hover:border-blue-400 backdrop-blur-sm cursor-pointer hover:scale-105 hover:-translate-y-2 active:scale-95 animate-in fade-in slide-in-from-left-4 duration-500 transition-all" style={{ background: "linear-gradient(135deg, rgba(37, 99, 235, 0.3) 0%, rgba(59, 130, 246, 0.1) 100%)", boxShadow: "0 0 40px rgba(59, 130, 246, 0.3)", animationDelay: "100ms" }}>
+              <div className="group relative overflow-hidden rounded-2xl border-2 border-blue-500/50 group-hover:border-blue-400 backdrop-blur-sm cursor-pointer hover:md:scale-105 hover:md:-translate-y-2 active:scale-95 animate-in fade-in slide-in-from-left-4 duration-500 transition-all touch-manipulation" style={{ background: "linear-gradient(135deg, rgba(37, 99, 235, 0.3) 0%, rgba(59, 130, 246, 0.1) 100%)", boxShadow: "0 0 40px rgba(59, 130, 246, 0.3)", animationDelay: "100ms" }}>
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 group-hover:w-2 transition-all bg-blue-500 opacity-0 group-hover:opacity-100 shadow-lg" />
-                <div className="relative p-6 flex items-start gap-4">
-                  <div className="p-3 bg-blue-600/40 rounded-xl group-hover:scale-110 transition-transform border border-blue-400/40 shadow-lg shadow-blue-500/30">
-                    <AlertCircle className="w-5 h-5 text-blue-300" />
+                <div className="relative p-4 md:p-6 flex items-start gap-3 md:gap-4">
+                  <div className="p-2 md:p-3 bg-blue-600/40 rounded-xl group-hover:scale-110 transition-transform border border-blue-400/40 shadow-lg shadow-blue-500/30 flex-shrink-0">
+                    <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-blue-300" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white text-base drop-shadow">
-                      Upcoming Open House Guide
+                    <p className="font-semibold text-white text-sm md:text-base drop-shadow">
+                      Open House Guide
                     </p>
-                    <p className="text-sm text-blue-200/70 mt-2 drop-shadow">
-                      Best practices for weekend showings
+                    <p className="text-xs md:text-sm text-blue-200/70 mt-1 md:mt-2 drop-shadow line-clamp-2">
+                      Weekend showing tips
                     </p>
                   </div>
-                  <span className="text-sm text-blue-200 font-black px-4 py-2 bg-blue-600/60 rounded-full whitespace-nowrap shadow-lg shadow-blue-500/30 drop-shadow">
+                  <span className="text-xs md:text-sm text-blue-200 font-black px-2.5 md:px-4 py-1 md:py-2 bg-blue-600/60 rounded-full whitespace-nowrap shadow-lg shadow-blue-500/30 drop-shadow flex-shrink-0">
                     Guide
                   </span>
                 </div>
               </div>
 
-              <div className="group relative overflow-hidden rounded-2xl border-2 border-purple-500/50 group-hover:border-purple-400 backdrop-blur-sm cursor-pointer hover:scale-105 hover:-translate-y-2 active:scale-95 animate-in fade-in slide-in-from-left-4 duration-500 transition-all" style={{ background: "linear-gradient(135deg, rgba(126, 34, 206, 0.3) 0%, rgba(147, 51, 234, 0.1) 100%)", boxShadow: "0 0 40px rgba(168, 85, 247, 0.3)", animationDelay: "200ms" }}>
+              <div className="group relative overflow-hidden rounded-2xl border-2 border-purple-500/50 group-hover:border-purple-400 backdrop-blur-sm cursor-pointer hover:md:scale-105 hover:md:-translate-y-2 active:scale-95 animate-in fade-in slide-in-from-left-4 duration-500 transition-all touch-manipulation" style={{ background: "linear-gradient(135deg, rgba(126, 34, 206, 0.3) 0%, rgba(147, 51, 234, 0.1) 100%)", boxShadow: "0 0 40px rgba(168, 85, 247, 0.3)", animationDelay: "200ms" }}>
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 group-hover:w-2 transition-all bg-purple-500 opacity-0 group-hover:opacity-100 shadow-lg" />
-                <div className="relative p-6 flex items-start gap-4">
-                  <div className="p-3 bg-purple-600/40 rounded-xl group-hover:scale-110 transition-transform border border-purple-400/40 shadow-lg shadow-purple-500/30">
-                    <TrendingUp className="w-5 h-5 text-purple-300" />
+                <div className="relative p-4 md:p-6 flex items-start gap-3 md:gap-4">
+                  <div className="p-2 md:p-3 bg-purple-600/40 rounded-xl group-hover:scale-110 transition-transform border border-purple-400/40 shadow-lg shadow-purple-500/30 flex-shrink-0">
+                    <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-purple-300" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white text-base drop-shadow">
-                      Demand Surge: 3BR Homes
+                    <p className="font-semibold text-white text-sm md:text-base drop-shadow">
+                      Demand: 3BR Homes
                     </p>
-                    <p className="text-sm text-purple-200/70 mt-2 drop-shadow">
-                      Market inquiry up 15% for family properties
+                    <p className="text-xs md:text-sm text-purple-200/70 mt-1 md:mt-2 drop-shadow line-clamp-2">
+                      +15% inquiry surge
                     </p>
                   </div>
-                  <span className="text-sm text-purple-200 font-black px-4 py-2 bg-purple-600/60 rounded-full whitespace-nowrap shadow-lg shadow-purple-500/30 drop-shadow">
+                  <span className="text-xs md:text-sm text-purple-200 font-black px-2.5 md:px-4 py-1 md:py-2 bg-purple-600/60 rounded-full whitespace-nowrap shadow-lg shadow-purple-500/30 drop-shadow flex-shrink-0">
                     Hot
                   </span>
                 </div>
@@ -522,58 +524,58 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Quick Stats Card */}
+          {/* Quick Stats Card - Responsive */}
           <div className="relative overflow-hidden rounded-2xl group animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500/40 via-blue-500/30 to-cyan-500/40 rounded-2xl blur-2xl opacity-0 group-hover:opacity-60 -z-10 transition-opacity" />
-            <div className="relative bg-gradient-to-br from-slate-800/90 to-blue-900/70 rounded-2xl border-2 border-cyan-400/60 group-hover:border-cyan-300 p-8 flex flex-col justify-between backdrop-blur-xl shadow-2xl shadow-cyan-500/30 group-hover:shadow-cyan-500/50 transition-all duration-300">
+            <div className="relative bg-gradient-to-br from-slate-800/90 to-blue-900/70 rounded-2xl border-2 border-cyan-400/60 group-hover:border-cyan-300 p-5 md:p-8 flex flex-col justify-between backdrop-blur-xl shadow-2xl shadow-cyan-500/30 group-hover:shadow-cyan-500/50 transition-all duration-300">
               <div>
-                <h3 className="font-black text-white mb-8 text-2xl drop-shadow-lg">Your Metrics</h3>
-                <div className="space-y-6">
+                <h3 className="font-black text-white mb-4 md:mb-8 text-xl md:text-2xl drop-shadow-lg">Your Metrics</h3>
+                <div className="space-y-4 md:space-y-6">
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-cyan-200/80 font-bold uppercase tracking-widest drop-shadow">Lead Response</span>
-                      <span className="text-lg font-black text-cyan-300 drop-shadow">87%</span>
+                    <div className="flex items-center justify-between mb-2 md:mb-3">
+                      <span className="text-xs md:text-sm text-cyan-200/80 font-bold uppercase tracking-widest drop-shadow">Response</span>
+                      <span className="text-base md:text-lg font-black text-cyan-300 drop-shadow">87%</span>
                     </div>
-                    <div className="w-full h-3 bg-slate-700/60 rounded-full overflow-hidden border-2 border-cyan-400/30 shadow-inner">
+                    <div className="w-full h-2 md:h-3 bg-slate-700/60 rounded-full overflow-hidden border-2 border-cyan-400/30 shadow-inner">
                       <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full shadow-lg shadow-emerald-500/50 animate-pulse" style={{ width: "87%", animationDuration: "3s" }} />
                     </div>
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-cyan-200/80 font-bold uppercase tracking-widest drop-shadow">Task Completion</span>
-                      <span className="text-lg font-black text-cyan-300 drop-shadow">72%</span>
+                    <div className="flex items-center justify-between mb-2 md:mb-3">
+                      <span className="text-xs md:text-sm text-cyan-200/80 font-bold uppercase tracking-widest drop-shadow">Completion</span>
+                      <span className="text-base md:text-lg font-black text-cyan-300 drop-shadow">72%</span>
                     </div>
-                    <div className="w-full h-3 bg-slate-700/60 rounded-full overflow-hidden border-2 border-cyan-400/30 shadow-inner">
+                    <div className="w-full h-2 md:h-3 bg-slate-700/60 rounded-full overflow-hidden border-2 border-cyan-400/30 shadow-inner">
                       <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full shadow-lg shadow-blue-500/50 animate-pulse" style={{ width: "72%", animationDuration: "3s", animationDelay: "0.5s" }} />
                     </div>
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-cyan-200/80 font-bold uppercase tracking-widest drop-shadow">Conversion Rate</span>
-                      <span className="text-lg font-black text-cyan-300 drop-shadow">12.5%</span>
+                    <div className="flex items-center justify-between mb-2 md:mb-3">
+                      <span className="text-xs md:text-sm text-cyan-200/80 font-bold uppercase tracking-widest drop-shadow">Conversion</span>
+                      <span className="text-base md:text-lg font-black text-cyan-300 drop-shadow">12.5%</span>
                     </div>
-                    <div className="w-full h-3 bg-slate-700/60 rounded-full overflow-hidden border-2 border-cyan-400/30 shadow-inner">
+                    <div className="w-full h-2 md:h-3 bg-slate-700/60 rounded-full overflow-hidden border-2 border-cyan-400/30 shadow-inner">
                       <div className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full shadow-lg shadow-purple-500/50 animate-pulse" style={{ width: "12.5%", animationDuration: "3s", animationDelay: "1s" }} />
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="mt-8 pt-8 border-t-2 border-cyan-400/30">
-                <p className="text-xs text-cyan-200/70 mb-4 font-black uppercase tracking-widest drop-shadow">✨ Powered by AI</p>
+              <div className="mt-4 md:mt-8 pt-4 md:pt-8 border-t-2 border-cyan-400/30">
+                <p className="text-xs text-cyan-200/70 mb-2 md:mb-4 font-black uppercase tracking-widest drop-shadow">✨ AI Powered</p>
                 <Link
                   to="/ai-radar"
-                  className="group/insights w-full inline-flex items-center justify-center gap-2 px-4 py-4 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 text-slate-900 rounded-xl text-sm font-black hover:shadow-2xl hover:shadow-cyan-500/60 hover:scale-105 active:scale-95 transition-all border border-cyan-300/80 group-hover/insights:border-cyan-200"
+                  className="group/insights w-full inline-flex items-center justify-center gap-2 px-4 py-3 md:py-4 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 text-slate-900 rounded-lg md:rounded-xl text-xs md:text-sm font-black hover:shadow-2xl hover:shadow-cyan-500/60 hover:scale-105 active:scale-95 transition-all border border-cyan-300/80 group-hover/insights:border-cyan-200 touch-manipulation"
                 >
-                  <Sparkles className="w-5 h-5 group-hover/insights:rotate-12 transition-transform" />
-                  See AI Insights
+                  <Sparkles className="w-4 h-4 md:w-5 md:h-5 group-hover/insights:rotate-12 transition-transform" />
+                  AI Insights
                 </Link>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Main Content Grid - Responsive */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
           {/* Today's Tasks Widget */}
           <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 hover:-translate-y-2 active:scale-95 animate-in fade-in slide-in-from-left-4 duration-500" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)" }}>
             <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
