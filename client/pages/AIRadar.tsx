@@ -349,32 +349,39 @@ export default function AIRadar() {
 
       {/* ANIMATED RADAR GRID BACKGROUND */}
       <div className="fixed inset-0 -z-20 overflow-hidden pointer-events-none">
-        <svg className="absolute inset-0 w-full h-full opacity-[0.08]" preserveAspectRatio="none">
+        <svg className="absolute inset-0 w-full h-full opacity-[0.12] animate-pulse" preserveAspectRatio="none" style={{ animationDuration: "6s" }}>
           <defs>
-            <pattern id="radar-grid" x="40" y="40" width="40" height="40" patternUnits="userSpaceOnUse">
-              <circle cx="20" cy="20" r="20" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-cyan-400" />
-              <line x1="0" y1="20" x2="40" y2="20" stroke="currentColor" strokeWidth="0.5" className="text-cyan-400" />
-              <line x1="20" y1="0" x2="20" y2="40" stroke="currentColor" strokeWidth="0.5" className="text-cyan-400" />
-              <circle cx="20" cy="20" r="2" fill="currentColor" className="text-cyan-500" />
+            <pattern id="radar-grid" x="50" y="50" width="50" height="50" patternUnits="userSpaceOnUse">
+              <circle cx="25" cy="25" r="25" fill="none" stroke="#06b6d4" strokeWidth="0.8" opacity="0.6" />
+              <circle cx="25" cy="25" r="15" fill="none" stroke="#0ea5e9" strokeWidth="0.6" opacity="0.5" />
+              <circle cx="25" cy="25" r="5" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.8" />
+              <line x1="0" y1="25" x2="50" y2="25" stroke="#06b6d4" strokeWidth="0.8" opacity="0.4" />
+              <line x1="25" y1="0" x2="25" y2="50" stroke="#06b6d4" strokeWidth="0.8" opacity="0.4" />
+              <circle cx="25" cy="25" r="2" fill="#0ea5e9" opacity="0.9" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#radar-grid)" />
         </svg>
+        {/* Additional pulsing grid overlay for depth */}
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-blue-500/5 animate-pulse" style={{ animationDuration: "8s" }} />
       </div>
 
       {/* FLOATING AI SUGGESTS BAR */}
       {hotLeadsCount > 0 && (
         <div className="fixed top-32 right-8 max-w-sm z-50 animate-in slide-in-from-right-8 duration-700">
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/50 via-blue-500/50 to-cyan-500/50 rounded-3xl blur-2xl opacity-75 group-hover:opacity-100 animate-pulse transition-opacity" />
-            <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 rounded-3xl p-6 border-2 border-cyan-400/60 group-hover:border-cyan-300 shadow-2xl shadow-cyan-500/40 group-hover:shadow-cyan-500/60 transition-all duration-300 backdrop-blur-xl">
+          <div className="relative group cursor-pointer">
+            {/* Multiple layered glows */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500/60 via-blue-500/60 to-cyan-500/60 rounded-3xl blur-3xl opacity-80 group-hover:opacity-100 animate-pulse transition-opacity" style={{ animationDuration: "2.5s" }} />
+            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400/40 via-blue-400/30 to-cyan-400/40 rounded-3xl blur-2xl opacity-60 animate-pulse transition-opacity" style={{ animationDuration: "4s" }} />
+
+            <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 rounded-3xl p-6 border-2 border-cyan-400/80 group-hover:border-cyan-200 shadow-3xl shadow-cyan-500/50 group-hover:shadow-cyan-400/70 transition-all duration-300 backdrop-blur-xl active:scale-95">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-start gap-3 flex-1">
-                  <div className="p-3 bg-gradient-to-br from-cyan-400/40 to-blue-500/40 rounded-2xl mt-0.5 animate-pulse border border-cyan-400/40">
-                    <Sparkles className="w-6 h-6 text-cyan-300 drop-shadow-lg" />
+                  <div className="p-3 bg-gradient-to-br from-cyan-400/50 to-blue-500/50 rounded-2xl mt-0.5 animate-pulse border-2 border-cyan-300/80 shadow-lg shadow-cyan-400/40" style={{ animationDuration: "1.5s" }}>
+                    <Sparkles className="w-6 h-6 text-cyan-100 drop-shadow-lg" />
                   </div>
                   <div>
-                    <p className="text-xs font-black text-cyan-300 uppercase tracking-widest drop-shadow-lg">
+                    <p className="text-xs font-black text-cyan-200 uppercase tracking-widest drop-shadow-lg">
                       🎯 AI SUGGESTS
                     </p>
                     <p className="text-base font-black text-white mt-2 drop-shadow-lg">
@@ -382,7 +389,14 @@ export default function AIRadar() {
                     </p>
                   </div>
                 </div>
-                <ArrowRight className="w-6 h-6 text-cyan-300 flex-shrink-0 group-hover:translate-x-2 transition-transform drop-shadow-lg" />
+                <div className="relative">
+                  <ArrowRight className="w-6 h-6 text-cyan-200 flex-shrink-0 group-hover:translate-x-3 group-active:translate-x-1 transition-transform drop-shadow-lg font-black" />
+                </div>
+              </div>
+
+              {/* Animated shimmer effect */}
+              <div className="absolute inset-0 rounded-3xl overflow-hidden opacity-0 group-hover:opacity-40">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-pulse" style={{ animationDuration: "3s" }} />
               </div>
             </div>
           </div>
@@ -432,7 +446,8 @@ export default function AIRadar() {
           </div>
 
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-blue-600/2 to-slate-950/40 -z-10" />
-          <div className="absolute inset-0 rounded-3xl border-2 border-cyan-400/40 group-hover:border-cyan-400/70 transition-all duration-500 -z-10 shadow-2xl shadow-cyan-500/30 group-hover:shadow-cyan-500/50" />
+          <div className="absolute inset-0 rounded-3xl border-2 border-cyan-400/50 group-hover:border-cyan-300 transition-all duration-500 -z-10 shadow-2xl shadow-cyan-500/40 group-hover:shadow-cyan-500/60" />
+          <div className="absolute -top-0.5 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent rounded-full shadow-lg shadow-cyan-500/60 group-hover:shadow-cyan-400/80 transition-shadow duration-300" />
 
           <div className="relative z-10 p-12 md:p-16 flex items-start justify-between gap-12">
             <div className="flex-1">
@@ -458,17 +473,19 @@ export default function AIRadar() {
               </p>
 
               <div className="flex flex-wrap gap-5">
-                <button className="group/btn relative inline-flex items-center justify-center gap-3 px-12 py-6 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 text-slate-900 rounded-2xl font-black text-lg transition-all duration-300 hover:shadow-3xl hover:shadow-cyan-500/70 hover:scale-105 active:scale-95 border-2 border-cyan-300/80 group-hover/btn:border-cyan-200">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400/50 to-blue-400/50 rounded-2xl blur-xl opacity-75 group-hover/btn:opacity-100 -z-10 animate-pulse" />
-                  <Target className="w-6 h-6 group-hover/btn:rotate-12 transition-transform" />
+                <button className="group/btn relative inline-flex items-center justify-center gap-3 px-12 py-6 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 text-slate-900 rounded-2xl font-black text-lg transition-all duration-300 hover:shadow-3xl hover:shadow-cyan-500/80 hover:scale-110 active:scale-95 border-2 border-cyan-300/80 group-hover/btn:border-cyan-100 group-active/btn:border-cyan-400">
+                  <div className="absolute -inset-1.5 bg-gradient-to-r from-cyan-500/60 to-blue-500/60 rounded-2xl blur-xl opacity-60 group-hover/btn:opacity-100 -z-10 animate-pulse" style={{ animationDuration: "1.5s" }} />
+                  <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400/40 via-blue-400/30 to-cyan-400/40 rounded-2xl blur-lg opacity-40 -z-10 animate-pulse" style={{ animationDuration: "3s", animationDelay: "0.5s" }} />
+                  <Target className="w-6 h-6 group-hover/btn:rotate-12 group-active/btn:scale-90 transition-all" />
                   Take Action Now
-                  <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
+                  <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 group-active/btn:translate-x-0 transition-transform" />
                 </button>
 
-                <button className="group/btn2 relative inline-flex items-center justify-center gap-3 px-12 py-6 bg-gradient-to-br from-slate-800/80 to-blue-900/60 text-cyan-300 rounded-2xl font-bold text-lg border-2 border-cyan-400/60 group-hover/btn2:border-cyan-400/100 hover:bg-gradient-to-br hover:from-slate-800 hover:to-blue-900 transition-all group-hover/btn2:shadow-2xl group-hover/btn2:shadow-cyan-500/50 backdrop-blur-sm">
-                  <Activity className="w-6 h-6" />
+                <button className="group/btn2 relative inline-flex items-center justify-center gap-3 px-12 py-6 bg-gradient-to-br from-slate-800/90 to-blue-900/70 text-cyan-300 rounded-2xl font-bold text-lg border-2 border-cyan-400/70 group-hover/btn2:border-cyan-300/100 hover:bg-gradient-to-br hover:from-slate-700 hover:to-blue-800 transition-all group-hover/btn2:shadow-3xl group-hover/btn2:shadow-cyan-500/60 group-active/btn2:scale-95 backdrop-blur-sm">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 rounded-2xl blur-xl opacity-0 group-hover/btn2:opacity-50 -z-10 transition-opacity" />
+                  <Activity className="w-6 h-6 group-hover/btn2:scale-110 group-active/btn2:scale-90 transition-transform" />
                   View All Opportunities
-                  <ArrowRight className="w-5 h-5 group-hover/btn2:translate-x-2 transition-transform" />
+                  <ArrowRight className="w-5 h-5 group-hover/btn2:translate-x-2 group-active/btn2:translate-x-0 transition-transform" />
                 </button>
               </div>
             </div>
@@ -480,23 +497,49 @@ export default function AIRadar() {
               <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 200">
                 <defs>
                   <radialGradient id="radarGradient" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#0284c7" stopOpacity="0.1" />
+                    <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.4" />
+                    <stop offset="50%" stopColor="#0284c7" stopOpacity="0.2" />
+                    <stop offset="100%" stopColor="#0284c7" stopOpacity="0.05" />
                   </radialGradient>
+                  <linearGradient id="sweepGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.9" />
+                    <stop offset="50%" stopColor="#0ea5e9" stopOpacity="0.5" />
+                    <stop offset="100%" stopColor="#0284c7" stopOpacity="0" />
+                  </linearGradient>
                 </defs>
 
-                <circle cx="100" cy="100" r="90" fill="none" stroke="#06b6d4" strokeWidth="2" opacity="0.4" className="animate-pulse" />
-                <circle cx="100" cy="100" r="60" fill="none" stroke="#0ea5e9" strokeWidth="1.5" opacity="0.5" className="animate-pulse" style={{ animationDelay: "0.1s" }} />
-                <circle cx="100" cy="100" r="30" fill="none" stroke="#06b6d4" strokeWidth="2.5" opacity="0.7" className="animate-pulse" style={{ animationDelay: "0.2s" }} />
+                {/* Static concentric circles */}
+                <circle cx="100" cy="100" r="90" fill="none" stroke="#06b6d4" strokeWidth="2.5" opacity="0.5" className="animate-pulse" style={{ animationDuration: "4s" }} />
+                <circle cx="100" cy="100" r="60" fill="none" stroke="#0ea5e9" strokeWidth="2" opacity="0.6" className="animate-pulse" style={{ animationDelay: "0.15s", animationDuration: "4s" }} />
+                <circle cx="100" cy="100" r="30" fill="none" stroke="#06b6d4" strokeWidth="2.5" opacity="0.8" className="animate-pulse" style={{ animationDelay: "0.3s", animationDuration: "4s" }} />
 
-                <g className="animate-spin" style={{ transformOrigin: "100px 100px", animationDuration: "8s" }}>
-                  <line x1="100" y1="100" x2="100" y2="15" stroke="#06b6d4" strokeWidth="3" opacity="0.8" />
-                  <polygon points="100,100 106,30 100,15 94,30" fill="#0ea5e9" opacity="0.6" />
-                  <polygon points="100,100 108,40 100,15 92,40" fill="url(#radarGradient)" />
+                {/* Pulsing center target */}
+                <circle cx="100" cy="100" r="12" fill="none" stroke="#06b6d4" strokeWidth="2" opacity="0.6" className="animate-pulse" style={{ animationDuration: "2s" }} />
+                <circle cx="100" cy="100" r="6" fill="none" stroke="#0ea5e9" strokeWidth="1.5" opacity="0.8" className="animate-pulse" style={{ animationDuration: "1.5s", animationDelay: "0.2s" }} />
+                <circle cx="100" cy="100" r="3" fill="#06b6d4" opacity="1" className="animate-pulse" style={{ animationDuration: "1s" }} />
+
+                {/* Fast sweeping radar line with glow */}
+                <g className="animate-spin" style={{ transformOrigin: "100px 100px", animationDuration: "6s", animationTimingFunction: "linear" }}>
+                  <line x1="100" y1="100" x2="100" y2="10" stroke="#06b6d4" strokeWidth="4" opacity="0.9" filter="url(#glow)" />
+                  <line x1="100" y1="100" x2="100" y2="8" stroke="#0ea5e9" strokeWidth="2" opacity="0.7" />
+                  <polygon points="100,100 106,22 100,8 94,22" fill="url(#sweepGradient)" filter="url(#glow)" />
                 </g>
 
-                <circle cx="100" cy="100" r="8" fill="#06b6d4" opacity="0.9" className="animate-pulse" />
-                <circle cx="100" cy="100" r="12" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.4" className="animate-pulse" style={{ animationDuration: "2s" }} />
+                {/* Counter-rotating sweep for depth */}
+                <g className="animate-spin" style={{ transformOrigin: "100px 100px", animationDuration: "9s", animationTimingFunction: "linear", animationDirection: "reverse", opacity: 0.4 }}>
+                  <line x1="100" y1="100" x2="100" y2="10" stroke="#0284c7" strokeWidth="3" opacity="0.5" />
+                </g>
+
+                {/* Glow filter definition */}
+                <defs>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
               </svg>
 
               <Radar className="absolute w-40 h-40 text-cyan-400 opacity-30 animate-pulse" style={{ animationDuration: "5s" }} />
@@ -533,10 +576,11 @@ export default function AIRadar() {
               return (
                 <div
                   key={idx}
-                  className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/40 group-hover:border-cyan-400/80 hover:shadow-2xl hover:shadow-cyan-500/40 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                  className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/60 hover:-translate-y-2 active:scale-95 animate-in fade-in slide-in-from-bottom-4 duration-500"
                   style={{
                     background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)",
-                    animationDelay: `${idx * 100}ms`
+                    animationDelay: `${idx * 100}ms`,
+                    boxShadow: "0 0 20px rgba(6, 182, 212, 0.2)"
                   }}
                 >
                   <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
@@ -569,30 +613,56 @@ export default function AIRadar() {
                       </p>
                     </div>
 
-                    <div className="mt-8 pt-8 border-t-2 border-cyan-400/20">
+                    <div className="mt-8 pt-8 border-t-2 border-cyan-400/30 group-hover:border-cyan-400/60 transition-colors duration-300">
                       <svg
                         viewBox="0 0 100 40"
-                        className="w-full h-14 opacity-60 group-hover:opacity-100 transition-opacity"
+                        className="w-full h-16 opacity-70 group-hover:opacity-100 transition-opacity duration-300 animate-pulse"
                         preserveAspectRatio="none"
+                        style={{ animationDuration: "3s" }}
                       >
                         <defs>
                           <linearGradient id={`sparkline-${idx}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.5" />
+                            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.8" />
+                            <stop offset="50%" stopColor="#0ea5e9" stopOpacity="0.4" />
                             <stop offset="100%" stopColor="#0284c7" stopOpacity="0.1" />
                           </linearGradient>
+                          <filter id={`glow-sparkline-${idx}`}>
+                            <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
+                            <feMerge>
+                              <feMergeNode in="coloredBlur" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
                         </defs>
+
+                        {/* Glowing line */}
                         <path
                           d={`M0,${30 - Math.random() * 10} Q25,${15 + Math.random() * 10} 50,${20 + Math.random() * 10} T100,${25 - Math.random() * 10}`}
                           fill="none"
                           stroke="#06b6d4"
-                          strokeWidth="3.5"
+                          strokeWidth="5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          opacity="0.8"
+                          opacity="0.6"
+                          filter={`url(#glow-sparkline-${idx})`}
                         />
+
+                        {/* Main bright line */}
+                        <path
+                          d={`M0,${30 - Math.random() * 10} Q25,${15 + Math.random() * 10} 50,${20 + Math.random() * 10} T100,${25 - Math.random() * 10}`}
+                          fill="none"
+                          stroke="#0ea5e9"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          opacity="0.9"
+                        />
+
+                        {/* Gradient fill */}
                         <path
                           d={`M0,${30 - Math.random() * 10} Q25,${15 + Math.random() * 10} 50,${20 + Math.random() * 10} T100,${25 - Math.random() * 10} L100,40 L0,40 Z`}
                           fill={`url(#sparkline-${idx})`}
+                          opacity="0.7"
                         />
                       </svg>
                     </div>
@@ -610,7 +680,9 @@ export default function AIRadar() {
           <div className="flex items-center justify-between mb-10">
             <div>
               <h2 className="text-4xl font-black text-white flex items-center gap-3 drop-shadow-lg">
-                <Zap className="w-8 h-8 text-orange-400 animate-pulse" style={{ animationDuration: "1s" }} />
+                <div className="p-2 bg-gradient-to-br from-orange-500/50 to-red-600/40 rounded-lg border border-orange-400/80 shadow-lg shadow-orange-500/40">
+                  <Zap className="w-6 h-6 text-orange-200 animate-pulse" style={{ animationDuration: "1.2s" }} />
+                </div>
                 Live Radar Feed
               </h2>
               <p className="text-base text-cyan-200/70 font-semibold mt-3 drop-shadow">
@@ -618,9 +690,12 @@ export default function AIRadar() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-red-600/50 to-red-700/40 border-2 border-red-500/80 rounded-full animate-pulse backdrop-blur-sm shadow-lg shadow-red-600/40">
-                <Radio className="w-5 h-5 text-red-300 animate-pulse" style={{ animationDuration: "1s" }} />
-                <span className="text-sm font-black text-red-200 drop-shadow">🔴 LIVE</span>
+              <div className="relative">
+                <div className="absolute -inset-1 bg-gradient-to-r from-red-600/60 to-red-500/60 rounded-full blur-lg opacity-70 animate-pulse" style={{ animationDuration: "1.5s" }} />
+                <div className="relative flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-600/70 to-red-700/60 border-2 border-red-400/90 rounded-full animate-pulse backdrop-blur-sm shadow-2xl shadow-red-600/50" style={{ animationDuration: "2s" }}>
+                  <div className="w-3 h-3 rounded-full bg-red-300 animate-pulse shadow-lg shadow-red-400" style={{ animationDuration: "1s" }} />
+                  <span className="text-sm font-black text-red-100 drop-shadow">🔴 LIVE</span>
+                </div>
               </div>
             </div>
           </div>
@@ -651,19 +726,25 @@ export default function AIRadar() {
               {activeAlerts.map((item, index) => (
                 <div
                   key={item.id}
-                  className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 backdrop-blur-sm cursor-pointer ${getUrgencyColor(
+                  className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 backdrop-blur-sm cursor-pointer active:scale-95 ${getUrgencyColor(
                     item.urgency
-                  )} hover:scale-105 hover:-translate-y-1 animate-in fade-in slide-in-from-left-4 duration-500`}
-                  style={{ 
-                    background: getUrgencyColor(item.urgency).includes('bg-red') 
-                      ? "linear-gradient(135deg, rgba(127, 29, 29, 0.3) 0%, rgba(159, 18, 57, 0.1) 100%)"
+                  )} hover:scale-105 hover:-translate-y-3 hover:z-20 animate-in fade-in slide-in-from-left-4 duration-500`}
+                  style={{
+                    background: getUrgencyColor(item.urgency).includes('bg-red')
+                      ? "linear-gradient(135deg, rgba(127, 29, 29, 0.4) 0%, rgba(159, 18, 57, 0.15) 100%)"
                       : getUrgencyColor(item.urgency).includes('bg-orange')
-                      ? "linear-gradient(135deg, rgba(124, 45, 18, 0.3) 0%, rgba(154, 52, 18, 0.1) 100%)"
+                      ? "linear-gradient(135deg, rgba(124, 45, 18, 0.4) 0%, rgba(154, 52, 18, 0.15) 100%)"
                       : getUrgencyColor(item.urgency).includes('bg-amber')
-                      ? "linear-gradient(135deg, rgba(120, 53, 15, 0.3) 0%, rgba(146, 64, 14, 0.1) 100%)"
-                      : "linear-gradient(135deg, rgba(20, 83, 45, 0.3) 0%, rgba(34, 197, 94, 0.1) 100%)",
+                      ? "linear-gradient(135deg, rgba(120, 53, 15, 0.4) 0%, rgba(146, 64, 14, 0.15) 100%)"
+                      : "linear-gradient(135deg, rgba(20, 83, 45, 0.4) 0%, rgba(34, 197, 94, 0.15) 100%)",
                     animationDelay: `${index * 100}ms`,
-                    boxShadow: `0 0 30px ${item.urgency === 'critical' ? 'rgba(239, 68, 68, 0.3)' : item.urgency === 'high' ? 'rgba(249, 115, 22, 0.3)' : item.urgency === 'medium' ? 'rgba(217, 119, 6, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`
+                    boxShadow: item.urgency === 'critical'
+                      ? `0 0 40px rgba(239, 68, 68, 0.4), 0 20px 40px rgba(239, 68, 68, 0.15)`
+                      : item.urgency === 'high'
+                      ? `0 0 40px rgba(249, 115, 22, 0.4), 0 20px 40px rgba(249, 115, 22, 0.15)`
+                      : item.urgency === 'medium'
+                      ? `0 0 40px rgba(217, 119, 6, 0.4), 0 20px 40px rgba(217, 119, 6, 0.15)`
+                      : `0 0 40px rgba(34, 197, 94, 0.4), 0 20px 40px rgba(34, 197, 94, 0.15)`
                   }}
                 >
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 group-hover:w-2 transition-all ${getUrgencyBadgeColor(item.urgency)} opacity-0 group-hover:opacity-100 shadow-lg`} />
@@ -738,10 +819,11 @@ export default function AIRadar() {
         </div>
 
         {/* PREMIUM FOOTER */}
-        <div className="border-t-2 border-cyan-400/20 pt-16 pb-8">
-          <div className="relative overflow-hidden rounded-3xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/40 hover:border-cyan-400/80 group hover:shadow-2xl hover:shadow-cyan-500/40 p-10">
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/15 via-blue-600/10 to-slate-950 -z-10" />
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-30 bg-gradient-to-r from-cyan-500 via-transparent to-blue-600 transition-opacity -z-10" />
+        <div className="border-t-2 border-cyan-400/30 pt-16 pb-8">
+          <div className="relative overflow-hidden rounded-3xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/60 hover:border-cyan-300 group hover:shadow-3xl hover:shadow-cyan-500/50 p-10">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500/40 via-blue-500/30 to-cyan-500/40 rounded-3xl blur-2xl opacity-0 group-hover:opacity-60 -z-10 transition-opacity" />
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-600/15 to-slate-950 -z-10" />
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-40 bg-gradient-to-r from-cyan-500 via-transparent to-blue-600 transition-opacity animate-pulse -z-10" style={{ animationDuration: "4s" }} />
 
             <div className="relative z-10 flex items-center justify-between gap-6">
               <div className="flex items-center gap-5">
