@@ -491,8 +491,13 @@ export default function AIRadar() {
             </div>
 
             {/* PREMIUM RADAR VISUALIZATION */}
-            <div className="hidden lg:flex flex-col items-center justify-center relative w-80 h-80 flex-shrink-0">
+            <div className="hidden lg:flex flex-col items-center justify-center relative w-80 h-80 flex-shrink-0 group">
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-600/20 blur-2xl -z-10 animate-pulse" style={{ animationDuration: "4s" }} />
+
+              {/* Shimmer overlay effect */}
+              <div className="absolute inset-0 rounded-full overflow-hidden -z-5 opacity-0 group-hover:opacity-30 animate-pulse" style={{ animationDuration: "3s" }}>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse" style={{ animationDuration: "2s" }} />
+              </div>
 
               <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 200">
                 <defs>
