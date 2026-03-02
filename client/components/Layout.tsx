@@ -26,6 +26,7 @@ interface LayoutProps {
 export default function Layout({ children, showNav = true }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [radarOpen, setRadarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -97,34 +98,79 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
             const Icon = item.icon;
             const active = isActive(item.path);
             const isPremium = item.premium;
+            const hasSubmenu = item.label === "AI Radar";
+
+            if (hasSubmenu) {
+              return (
+                <div key={item.path}>
+                  <button
+                    onClick={() => setRadarOpen(!radarOpen)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 relative group ${
+                      active
+                        ? "bg-gradient-to-r from-primary/40 to-primary/20 text-primary-foreground shadow-lg shadow-primary/30 border border-primary/50"
+                        : "text-primary hover:bg-primary/10 hover:shadow-md hover:shadow-primary/20"
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 flex-shrink-0 ${active ? "animate-pulse" : ""}`} />
+                    {sidebarOpen && (
+                      <>
+                        <span className="font-medium">{item.label}</span>
+                        <span className="ml-auto text-xs bg-gradient-to-r from-primary to-primary/70 text-white px-2 py-0.5 rounded-full font-semibold">
+                          AI
+                        </span>
+                        <ChevronDown
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            radarOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </>
+                    )}
+                    {!active && (
+                      <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </button>
+
+                  {/* AI Radar Submenu */}
+                  {radarOpen && sidebarOpen && (
+                    <div className="mt-1 ml-2 pl-2 border-l-2 border-primary/40 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <Link
+                        to="/ai-radar"
+                        className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors ${
+                          isActive("/ai-radar")
+                            ? "bg-primary/30 text-primary-foreground"
+                            : "text-primary/80 hover:bg-primary/10"
+                        }`}
+                      >
+                        <span className="font-medium">Dashboard</span>
+                      </Link>
+                      <Link
+                        to="/ai-radar/my-watchlists"
+                        className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors ${
+                          isActive("/ai-radar/my-watchlists")
+                            ? "bg-primary/30 text-primary-foreground"
+                            : "text-primary/80 hover:bg-primary/10"
+                        }`}
+                      >
+                        <span className="font-medium">My Watchlists</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 relative group ${
                   active
-                    ? isPremium
-                      ? "bg-gradient-to-r from-primary/40 to-primary/20 text-primary-foreground shadow-lg shadow-primary/30 border border-primary/50"
-                      : "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : isPremium
-                    ? "text-primary hover:bg-primary/10 hover:shadow-md hover:shadow-primary/20"
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 }`}
               >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isPremium && active ? "animate-pulse" : ""}`} />
-                {sidebarOpen && (
-                  <>
-                    <span className="font-medium">{item.label}</span>
-                    {isPremium && (
-                      <span className="ml-auto text-xs bg-gradient-to-r from-primary to-primary/70 text-white px-2 py-0.5 rounded-full font-semibold">
-                        AI
-                      </span>
-                    )}
-                  </>
-                )}
-                {isPremium && !active && (
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {sidebarOpen && <span className="font-medium">{item.label}</span>}
               </Link>
             );
           })}
