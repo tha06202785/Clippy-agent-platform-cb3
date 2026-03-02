@@ -173,23 +173,25 @@ export default function Planner() {
 
   return (
     <Layout showNav={true}>
-      <div className="max-w-screen-2xl mx-auto p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-foreground">Planner</h1>
+      <div className="max-w-screen-2xl mx-auto p-3 md:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-0 mb-4 md:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Planner</h1>
           <button
             // onClick={() => setShowNewTaskForm(true)} // Future: Add task form
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm md:text-base touch-manipulation w-full sm:w-auto"
             disabled // Placeholder for now
           >
-            <Plus className="w-5 h-5" /> New Task / Post
+            <Plus className="w-4 h-4 md:w-5 md:h-5" />
+            <span className="hidden sm:inline">New Task</span>
+            <span className="sm:hidden">New</span>
           </button>
         </div>
 
-        {/* Today's Schedule */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <CalendarIcon className="w-6 h-6 text-primary" /> Today's Schedule
+        {/* Today's Schedule - Responsive */}
+        <div className="bg-card rounded-2xl border border-border p-4 md:p-6 shadow-sm mb-4 md:mb-8">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
+            <h2 className="text-lg md:text-xl font-bold text-foreground flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" /> Today
             </h2>
           </div>
           <div className="space-y-3">
@@ -199,25 +201,25 @@ export default function Planner() {
               todayItems.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-start gap-4 p-4 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors"
+                  className="flex items-start gap-2 md:gap-4 p-3 md:p-4 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors"
                 >
                   <div
-                    className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${taskTypeConfig[item.type]?.bg || 'bg-gray-50'
+                    className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${taskTypeConfig[item.type]?.bg || 'bg-gray-50'
                       } ${taskTypeConfig[item.type]?.text || 'text-gray-700'}`}
                   >
                     {taskTypeConfig[item.type]?.label || item.type.replace(/_/g, ' ')}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground truncate">
+                    <p className="font-semibold text-sm md:text-base text-foreground truncate">
                       {item.title}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
                       {item.listing_id && item.listings?.address ? `Listing: ${item.listings.address}` : ''}
                       {item.lead_id ? ` Lead: ${item.lead_id.substring(0, 8)}...` : ''}
                       {item.description && ` - ${item.description}`}
                     </p>
                   </div>
-                  <div className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                  <div className="text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap flex-shrink-0">
                     {new Date(item.due_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -226,40 +228,41 @@ export default function Planner() {
           </div>
         </div>
 
-        {/* Upcoming Schedule */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <Clock className="w-6 h-6 text-primary" /> Upcoming
+        {/* Upcoming Schedule - Responsive */}
+        <div className="bg-card rounded-2xl border border-border p-4 md:p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
+            <h2 className="text-lg md:text-xl font-bold text-foreground flex items-center gap-2">
+              <Clock className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" /> Upcoming
             </h2>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2 md:space-y-3">
             {upcomingItems.length === 0 && !loading ? (
-              <p className="text-center text-muted-foreground py-4">No upcoming items scheduled.</p>
+              <p className="text-center text-muted-foreground py-4 text-sm">No upcoming items scheduled.</p>
             ) : (
               upcomingItems.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-start gap-4 p-4 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors"
+                  className="flex items-start gap-2 md:gap-4 p-3 md:p-4 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors"
                 >
                   <div
-                    className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${taskTypeConfig[item.type]?.bg || 'bg-gray-50'
+                    className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${taskTypeConfig[item.type]?.bg || 'bg-gray-50'
                       } ${taskTypeConfig[item.type]?.text || 'text-gray-700'}`}
                   >
                     {taskTypeConfig[item.type]?.label || item.type.replace(/_/g, ' ')}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground truncate">
+                    <p className="font-semibold text-sm md:text-base text-foreground truncate">
                       {item.title}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
                       {item.listing_id && item.listings?.address ? `Listing: ${item.listings.address}` : ''}
                       {item.lead_id ? ` Lead: ${item.lead_id.substring(0, 8)}...` : ''}
                       {item.description && ` - ${item.description}`}
                     </p>
                   </div>
-                  <div className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-                    {new Date(item.due_at).toLocaleDateString()} at {new Date(item.due_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div className="text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap flex-shrink-0">
+                    <span className="hidden md:inline">{new Date(item.due_at).toLocaleDateString()} </span>
+                    {new Date(item.due_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               ))

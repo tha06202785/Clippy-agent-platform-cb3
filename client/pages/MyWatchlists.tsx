@@ -283,43 +283,43 @@ export default function MyWatchlists() {
       </div>
 
       <div className="max-w-4xl mx-auto relative z-10 px-4 py-8">
-        {/* Header */}
-        <div className="mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-br from-cyan-500/40 to-blue-600/40 rounded-lg border border-cyan-400/60 shadow-lg shadow-cyan-500/30">
-              <MapPin className="w-6 h-6 text-cyan-300" />
+        {/* Header - Responsive */}
+        <div className="mb-8 md:mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4 mb-3 md:mb-4">
+            <div className="p-2 md:p-3 bg-gradient-to-br from-cyan-500/40 to-blue-600/40 rounded-lg border border-cyan-400/60 shadow-lg shadow-cyan-500/30 flex-shrink-0">
+              <MapPin className="w-5 h-5 md:w-6 md:h-6 text-cyan-300" />
             </div>
             <div>
-              <h1 className="text-5xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">
-                Manage My Watched Areas
+              <h1 className="text-2xl sm:text-3xl md:text-5xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">
+                Manage Watched Areas
               </h1>
-              <p className="text-sm text-cyan-200/80 font-semibold mt-2 drop-shadow">
-                Define the suburbs and property types for your AI Market Intelligence
+              <p className="text-xs sm:text-sm text-cyan-200/80 font-semibold mt-1 md:mt-2 drop-shadow">
+                Define suburbs & property types for AI
               </p>
             </div>
           </div>
         </div>
 
-        {/* Notification Toast */}
+        {/* Notification Toast - Responsive positioning */}
         {notification && (
           <div
-            className={`fixed top-8 right-8 max-w-sm z-50 animate-in slide-in-from-top-4 duration-300 rounded-2xl border-2 p-5 shadow-2xl backdrop-blur-xl ${
+            className={`fixed bottom-4 right-4 md:top-8 md:bottom-auto md:right-8 max-w-xs md:max-w-sm z-50 animate-in slide-in-from-top-4 duration-300 rounded-2xl border-2 p-4 md:p-5 shadow-2xl backdrop-blur-xl ${
               notification.type === "success"
                 ? "bg-emerald-900/80 border-emerald-400/80 shadow-emerald-500/40"
                 : "bg-red-900/80 border-red-400/80 shadow-red-500/40"
             }`}
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 md:gap-4">
               {notification.type === "success" ? (
-                <CheckCircle2 className="w-6 h-6 text-emerald-300 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6 text-emerald-300 flex-shrink-0 mt-0.5" />
               ) : (
-                <AlertCircle className="w-6 h-6 text-red-300 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-red-300 flex-shrink-0 mt-0.5" />
               )}
-              <div>
-                <p className={`font-bold ${notification.type === "success" ? "text-emerald-200" : "text-red-200"}`}>
+              <div className="flex-1">
+                <p className={`font-bold text-sm md:text-base ${notification.type === "success" ? "text-emerald-200" : "text-red-200"}`}>
                   {notification.type === "success" ? "Success" : "Error"}
                 </p>
-                <p className={`text-sm mt-1 ${notification.type === "success" ? "text-emerald-300/80" : "text-red-300/80"}`}>
+                <p className={`text-xs md:text-sm mt-0.5 md:mt-1 ${notification.type === "success" ? "text-emerald-300/80" : "text-red-300/80"}`}>
                   {notification.message}
                 </p>
               </div>
@@ -327,49 +327,49 @@ export default function MyWatchlists() {
           </div>
         )}
 
-        {/* Main Form Container */}
-        <div className="space-y-8">
-          {/* Section 1: Region Presets */}
-          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/50 p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)" }}>
-            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+        {/* Main Form Container - Responsive spacing */}
+        <div className="space-y-6 md:space-y-8">
+          {/* Section 1: Region Presets - Responsive */}
+          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/50 p-4 md:p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)" }}>
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl hidden md:block" />
 
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gradient-to-br from-cyan-400/50 to-blue-500/40 rounded-lg border border-cyan-300/60 shadow-lg shadow-cyan-400/40">
-                <Home className="w-5 h-5 text-cyan-200" />
+            <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
+              <div className="p-1.5 md:p-2 bg-gradient-to-br from-cyan-400/50 to-blue-500/40 rounded-lg border border-cyan-300/60 shadow-lg shadow-cyan-400/40 flex-shrink-0">
+                <Home className="w-4 h-4 md:w-5 md:h-5 text-cyan-200" />
               </div>
-              <h2 className="text-2xl font-black text-white drop-shadow-lg">1. Region Presets</h2>
+              <h2 className="text-lg md:text-2xl font-black text-white drop-shadow-lg">1. Region Presets</h2>
             </div>
 
-            <p className="text-cyan-200/70 mb-6 font-semibold">Select pre-defined areas or create custom suburbs</p>
+            <p className="text-xs md:text-sm text-cyan-200/70 mb-4 md:mb-6 font-semibold">Select pre-defined areas</p>
 
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {availablePresets.length > 0 ? (
-                <div className="grid gap-3">
+                <div className="grid gap-2 md:gap-3">
                   {availablePresets.map((preset) => (
                     <button
                       key={preset.id}
                       onClick={() => handlePresetChange(preset.id)}
-                      className={`relative p-4 rounded-xl border-2 transition-all duration-300 text-left group/preset ${
+                      className={`relative p-3 md:p-4 rounded-xl border-2 transition-all duration-300 text-left group/preset touch-manipulation ${
                         searchMode === "preset" && selectedPresetId === preset.id
                           ? "bg-cyan-500/20 border-cyan-400/80 shadow-lg shadow-cyan-500/40"
                           : "bg-slate-800/40 border-cyan-400/30 hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-500/20"
                       }`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-bold text-white drop-shadow">{preset.region_label}</p>
-                          <p className="text-sm text-cyan-200/60 mt-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm md:text-base text-white drop-shadow truncate">{preset.region_label}</p>
+                          <p className="text-xs md:text-sm text-cyan-200/60 mt-1 md:mt-2 line-clamp-2">
                             {preset.suburbs.length} suburbs • {preset.suburbs.slice(0, 3).join(", ")}
                             {preset.suburbs.length > 3 && "..."}
                           </p>
                         </div>
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                        <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                           searchMode === "preset" && selectedPresetId === preset.id
                             ? "bg-cyan-400 border-cyan-300"
                             : "border-cyan-400/40 group-hover/preset:border-cyan-400"
                         }`}>
                           {searchMode === "preset" && selectedPresetId === preset.id && (
-                            <div className="w-2 h-2 bg-white rounded-full" />
+                            <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full" />
                           )}
                         </div>
                       </div>
@@ -377,7 +377,7 @@ export default function MyWatchlists() {
                   ))}
                 </div>
               ) : (
-                <div className="p-4 bg-slate-800/40 rounded-lg border border-cyan-400/20 text-cyan-300/60">
+                <div className="p-3 md:p-4 bg-slate-800/40 rounded-lg border border-cyan-400/20 text-cyan-300/60 text-sm">
                   No presets available
                 </div>
               )}

@@ -229,23 +229,24 @@ export default function ListingsPage() {
 
   return (
     <Layout showNav={true}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto px-3 md:px-4">
         {!showForm ? (
           <>
-            {/* Listings List View */}
-            <div className="flex justify-between items-center mb-8">
+            {/* Listings List View - Responsive */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 md:gap-0 mb-6 md:mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Listings</h1>
-                <p className="text-muted-foreground">Manage all your property listings in one place</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 md:mb-2">Listings</h1>
+                <p className="text-xs sm:text-sm md:text-base text-muted-foreground">Manage your property listings</p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 md:gap-3 w-full sm:w-auto">
                 <button
                   disabled
                   title="AI-powered suggestions coming soon"
-                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-primary/20 to-primary/10 text-primary rounded-lg border border-primary/30 hover:border-primary/50 transition-colors font-semibold cursor-not-allowed opacity-60"
+                  className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 md:py-3 bg-gradient-to-r from-primary/20 to-primary/10 text-primary rounded-lg border border-primary/30 hover:border-primary/50 transition-colors font-semibold cursor-not-allowed opacity-60 text-sm md:text-base flex-1 sm:flex-none"
                 >
-                  <Sparkles className="w-5 h-5" />
-                  AI Suggest Listings
+                  <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden sm:inline">AI Suggest</span>
+                  <span className="sm:hidden">AI</span>
                 </button>
                 <button
                   onClick={() => {
@@ -265,47 +266,48 @@ export default function ListingsPage() {
                     });
                     setShowForm(true);
                   }}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 hover:shadow-lg transition-all font-semibold"
+                  className="flex items-center justify-center gap-2 px-3 md:px-6 py-2 md:py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 hover:shadow-lg transition-all font-semibold text-sm md:text-base flex-1 sm:flex-none touch-manipulation"
                 >
-                  <Plus className="w-5 h-5" />
-                  New Listing
+                  <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden sm:inline">New Listing</span>
+                  <span className="sm:hidden">New</span>
                 </button>
               </div>
             </div>
 
             {listings.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {listings.map((listing) => (
                   <div
                     key={listing.id}
                     className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg transition-shadow"
                   >
-                    {/* Listing Image Placeholder */}
-                    <div className="w-full h-48 bg-gradient-to-br from-cyan-900 to-slate-900 flex items-center justify-center">
-                      <Image className="w-12 h-12 text-cyan-400/30" />
+                    {/* Listing Image Placeholder - Responsive height */}
+                    <div className="w-full h-40 md:h-48 bg-gradient-to-br from-cyan-900 to-slate-900 flex items-center justify-center">
+                      <Image className="w-10 h-10 md:w-12 md:h-12 text-cyan-400/30" />
                     </div>
 
-                    {/* Listing Info */}
-                    <div className="p-5">
+                    {/* Listing Info - Responsive padding */}
+                    <div className="p-4 md:p-5">
                       {/* Address */}
-                      <h3 className="font-bold text-lg text-foreground mb-1">
+                      <h3 className="font-bold text-base md:text-lg text-foreground mb-1 line-clamp-2">
                         {listing.address}
                       </h3>
-                      <p className="text-sm text-muted-foreground mb-4 flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        {listing.suburb}, {listing.state} {listing.postcode}
+                      <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
+                        <span className="truncate">{listing.suburb}, {listing.state} {listing.postcode}</span>
                       </p>
 
                       {/* Price & Type */}
-                      <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+                      <div className="flex items-center justify-between mb-3 md:mb-4 pb-3 md:pb-4 border-b border-border">
                         <div className="flex items-center gap-2">
-                          <DollarSign className="w-5 h-5 text-primary" />
-                          <span className="font-bold text-xl text-foreground">
+                          <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
+                          <span className="font-bold text-lg md:text-xl text-foreground truncate">
                             {listing.price_display || "TBD"}
                           </span>
                         </div>
-                        <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold">
-                          {listing.type_sale_rent === "sale" ? "For Sale" : "For Rent"}
+                        <span className="px-2 md:px-3 py-0.5 md:py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold whitespace-nowrap">
+                          {listing.type_sale_rent === "sale" ? "Sale" : "Rent"}
                         </span>
                       </div>
 

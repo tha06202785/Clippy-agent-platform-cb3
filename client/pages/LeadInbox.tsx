@@ -368,22 +368,22 @@ export default function LeadInbox() {
   return (
     <Layout showNav={true}>
       <div className="max-w-screen-2xl mx-auto flex h-full">
-        {/* Left Pane: Lead List */}
-        <div className="w-1/4 bg-card border-r border-border p-4 flex flex-col">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-foreground">Lead Inbox</h2>
+        {/* Left Pane: Lead List - Hidden on mobile, visible on desktop */}
+        <div className="hidden lg:flex lg:w-1/4 bg-card border-r border-border p-3 md:p-4 flex-col">
+          <div className="mb-3 md:mb-4">
+            <h2 className="text-lg md:text-xl font-bold text-foreground">Lead Inbox</h2>
           </div>
-          <div className="relative mb-4">
+          <div className="relative mb-3 md:mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search leads..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder="Search..."
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+          <div className="flex gap-1.5 md:gap-2 mb-3 md:mb-4 overflow-x-auto pb-2">
             {["all", "new", "active", "hot", "unreplied"].map((status) => (
               <button
                 key={status}
@@ -429,20 +429,20 @@ export default function LeadInbox() {
           </div>
         </div>
 
-        {/* Middle Pane: Conversation Timeline */}
-        <div className="w-2/4 bg-background border-r border-border flex flex-col">
+        {/* Middle Pane: Conversation Timeline - Full width on mobile, half on desktop */}
+        <div className="w-full lg:w-2/4 bg-background border-r border-border flex flex-col">
           {selectedLead ? (
             <>
-              <div className="p-4 border-b border-border flex items-center gap-3">
-                <Users className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-bold text-foreground">
+              <div className="p-3 md:p-4 border-b border-border flex items-center gap-2 md:gap-3">
+                <Users className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
+                <h3 className="text-sm md:text-lg font-bold text-foreground truncate">
                   {selectedLead.full_name || "Unknown Lead"}
                 </h3>
-                <span className="ml-auto text-sm text-muted-foreground">
+                <span className="ml-auto text-xs md:text-sm text-muted-foreground whitespace-nowrap">
                   {selectedLead.primary_channel}
                 </span>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4">
                 {loading && <p className="text-center text-muted-foreground">Loading timeline...</p>}
                 {error && <p className="text-center text-red-500">{error}</p>}
                 {!loading && messages.length === 0 && <p className="text-center text-muted-foreground">No conversation history.</p>}
@@ -477,9 +477,9 @@ export default function LeadInbox() {
                 ))}
                 <div ref={messagesEndRef} /> {/* Auto-scroll target */}
               </div>
-              <div className="p-4 border-t border-border flex items-center gap-2">
-                <button className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors">
-                  <Paperclip className="w-5 h-5 text-muted-foreground" />
+              <div className="p-3 md:p-4 border-t border-border flex items-center gap-2">
+                <button className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors flex-shrink-0">
+                  <Paperclip className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
                 </button>
                 <input
                   type="text"
@@ -493,17 +493,18 @@ export default function LeadInbox() {
                 <button
                   onClick={handleSendMessage}
                   disabled={loading || !newMessage.trim() || !userOrgId || !selectedLead} // Disable if loading or no message/org/lead
-                  className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                  title="Send"
                 >
-                  <Send className="w-5 h-5" />
+                  <Send className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
                 {/* AI Generate Reply Button (Clippy's intelligence) */}
                 <button
-                  className="p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                   title="Generate AI Reply (Coming Soon)"
                   disabled // Disable for now as this needs Make.com integration
                 >
-                  <Sparkles className="w-5 h-5" />
+                  <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
               </div>
             </>
@@ -514,8 +515,8 @@ export default function LeadInbox() {
           )}
         </div>
 
-        {/* Right Pane: Lead Profile & Quick Actions */}
-        <div className="w-1/4 bg-card p-4 flex flex-col">
+        {/* Right Pane: Lead Profile & Quick Actions - Hidden on mobile, visible on desktop */}
+        <div className="hidden lg:flex lg:w-1/4 bg-card p-3 md:p-4 flex-col">
           {selectedLead ? (
             <>
               <h3 className="text-lg font-bold text-foreground mb-4">
