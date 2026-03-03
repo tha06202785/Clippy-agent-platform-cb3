@@ -17,6 +17,8 @@ import {
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
 
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 interface AreaPreset {
   id: string;
   name: string;
@@ -111,19 +113,14 @@ export default function MyWatchlists() {
 
   const fetchAreaPresets = async () => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.user) return;
-
+      // Use the Supabase anon key from environment
       const response = await fetch(
         "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets",
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           },
         }
       );
@@ -132,7 +129,8 @@ export default function MyWatchlists() {
         const data = await response.json();
         setAvailablePresets(data.presets || []);
       } else {
-        console.warn("Failed to fetch area presets:", response.statusText);
+        const errorText = await response.text();
+        console.warn("Failed to fetch area presets:", response.statusText, errorText);
       }
     } catch (err) {
       console.error("Error fetching area presets:", err);
@@ -202,15 +200,6 @@ export default function MyWatchlists() {
     try {
       setSaving(true);
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        showNotification("error", "Authentication required");
-        return;
-      }
-
       const payload = {
         watchlist_id: currentWatchlist?.id || null,
         user_id: userId,
@@ -228,7 +217,7 @@ export default function MyWatchlists() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify(payload),
         }
