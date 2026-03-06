@@ -96,6 +96,7 @@ export default function MyWatchlists() {
         }
 
         // Fetch area presets
+        console.log("Fetching area presets with anon key:", SUPABASE_ANON_KEY.substring(0, 20) + "...");
         await fetchAreaPresets();
 
         // Fetch existing watchlist for this user
@@ -113,6 +114,11 @@ export default function MyWatchlists() {
 
   const fetchAreaPresets = async () => {
     try {
+      console.log("Starting fetch with headers:", {
+        Authorization: `Bearer ${SUPABASE_ANON_KEY.substring(0, 20)}...`,
+        apikey: SUPABASE_ANON_KEY.substring(0, 20) + "...",
+      });
+
       const response = await fetch(
         "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets",
         {
@@ -120,17 +126,18 @@ export default function MyWatchlists() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            apikey: SUPABASE_ANON_KEY,
           },
         }
       );
 
+      const responseData = await response.json();
+      console.log("Response status:", response.status, "Data:", responseData);
+
       if (response.ok) {
-        const data = await response.json();
-        console.log("Area presets loaded:", data);
-        setAvailablePresets(data.presets || []);
+        setAvailablePresets(responseData.presets || responseData || []);
       } else {
-        const errorText = await response.text();
-        console.error("Failed to fetch area presets:", response.status, response.statusText, errorText);
+        console.error("Failed to fetch area presets:", response.status, responseData);
       }
     } catch (err) {
       console.error("Error fetching area presets:", err);
