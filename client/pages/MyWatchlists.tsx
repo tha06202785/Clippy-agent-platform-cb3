@@ -96,8 +96,8 @@ export default function MyWatchlists() {
           console.warn("Could not fetch org_id:", err);
         }
 
-        // Fetch area presets with session token
-        await fetchAreaPresets(session);
+        // Fetch area presets with anon key
+        await fetchAreaPresets();
 
         // Fetch existing watchlist for this user
         await fetchCurrentWatchlist(session.user.id);
@@ -112,25 +112,22 @@ export default function MyWatchlists() {
     initialize();
   }, [navigate]);
 
-  const fetchAreaPresets = async (session?: any) => {
+  const fetchAreaPresets = async () => {
     try {
-      // Try user session token first, then fall back to anon key
-      const useToken = session?.access_token || SUPABASE_ANON_KEY;
-      const tokenType = session?.access_token ? "user JWT" : "anon key";
-
-      console.log("📍 Fetching area presets with:", tokenType);
-      console.log("🔑 Token (first 30 chars):", useToken.substring(0, 30) + "...");
+      console.log("📍 Fetching area presets with ANON KEY only...");
+      console.log("🔑 Anon Key (first 40 chars):", SUPABASE_ANON_KEY.substring(0, 40) + "...");
 
       const headers = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${useToken}`,
-        apikey: SUPABASE_ANON_KEY, // Always include anon key as apikey header
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_ANON_KEY,
       };
 
-      console.log("📤 Request Headers:", {
+      console.log("📤 Sending GET request to: https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets");
+      console.log("📋 Headers:", {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${useToken.substring(0, 30)}...`,
-        apikey: SUPABASE_ANON_KEY.substring(0, 30) + "...",
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY.substring(0, 40)}...`,
+        "apikey": SUPABASE_ANON_KEY.substring(0, 40) + "...",
       });
 
       const response = await fetch(
@@ -141,24 +138,26 @@ export default function MyWatchlists() {
         }
       );
 
-      console.log("📥 Response Status:", response.status);
+      console.log("📥 Response Status:", response.status, response.statusText);
 
       const responseData = await response.json();
-      console.log("📊 Response Data:", responseData);
+      console.log("📊 Full Response Data:", responseData);
 
       if (response.ok) {
-        console.log("✅ Presets loaded successfully:", responseData);
+        console.log("✅ SUCCESS! Presets loaded:", responseData);
         const presets = Array.isArray(responseData) ? responseData : responseData.presets || [];
         setAvailablePresets(presets);
-        console.log("📋 Total presets:", presets.length);
+        console.log("✓ Total presets loaded:", presets.length);
       } else {
-        console.error("❌ Failed to fetch area presets");
-        console.error("   Status:", response.status);
-        console.error("   Error:", responseData?.message || responseData?.error || JSON.stringify(responseData));
+        console.error("❌ FAILED TO FETCH AREA PRESETS");
+        console.error("Status Code:", response.status);
+        console.error("Status Text:", response.statusText);
+        console.error("Response Body:", JSON.stringify(responseData, null, 2));
         setAvailablePresets([]);
       }
-    } catch (err) {
-      console.error("❌ Network error fetching area presets:", err);
+    } catch (err: any) {
+      console.error("❌ NETWORK ERROR:", err.message);
+      console.error("Error Details:", err);
       setAvailablePresets([]);
     }
   };
