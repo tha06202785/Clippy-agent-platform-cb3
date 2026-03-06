@@ -114,31 +114,47 @@ export default function MyWatchlists() {
 
   const fetchAreaPresets = async () => {
     try {
-      console.log("Fetching area presets with anon key...");
+      console.log("📍 Fetching area presets with anon key...");
+      console.log("🔑 Anon Key (first 30 chars):", SUPABASE_ANON_KEY.substring(0, 30) + "...");
+
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_ANON_KEY,
+      };
+
+      console.log("📤 Request Headers:", {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_ANON_KEY.substring(0, 30)}...`,
+        apikey: SUPABASE_ANON_KEY.substring(0, 30) + "...",
+      });
 
       const response = await fetch(
         "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets",
         {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          },
+          headers,
         }
       );
 
+      console.log("📥 Response Status:", response.status);
+
       const responseData = await response.json();
-      console.log("Area presets response status:", response.status, "Response:", responseData);
+      console.log("📊 Response Data:", responseData);
 
       if (response.ok) {
         console.log("✅ Presets loaded successfully:", responseData);
-        setAvailablePresets(Array.isArray(responseData) ? responseData : responseData.presets || []);
+        const presets = Array.isArray(responseData) ? responseData : responseData.presets || [];
+        setAvailablePresets(presets);
+        console.log("📋 Total presets:", presets.length);
       } else {
-        console.error("❌ Failed to fetch area presets - Status:", response.status, "Error:", responseData?.message || responseData?.error || responseData);
+        console.error("❌ Failed to fetch area presets");
+        console.error("   Status:", response.status);
+        console.error("   Error:", responseData?.message || responseData?.error || JSON.stringify(responseData));
         setAvailablePresets([]);
       }
     } catch (err) {
-      console.error("❌ Error fetching area presets:", err);
+      console.error("❌ Network error fetching area presets:", err);
       setAvailablePresets([]);
     }
   };
