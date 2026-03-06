@@ -403,33 +403,65 @@ export default function MyWatchlists() {
           </div>
         </div>
 
-        {/* Floating AI Suggests Box - Premium Edition */}
+        {/* Floating AI Suggests Box - Premium Edition with Ultimate Shimmer */}
         {availablePresets.length > 0 && (
           <div className="fixed bottom-6 right-6 md:bottom-auto md:top-32 md:right-8 max-w-xs z-40 animate-in slide-in-from-right-8 duration-700">
+            <style>{`
+              @keyframes shimmer-premium {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+              }
+              @keyframes pulse-glow {
+                0%, 100% { opacity: 0.6; }
+                50% { opacity: 0.95; }
+              }
+              .shimmer-gradient {
+                animation: shimmer-premium 2.5s infinite;
+              }
+            `}</style>
             <div className="relative group cursor-pointer">
-              {/* Triple-layer glow */}
+              {/* Quad-layer glow system */}
               <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/80 via-blue-500/80 to-cyan-500/80 rounded-2xl blur-2xl opacity-80 group-hover:opacity-100 animate-pulse transition-opacity" style={{ animationDuration: "2s" }} />
-              <div className="absolute -inset-2 bg-gradient-to-r from-cyan-400/50 via-blue-400/50 to-cyan-400/50 rounded-2xl blur-xl opacity-60 group-hover:opacity-70 animate-pulse transition-opacity" style={{ animationDuration: "3s", animationDelay: "0.3s" }} />
+              <div className="absolute -inset-2 bg-gradient-to-r from-cyan-400/50 via-blue-400/50 to-cyan-400/50 rounded-2xl blur-xl opacity-60 group-hover:opacity-75 animate-pulse transition-opacity" style={{ animationDuration: "3s", animationDelay: "0.3s" }} />
+              <div className="absolute -inset-3 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-2xl blur-3xl opacity-40 group-hover:opacity-60 animate-pulse transition-opacity" style={{ animationDuration: "4s", animationDelay: "0.6s" }} />
 
-              <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 rounded-2xl p-4 md:p-5 border-2 border-cyan-400/80 group-hover:border-cyan-200 shadow-2xl shadow-cyan-500/60 group-hover:shadow-cyan-400/80 transition-all duration-300 backdrop-blur-xl group-hover:scale-110 group-hover:-translate-y-1 active:scale-95">
-                <div className="flex items-center justify-between gap-3">
+              <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 rounded-2xl p-4 md:p-5 border-2 border-cyan-400/80 group-hover:border-cyan-200 shadow-2xl shadow-cyan-500/60 group-hover:shadow-cyan-400/90 transition-all duration-300 backdrop-blur-xl group-hover:scale-110 group-hover:-translate-y-2 active:scale-95 overflow-hidden">
+                <div className="flex items-center justify-between gap-3 relative z-10">
                   <div className="flex items-center gap-2 flex-1">
-                    <div className="p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/60 rounded-lg animate-pulse border border-cyan-300/80 shadow-lg shadow-cyan-400/50 flex-shrink-0" style={{ animationDuration: "1.5s" }}>
-                      <Sparkles className="w-4 h-4 text-cyan-50 drop-shadow-lg" />
+                    <div className="p-2 bg-gradient-to-br from-cyan-400/70 to-blue-500/70 rounded-lg animate-pulse border border-cyan-300/90 shadow-lg shadow-cyan-400/60 flex-shrink-0" style={{ animationDuration: "1.2s" }}>
+                      <Sparkles className="w-4 h-4 text-cyan-50 drop-shadow-lg animate-pulse" style={{ animationDuration: "1.5s" }} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-black text-cyan-100 uppercase tracking-widest drop-shadow">💡 AI SUGGESTS</p>
+                      <p className="text-xs font-black text-cyan-100 uppercase tracking-widest drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]">💡 AI SUGGESTS</p>
                       <p className="text-xs md:text-sm font-bold text-white mt-0.5 drop-shadow line-clamp-1">Enable alerts for smarter matching</p>
                     </div>
                   </div>
                   <ArrowRight className="w-4 h-4 md:w-5 md:h-5 text-cyan-100 group-hover:translate-x-2 transition-transform flex-shrink-0" />
                 </div>
-                {/* Shimmer effect - Multiple layers */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-50 transition-opacity">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-300 to-transparent animate-pulse" style={{ animationDuration: "2s" }} />
+
+                {/* Triple-layer shimmer effect - Premium smooth gradient */}
+                <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-60 transition-opacity duration-300">
+                  <div className="absolute inset-0 shimmer-gradient" style={{
+                    background: "linear-gradient(90deg, transparent, rgba(6,182,212,0.4), transparent)",
+                    width: "100%",
+                    height: "100%"
+                  }} />
                 </div>
-                <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-30 transition-opacity">
-                  <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white to-transparent animate-pulse" style={{ animationDuration: "1.8s", animationDelay: "0.2s" }} />
+                <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-40 transition-opacity duration-300">
+                  <div className="absolute inset-0 shimmer-gradient" style={{
+                    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+                    width: "100%",
+                    height: "100%",
+                    animationDelay: "0.3s"
+                  }} />
+                </div>
+                <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-30 transition-opacity duration-300">
+                  <div className="absolute inset-0 shimmer-gradient" style={{
+                    background: "linear-gradient(90deg, transparent, rgba(94,234,212,0.3), transparent)",
+                    width: "100%",
+                    height: "100%",
+                    animationDelay: "0.6s"
+                  }} />
                 </div>
               </div>
             </div>
@@ -473,7 +505,7 @@ export default function MyWatchlists() {
               <div className="p-1.5 md:p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/50 rounded-lg border border-cyan-300/70 shadow-lg shadow-cyan-400/50 flex-shrink-0 group-hover:shadow-cyan-400/70 transition-all">
                 <Home className="w-4 h-4 md:w-5 md:h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "3s" }} />
               </div>
-              <h2 className="text-lg md:text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">1. Region Presets</h2>
+              <h2 className="text-lg md:text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_0_16px_rgba(6,182,212,0.4)] group-hover:drop-shadow-[0_0_20px_rgba(6,182,212,0.6)] transition-all">1. Region Presets</h2>
             </div>
 
             <p className="text-xs md:text-sm text-cyan-200/70 mb-4 md:mb-6 font-semibold">Select pre-defined areas</p>
@@ -552,7 +584,7 @@ export default function MyWatchlists() {
               <div className="p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/50 rounded-lg border border-cyan-300/70 shadow-lg shadow-cyan-400/50 group-hover:shadow-cyan-400/70 transition-all">
                 <Plus className="w-5 h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "2.5s" }} />
               </div>
-              <h2 className="text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">2. Add Custom Suburbs</h2>
+              <h2 className="text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_0_16px_rgba(6,182,212,0.4)] group-hover:drop-shadow-[0_0_20px_rgba(6,182,212,0.6)] transition-all">2. Add Custom Suburbs</h2>
             </div>
 
             <p className="text-cyan-200/70 mb-6 font-semibold">Type a suburb name and press Enter to add it</p>
@@ -567,20 +599,24 @@ export default function MyWatchlists() {
             />
 
             {selectedCustomSuburbs.length > 0 && (
-              <div className="mt-6">
+              <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <p className="text-sm text-cyan-200/60 font-semibold mb-3">Selected Suburbs ({selectedCustomSuburbs.length})</p>
                 <div className="flex flex-wrap gap-3">
-                  {selectedCustomSuburbs.map((suburb) => (
+                  {selectedCustomSuburbs.map((suburb, idx) => (
                     <div
                       key={suburb}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 border-2 border-cyan-400/60 rounded-full group/tag hover:border-cyan-300 hover:shadow-lg hover:shadow-cyan-500/30 transition-all"
+                      className="relative flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 border-2 border-cyan-400/60 rounded-full group/tag hover:border-cyan-300 hover:shadow-2xl hover:shadow-cyan-500/40 hover:scale-105 hover:-translate-y-1 transition-all duration-300 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500"
+                      style={{ animationDelay: `${200 + idx * 80}ms` }}
                     >
-                      <span className="text-sm font-bold text-cyan-200 drop-shadow">{suburb}</span>
+                      {/* Hover glow effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/40 to-blue-400/30 rounded-full opacity-0 group-hover/tag:opacity-100 transition-opacity duration-300 blur-lg -z-10" />
+
+                      <span className="text-sm font-bold bg-gradient-to-r from-cyan-200 to-cyan-300 bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(6,182,212,0.3)] group-hover/tag:drop-shadow-[0_0_12px_rgba(6,182,212,0.5)] transition-all">{suburb}</span>
                       <button
                         onClick={() => handleRemoveSuburb(suburb)}
-                        className="ml-1 p-0.5 hover:bg-red-500/40 rounded-full transition-all opacity-70 hover:opacity-100"
+                        className="ml-1 p-0.5 hover:bg-red-500/50 rounded-full transition-all opacity-60 hover:opacity-100 group-hover/tag:scale-110"
                       >
-                        <X className="w-4 h-4 text-cyan-300 group-hover/tag:text-red-300" />
+                        <X className="w-4 h-4 text-cyan-300 group-hover/tag:text-red-300 transition-colors" />
                       </button>
                     </div>
                   ))}
@@ -597,7 +633,7 @@ export default function MyWatchlists() {
               <div className="p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/50 rounded-lg border border-cyan-300/70 shadow-lg shadow-cyan-400/50 group-hover:shadow-cyan-400/70 transition-all">
                 <Settings className="w-5 h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "3s" }} />
               </div>
-              <h2 className="text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">3. Property Focus</h2>
+              <h2 className="text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_0_16px_rgba(6,182,212,0.4)] group-hover:drop-shadow-[0_0_20px_rgba(6,182,212,0.6)] transition-all">3. Property Focus</h2>
             </div>
 
             <p className="text-cyan-200/70 mb-6 font-semibold">Select the type of properties to monitor</p>
@@ -629,7 +665,7 @@ export default function MyWatchlists() {
               <div className="p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/50 rounded-lg border border-cyan-300/70 shadow-lg shadow-cyan-400/50 group-hover:shadow-cyan-400/70 transition-all">
                 <ToggleRight className="w-5 h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "2.5s" }} />
               </div>
-              <h2 className="text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">4. Watchlist Status</h2>
+              <h2 className="text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_0_16px_rgba(6,182,212,0.4)] group-hover:drop-shadow-[0_0_20px_rgba(6,182,212,0.6)] transition-all">4. Watchlist Status</h2>
             </div>
 
             <p className="text-cyan-200/70 mb-6 font-semibold">Enable or disable AI alerts for this watchlist</p>
