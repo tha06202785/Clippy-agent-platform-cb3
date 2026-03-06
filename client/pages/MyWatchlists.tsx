@@ -168,7 +168,7 @@ export default function MyWatchlists() {
   const fetchCurrentWatchlist = async (userId: string) => {
     try {
       const { data } = await supabase
-        .from("agent_watchlists")
+        .from("suburb_watchlists")
         .select("*")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
