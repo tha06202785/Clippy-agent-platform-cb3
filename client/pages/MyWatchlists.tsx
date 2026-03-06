@@ -96,8 +96,8 @@ export default function MyWatchlists() {
           console.warn("Could not fetch org_id:", err);
         }
 
-        // Fetch area presets
-        await fetchAreaPresets();
+        // Fetch area presets with session token
+        await fetchAreaPresets(session);
 
         // Fetch existing watchlist for this user
         await fetchCurrentWatchlist(session.user.id);
@@ -112,20 +112,24 @@ export default function MyWatchlists() {
     initialize();
   }, [navigate]);
 
-  const fetchAreaPresets = async () => {
+  const fetchAreaPresets = async (session?: any) => {
     try {
-      console.log("📍 Fetching area presets with anon key...");
-      console.log("🔑 Anon Key (first 30 chars):", SUPABASE_ANON_KEY.substring(0, 30) + "...");
+      // Try user session token first, then fall back to anon key
+      const useToken = session?.access_token || SUPABASE_ANON_KEY;
+      const tokenType = session?.access_token ? "user JWT" : "anon key";
+
+      console.log("📍 Fetching area presets with:", tokenType);
+      console.log("🔑 Token (first 30 chars):", useToken.substring(0, 30) + "...");
 
       const headers = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${useToken}`,
+        apikey: SUPABASE_ANON_KEY, // Always include anon key as apikey header
       };
 
       console.log("📤 Request Headers:", {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_ANON_KEY.substring(0, 30)}...`,
+        Authorization: `Bearer ${useToken.substring(0, 30)}...`,
         apikey: SUPABASE_ANON_KEY.substring(0, 30) + "...",
       });
 
