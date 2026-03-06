@@ -221,9 +221,6 @@ export default function MyWatchlists() {
       console.warn("Watchlist fetch failed:", err);
     }
   };
-      // Allow page to continue - show default form
-    }
-  };
 
   const handleAddSuburb = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && customSuburbInput.trim()) {
