@@ -13,6 +13,9 @@ import {
   Loader,
   Eye,
   EyeOff,
+  Radar,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
@@ -302,11 +305,31 @@ export default function MyWatchlists() {
 
   return (
     <Layout showNav={true}>
-      {/* Background */}
+      {/* Deep Navy Background */}
       <div className="fixed inset-0 -z-30 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900" />
+
+      {/* Animated Gradient Orbs */}
       <div className="fixed inset-0 -z-20 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-cyan-500/10 to-blue-600/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "8s" }} />
-        <div className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-gradient-to-tr from-blue-500/8 to-cyan-600/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "10s", animationDelay: "1s" }} />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-cyan-500/15 to-blue-600/8 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "8s" }} />
+        <div className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-gradient-to-tr from-blue-500/12 to-cyan-600/8 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "10s", animationDelay: "1s" }} />
+      </div>
+
+      {/* Premium Animated Radar Grid Background */}
+      <div className="fixed inset-0 -z-20 overflow-hidden pointer-events-none">
+        <svg className="absolute inset-0 w-full h-full opacity-[0.15] animate-pulse" preserveAspectRatio="none" style={{ animationDuration: "7s", animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)" }}>
+          <defs>
+            <pattern id="radar-grid-watchlist" x="60" y="60" width="60" height="60" patternUnits="userSpaceOnUse">
+              <circle cx="30" cy="30" r="30" fill="none" stroke="#06b6d4" strokeWidth="0.8" opacity="0.5" />
+              <circle cx="30" cy="30" r="18" fill="none" stroke="#0ea5e9" strokeWidth="0.6" opacity="0.4" />
+              <circle cx="30" cy="30" r="6" fill="none" stroke="#06b6d4" strokeWidth="0.8" opacity="0.6" />
+              <line x1="0" y1="30" x2="60" y2="30" stroke="#06b6d4" strokeWidth="0.6" opacity="0.3" />
+              <line x1="30" y1="0" x2="30" y2="60" stroke="#06b6d4" strokeWidth="0.6" opacity="0.3" />
+              <circle cx="30" cy="30" r="2" fill="#0ea5e9" opacity="0.8" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#radar-grid-watchlist)" />
+        </svg>
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-blue-500/5 animate-pulse" style={{ animationDuration: "8s" }} />
       </div>
 
       <div className="max-w-4xl mx-auto relative z-10 px-4 py-8">
@@ -326,6 +349,36 @@ export default function MyWatchlists() {
             </div>
           </div>
         </div>
+
+        {/* Floating AI Suggests Box - Premium Edition */}
+        {availablePresets.length > 0 && (
+          <div className="fixed bottom-6 right-6 md:bottom-auto md:top-32 md:right-8 max-w-xs z-40 animate-in slide-in-from-right-8 duration-700">
+            <div className="relative group cursor-pointer">
+              {/* Triple-layer glow */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/80 via-blue-500/80 to-cyan-500/80 rounded-2xl blur-2xl opacity-80 group-hover:opacity-100 animate-pulse transition-opacity" style={{ animationDuration: "2s" }} />
+              <div className="absolute -inset-2 bg-gradient-to-r from-cyan-400/50 via-blue-400/50 to-cyan-400/50 rounded-2xl blur-xl opacity-60 group-hover:opacity-70 animate-pulse transition-opacity" style={{ animationDuration: "3s", animationDelay: "0.3s" }} />
+
+              <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 rounded-2xl p-4 md:p-5 border-2 border-cyan-400/80 group-hover:border-cyan-200 shadow-2xl shadow-cyan-500/60 group-hover:shadow-cyan-400/80 transition-all duration-300 backdrop-blur-xl group-hover:scale-110 group-hover:-translate-y-1 active:scale-95">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className="p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/60 rounded-lg animate-pulse border border-cyan-300/80 shadow-lg shadow-cyan-400/50 flex-shrink-0" style={{ animationDuration: "1.5s" }}>
+                      <Sparkles className="w-4 h-4 text-cyan-50 drop-shadow-lg" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-cyan-100 uppercase tracking-widest drop-shadow">💡 AI SUGGESTS</p>
+                      <p className="text-xs md:text-sm font-bold text-white mt-0.5 drop-shadow line-clamp-1">Enable alerts for smarter matching</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5 text-cyan-100 group-hover:translate-x-2 transition-transform flex-shrink-0" />
+                </div>
+                {/* Shimmer effect */}
+                <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-40">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-pulse" style={{ animationDuration: "2s" }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Notification Toast - Responsive positioning */}
         {notification && (
@@ -356,15 +409,15 @@ export default function MyWatchlists() {
 
         {/* Main Form Container - Responsive spacing */}
         <div className="space-y-6 md:space-y-8">
-          {/* Section 1: Region Presets - Responsive */}
-          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/50 p-4 md:p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)" }}>
-            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl hidden md:block" />
+          {/* Section 1: Region Presets - PREMIUM EDITION */}
+          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/60 p-4 md:p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl hover:shadow-cyan-500/40 transition-all" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 58, 138, 0.5) 100%)" }}>
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/40 to-blue-600/25 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-3xl hidden md:block" />
 
             <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-              <div className="p-1.5 md:p-2 bg-gradient-to-br from-cyan-400/50 to-blue-500/40 rounded-lg border border-cyan-300/60 shadow-lg shadow-cyan-400/40 flex-shrink-0">
-                <Home className="w-4 h-4 md:w-5 md:h-5 text-cyan-200" />
+              <div className="p-1.5 md:p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/50 rounded-lg border border-cyan-300/70 shadow-lg shadow-cyan-400/50 flex-shrink-0 group-hover:shadow-cyan-400/70 transition-all">
+                <Home className="w-4 h-4 md:w-5 md:h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "3s" }} />
               </div>
-              <h2 className="text-lg md:text-2xl font-black text-white drop-shadow-lg">1. Region Presets</h2>
+              <h2 className="text-lg md:text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">1. Region Presets</h2>
             </div>
 
             <p className="text-xs md:text-sm text-cyan-200/70 mb-4 md:mb-6 font-semibold">Select pre-defined areas</p>
@@ -372,39 +425,55 @@ export default function MyWatchlists() {
             <div className="space-y-3 md:space-y-4">
               {availablePresets.length > 0 ? (
                 <div className="grid gap-2 md:gap-3">
-                  {availablePresets.map((preset) => (
+                  {availablePresets.map((preset, idx) => (
                     <button
                       key={preset.id}
                       onClick={() => handlePresetChange(preset.id)}
-                      className={`relative p-3 md:p-4 rounded-xl border-2 transition-all duration-300 text-left group/preset touch-manipulation ${
+                      className={`relative p-3 md:p-4 rounded-xl border-2 transition-all duration-300 text-left group/preset touch-manipulation overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 ${
                         searchMode === "preset" && selectedPresetId === preset.id
-                          ? "bg-cyan-500/20 border-cyan-400/80 shadow-lg shadow-cyan-500/40"
-                          : "bg-slate-800/40 border-cyan-400/30 hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-500/20"
+                          ? "bg-cyan-500/25 border-cyan-400/90 shadow-lg shadow-cyan-500/50 scale-105"
+                          : "bg-slate-800/40 border-cyan-400/40 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-500/40 hover:scale-105 hover:-translate-y-1"
                       }`}
+                      style={{ animationDelay: `${idx * 80}ms` }}
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      {/* Hover glow background */}
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover/preset:opacity-100 transition-opacity duration-300 blur-2xl" />
+
+                      {/* Selected card pulsing border effect */}
+                      {searchMode === "preset" && selectedPresetId === preset.id && (
+                        <div className="absolute inset-0 rounded-xl border-2 border-cyan-400/80 opacity-70 animate-pulse" style={{ animationDuration: "2s" }} />
+                      )}
+
+                      <div className="flex items-start justify-between gap-2 relative z-10">
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm md:text-base text-white drop-shadow truncate">{preset.region_label}</p>
-                          <p className="text-xs md:text-sm text-cyan-200/60 mt-1 md:mt-2 line-clamp-2">
+                          <p className="font-black text-sm md:text-base bg-gradient-to-r from-cyan-300 to-cyan-400 bg-clip-text text-transparent drop-shadow truncate">
+                            {preset.region_label}
+                          </p>
+                          <p className="text-xs md:text-sm text-cyan-200/70 mt-1 md:mt-2 line-clamp-2 font-semibold">
                             {preset.suburbs.length} suburbs • {preset.suburbs.slice(0, 3).join(", ")}
                             {preset.suburbs.length > 3 && "..."}
                           </p>
                         </div>
-                        <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                          searchMode === "preset" && selectedPresetId === preset.id
-                            ? "bg-cyan-400 border-cyan-300"
-                            : "border-cyan-400/40 group-hover/preset:border-cyan-400"
-                        }`}>
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           {searchMode === "preset" && selectedPresetId === preset.id && (
-                            <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full" />
+                            <Radar className="w-4 h-4 md:w-5 md:h-5 text-cyan-300 animate-pulse flex-shrink-0" style={{ animationDuration: "2s" }} />
                           )}
+                          <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                            searchMode === "preset" && selectedPresetId === preset.id
+                              ? "bg-cyan-400 border-cyan-200 shadow-lg shadow-cyan-400/60"
+                              : "border-cyan-400/50 group-hover/preset:border-cyan-400/80"
+                          }`}>
+                            {searchMode === "preset" && selectedPresetId === preset.id && (
+                              <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full" />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="p-4 md:p-6 bg-slate-800/40 rounded-xl border border-cyan-400/20">
+                <div className="p-4 md:p-6 bg-slate-800/40 rounded-xl border border-cyan-400/20 animate-in fade-in duration-500">
                   <p className="text-cyan-300/70 text-sm md:text-base font-semibold">
                     📍 No presets found – add custom suburbs below
                   </p>
@@ -413,15 +482,15 @@ export default function MyWatchlists() {
             </div>
           </div>
 
-          {/* Section 2: Custom Suburbs */}
-          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/50 p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)", animationDelay: "100ms" }}>
-            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+          {/* Section 2: Custom Suburbs - PREMIUM EDITION */}
+          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/60 p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl hover:shadow-cyan-500/40 transition-all" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 58, 138, 0.5) 100%)", animationDelay: "100ms" }}>
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/40 to-blue-600/25 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-3xl" />
 
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gradient-to-br from-cyan-400/50 to-blue-500/40 rounded-lg border border-cyan-300/60 shadow-lg shadow-cyan-400/40">
-                <Plus className="w-5 h-5 text-cyan-200" />
+              <div className="p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/50 rounded-lg border border-cyan-300/70 shadow-lg shadow-cyan-400/50 group-hover:shadow-cyan-400/70 transition-all">
+                <Plus className="w-5 h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "2.5s" }} />
               </div>
-              <h2 className="text-2xl font-black text-white drop-shadow-lg">2. Add Custom Suburbs</h2>
+              <h2 className="text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">2. Add Custom Suburbs</h2>
             </div>
 
             <p className="text-cyan-200/70 mb-6 font-semibold">Type a suburb name and press Enter to add it</p>
@@ -458,15 +527,15 @@ export default function MyWatchlists() {
             )}
           </div>
 
-          {/* Section 3: Property Focus */}
-          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/50 p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)", animationDelay: "200ms" }}>
-            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+          {/* Section 3: Property Focus - PREMIUM EDITION */}
+          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/60 p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl hover:shadow-cyan-500/40 transition-all" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 58, 138, 0.5) 100%)", animationDelay: "200ms" }}>
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/40 to-blue-600/25 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-3xl" />
 
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gradient-to-br from-cyan-400/50 to-blue-500/40 rounded-lg border border-cyan-300/60 shadow-lg shadow-cyan-400/40">
-                <Settings className="w-5 h-5 text-cyan-200" />
+              <div className="p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/50 rounded-lg border border-cyan-300/70 shadow-lg shadow-cyan-400/50 group-hover:shadow-cyan-400/70 transition-all">
+                <Settings className="w-5 h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "3s" }} />
               </div>
-              <h2 className="text-2xl font-black text-white drop-shadow-lg">3. Property Focus</h2>
+              <h2 className="text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">3. Property Focus</h2>
             </div>
 
             <p className="text-cyan-200/70 mb-6 font-semibold">Select the type of properties to monitor</p>
@@ -490,15 +559,15 @@ export default function MyWatchlists() {
             </div>
           </div>
 
-          {/* Section 4: Watchlist Status */}
-          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/50 p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)", animationDelay: "300ms" }}>
-            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+          {/* Section 4: Watchlist Status - PREMIUM EDITION */}
+          <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/60 p-8 group backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl hover:shadow-cyan-500/40 transition-all" style={{ background: "linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 58, 138, 0.5) 100%)", animationDelay: "300ms" }}>
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/40 to-blue-600/25 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-3xl" />
 
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gradient-to-br from-cyan-400/50 to-blue-500/40 rounded-lg border border-cyan-300/60 shadow-lg shadow-cyan-400/40">
-                <ToggleRight className="w-5 h-5 text-cyan-200" />
+              <div className="p-2 bg-gradient-to-br from-cyan-400/60 to-blue-500/50 rounded-lg border border-cyan-300/70 shadow-lg shadow-cyan-400/50 group-hover:shadow-cyan-400/70 transition-all">
+                <ToggleRight className="w-5 h-5 text-cyan-100 animate-pulse" style={{ animationDuration: "2.5s" }} />
               </div>
-              <h2 className="text-2xl font-black text-white drop-shadow-lg">4. Watchlist Status</h2>
+              <h2 className="text-2xl font-black bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">4. Watchlist Status</h2>
             </div>
 
             <p className="text-cyan-200/70 mb-6 font-semibold">Enable or disable AI alerts for this watchlist</p>
@@ -531,14 +600,15 @@ export default function MyWatchlists() {
             </button>
           </div>
 
-          {/* Save Button */}
+          {/* Save Button - PREMIUM EDITION */}
           <button
             onClick={handleSaveWatchlist}
             disabled={saving}
-            className="group/save w-full relative inline-flex items-center justify-center gap-3 px-8 py-6 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 text-slate-900 rounded-2xl font-black text-lg transition-all duration-300 hover:shadow-3xl hover:shadow-cyan-500/80 hover:scale-105 active:scale-95 border-2 border-cyan-300/80 group-hover/save:border-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed animate-in fade-in slide-in-from-bottom-4 duration-500"
+            className="group/save w-full relative inline-flex items-center justify-center gap-3 px-8 py-6 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 text-slate-900 rounded-2xl font-black text-lg transition-all duration-300 hover:shadow-3xl hover:shadow-cyan-500/90 hover:scale-105 hover:-translate-y-1 active:scale-95 border-2 border-cyan-300/90 group-hover/save:border-cyan-50 disabled:opacity-50 disabled:cursor-not-allowed animate-in fade-in slide-in-from-bottom-4 duration-500"
             style={{ animationDelay: "400ms" }}
           >
-            <div className="absolute -inset-1.5 bg-gradient-to-r from-cyan-500/60 to-blue-500/60 rounded-2xl blur-xl opacity-60 group-hover/save:opacity-100 -z-10 animate-pulse" />
+            <div className="absolute -inset-1.5 bg-gradient-to-r from-cyan-500/80 to-blue-500/80 rounded-2xl blur-xl opacity-70 group-hover/save:opacity-100 -z-10 animate-pulse" style={{ animationDuration: "1.2s" }} />
+            <div className="absolute -inset-2 bg-gradient-to-r from-cyan-400/50 to-blue-400/50 rounded-2xl blur-2xl opacity-50 group-hover/save:opacity-70 -z-10 animate-pulse" style={{ animationDuration: "2s", animationDelay: "0.3s" }} />
             {saving ? (
               <>
                 <Loader className="w-6 h-6 animate-spin" />
@@ -546,15 +616,16 @@ export default function MyWatchlists() {
               </>
             ) : (
               <>
-                <Save className="w-6 h-6 group-hover/save:rotate-12 transition-transform" />
+                <Save className="w-6 h-6 group-hover/save:rotate-12 group-hover/save:scale-110 transition-transform" />
                 Save Watchlist
               </>
             )}
           </button>
 
-          {/* Info Text */}
-          <div className="p-4 bg-cyan-500/10 border border-cyan-400/30 rounded-xl text-cyan-200/70 text-sm font-semibold">
-            💡 Your watchlist helps the AI focus on the suburbs and property types that matter most to you. Updates take effect immediately.
+          {/* Info Text - PREMIUM EDITION */}
+          <div className="relative p-4 bg-gradient-to-br from-cyan-500/15 to-blue-600/10 border-2 border-cyan-400/40 rounded-xl text-cyan-200/80 text-sm font-semibold group hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-500/20 transition-all animate-in fade-in duration-500" style={{ animationDelay: "500ms" }}>
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-cyan-500/20 to-blue-600/10 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity blur-xl" />
+            💡 <span className="text-cyan-100 font-bold">Your AI watchlist</span> helps the AI focus on the suburbs and property types that matter most to you. Updates take effect immediately.
           </div>
         </div>
       </div>
