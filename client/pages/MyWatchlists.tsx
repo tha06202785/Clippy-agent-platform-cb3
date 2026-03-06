@@ -191,41 +191,36 @@ export default function MyWatchlists() {
 
   const fetchCurrentWatchlist = async (userId: string) => {
     try {
-      console.log("📋 Fetching current watchlist for user:", userId);
-
-      // Add timeout with Promise.race
-      const watchlistPromise = supabase
+      const { data, error } = await supabase
         .from("suburb_watchlists")
         .select("*")
         .eq("user_id", userId)
-                .limit(1)
-        .single();
+        .order("updated_at", { ascending: false }) // keep if column exists, or remove
+        .limit(1);
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Watchlist fetch timeout")), 8000)
-      );
-
-      const { data } = await Promise.race([watchlistPromise, timeoutPromise]) as any;
-
-      if (data) {
-        console.log("✓ Existing watchlist loaded");
-        setCurrentWatchlist(data);
-        setSelectedPresetId(data.search_mode === "preset" ? data.region_label : null);
-        setSelectedPresetName(data.region_label);
-        setSearchMode(data.search_mode);
-        setSelectedCustomSuburbs(data.suburbs);
-        setPropertyMode(data.property_mode);
-        setIsActive(data.is_active);
-      } else {
-        console.log("ℹ No existing watchlist found - showing default form");
+      if (error) {
+        console.warn("Watchlist fetch error:", error);
+        return;
       }
-    } catch (err: any) {
-      if (err?.code === "PGRST116") {
-        // No rows returned - this is expected for new users
-        console.log("ℹ No existing watchlist (new user)");
+
+      // Handle 0 or 1 row
+      if (data && data.length > 0) {
+        const watchlist = data[0];
+        setCurrentWatchlist(watchlist);
+        setSelectedPresetId(watchlist.search_mode === "preset" ? watchlist.region_label : null);
+        setSelectedPresetName(watchlist.region_label || "Custom Watchlist");
+        setSearchMode(watchlist.search_mode || "custom");
+        setSelectedCustomSuburbs(watchlist.suburbs || []);
+        setPropertyMode(watchlist.property_mode || "both");
+        setIsActive(watchlist.is_active ?? true);
       } else {
-        console.warn("⚠ Could not load watchlist:", err?.message || err);
+        // No existing watchlist — keep defaults
+        console.log("No existing watchlist for user — using defaults");
       }
+    } catch (err) {
+      console.warn("Watchlist fetch failed:", err);
+    }
+  };
       // Allow page to continue - show default form
     }
   };
