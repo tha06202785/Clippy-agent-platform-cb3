@@ -195,7 +195,6 @@ export default function MyWatchlists() {
         .from("suburb_watchlists")
         .select("*")
         .eq("user_id", userId)
-        .order("updated_at", { ascending: false }) // keep if column exists, or remove
         .limit(1);
 
       if (error) {
