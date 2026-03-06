@@ -96,8 +96,8 @@ export default function MyWatchlists() {
           console.warn("Could not fetch org_id:", err);
         }
 
-        // Fetch area presets with user's JWT
-        await fetchAreaPresets(session.access_token);
+        // Fetch area presets
+        await fetchAreaPresets();
 
         // Fetch existing watchlist for this user
         await fetchCurrentWatchlist(session.user.id);
@@ -112,10 +112,9 @@ export default function MyWatchlists() {
     initialize();
   }, [navigate]);
 
-  const fetchAreaPresets = async (accessToken: string) => {
+  const fetchAreaPresets = async () => {
     try {
-      console.log("Fetching area presets...");
-      console.log("User token preview:", accessToken.substring(0, 20) + "...");
+      console.log("Fetching area presets with anon key...");
 
       const response = await fetch(
         "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets",
@@ -123,23 +122,24 @@ export default function MyWatchlists() {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           },
         }
       );
 
       const responseData = await response.json();
-      console.log("Area presets response status:", response.status, "Full response:", responseData);
+      console.log("Area presets response status:", response.status, "Response:", responseData);
 
       if (response.ok) {
-        console.log("Presets loaded successfully:", responseData);
+        console.log("✅ Presets loaded successfully:", responseData);
         setAvailablePresets(Array.isArray(responseData) ? responseData : responseData.presets || []);
       } else {
-        console.error("Failed to fetch area presets: Status", response.status, "Message:", responseData?.message || responseData?.error || responseData);
+        console.error("❌ Failed to fetch area presets - Status:", response.status, "Error:", responseData?.message || responseData?.error || responseData);
+        setAvailablePresets([]);
       }
     } catch (err) {
-      console.error("Error fetching area presets:", err);
+      console.error("❌ Error fetching area presets:", err);
+      setAvailablePresets([]);
     }
   };
 
@@ -385,8 +385,10 @@ export default function MyWatchlists() {
                   ))}
                 </div>
               ) : (
-                <div className="p-3 md:p-4 bg-slate-800/40 rounded-lg border border-cyan-400/20 text-cyan-300/60 text-sm">
-                  No presets available
+                <div className="p-4 md:p-6 bg-slate-800/40 rounded-xl border border-cyan-400/20">
+                  <p className="text-cyan-300/70 text-sm md:text-base font-semibold">
+                    📍 No presets found – add custom suburbs below
+                  </p>
                 </div>
               )}
             </div>
