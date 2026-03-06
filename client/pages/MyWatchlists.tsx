@@ -198,8 +198,7 @@ export default function MyWatchlists() {
         .from("suburb_watchlists")
         .select("*")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(1)
+                .limit(1)
         .single();
 
       const timeoutPromise = new Promise((_, reject) =>
