@@ -371,9 +371,12 @@ export default function MyWatchlists() {
                   </div>
                   <ArrowRight className="w-4 h-4 md:w-5 md:h-5 text-cyan-100 group-hover:translate-x-2 transition-transform flex-shrink-0" />
                 </div>
-                {/* Shimmer effect */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-40">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-pulse" style={{ animationDuration: "2s" }} />
+                {/* Shimmer effect - Multiple layers */}
+                <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-50 transition-opacity">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-300 to-transparent animate-pulse" style={{ animationDuration: "2s" }} />
+                </div>
+                <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-30 transition-opacity">
+                  <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white to-transparent animate-pulse" style={{ animationDuration: "1.8s", animationDelay: "0.2s" }} />
                 </div>
               </div>
             </div>
@@ -431,22 +434,29 @@ export default function MyWatchlists() {
                       onClick={() => handlePresetChange(preset.id)}
                       className={`relative p-3 md:p-4 rounded-xl border-2 transition-all duration-300 text-left group/preset touch-manipulation overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 ${
                         searchMode === "preset" && selectedPresetId === preset.id
-                          ? "bg-cyan-500/25 border-cyan-400/90 shadow-lg shadow-cyan-500/50 scale-105"
-                          : "bg-slate-800/40 border-cyan-400/40 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-500/40 hover:scale-105 hover:-translate-y-1"
+                          ? "bg-cyan-500/25 border-cyan-400/90 shadow-lg shadow-cyan-500/50"
+                          : "bg-slate-800/40 border-cyan-400/40 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-500/50 hover:-translate-y-4"
                       }`}
-                      style={{ animationDelay: `${idx * 80}ms` }}
+                      style={{ animationDelay: `${idx * 100}ms` }}
+                      style={{
+                        animationDelay: `${idx * 100}ms`,
+                        transform: searchMode === "preset" && selectedPresetId === preset.id ? "scale(1.03)" : "scale(1)"
+                      }}
                     >
                       {/* Hover glow background */}
                       <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover/preset:opacity-100 transition-opacity duration-300 blur-2xl" />
 
                       {/* Selected card pulsing border effect */}
                       {searchMode === "preset" && selectedPresetId === preset.id && (
-                        <div className="absolute inset-0 rounded-xl border-2 border-cyan-400/80 opacity-70 animate-pulse" style={{ animationDuration: "2s" }} />
+                        <>
+                          <div className="absolute inset-0 rounded-xl border-2 border-cyan-400/80 opacity-70 animate-pulse" style={{ animationDuration: "2s" }} />
+                          <div className="absolute inset-0 rounded-xl shadow-lg shadow-cyan-400/40 animate-pulse" style={{ animationDuration: "2s" }} />
+                        </>
                       )}
 
                       <div className="flex items-start justify-between gap-2 relative z-10">
                         <div className="flex-1 min-w-0">
-                          <p className="font-black text-sm md:text-base bg-gradient-to-r from-cyan-300 to-cyan-400 bg-clip-text text-transparent drop-shadow truncate">
+                          <p className="font-black text-sm md:text-base bg-gradient-to-r from-cyan-300 to-cyan-400 bg-clip-text text-transparent drop-shadow truncate drop-shadow-[0_0_12px_rgba(6,182,212,0.4)]">
                             {preset.region_label}
                           </p>
                           <p className="text-xs md:text-sm text-cyan-200/70 mt-1 md:mt-2 line-clamp-2 font-semibold">
