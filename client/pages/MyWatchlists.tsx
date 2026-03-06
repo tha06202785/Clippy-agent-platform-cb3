@@ -17,8 +17,6 @@ import {
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
 
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xeWRpZXFleWJneHRqcW9ncndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4Mzk4NjQsImV4cCI6MjA4NzQxNTg2NH0.jB8Uq9ClaPF4fQaXOYCZ7uhaGsYEX2qt3C2R-8zn_PE";
-
 interface AreaPreset {
   id: string;
   name: string;
@@ -96,8 +94,7 @@ export default function MyWatchlists() {
         }
 
         // Fetch area presets
-        console.log("Fetching area presets with anon key:", SUPABASE_ANON_KEY.substring(0, 20) + "...");
-        await fetchAreaPresets();
+        await fetchAreaPresets(session.access_token);
 
         // Fetch existing watchlist for this user
         await fetchCurrentWatchlist(session.user.id);
@@ -112,12 +109,9 @@ export default function MyWatchlists() {
     initialize();
   }, [navigate]);
 
-  const fetchAreaPresets = async () => {
+  const fetchAreaPresets = async (accessToken: string) => {
     try {
-      console.log("Starting fetch with headers:", {
-        Authorization: `Bearer ${SUPABASE_ANON_KEY.substring(0, 20)}...`,
-        apikey: SUPABASE_ANON_KEY.substring(0, 20) + "...",
-      });
+      console.log("Fetching area presets with user JWT token...");
 
       const response = await fetch(
         "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets",
@@ -125,17 +119,16 @@ export default function MyWatchlists() {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
 
       const responseData = await response.json();
-      console.log("Response status:", response.status, "Data:", responseData);
+      console.log("Area presets response status:", response.status, "Data:", responseData);
 
       if (response.ok) {
-        setAvailablePresets(responseData.presets || responseData || []);
+        setAvailablePresets(Array.isArray(responseData) ? responseData : responseData.presets || []);
       } else {
         console.error("Failed to fetch area presets:", response.status, responseData);
       }
@@ -207,6 +200,16 @@ export default function MyWatchlists() {
     try {
       setSaving(true);
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        showNotification("error", "Authentication required");
+        setSaving(false);
+        return;
+      }
+
       const payload = {
         watchlist_id: currentWatchlist?.id || null,
         user_id: userId,
@@ -224,7 +227,7 @@ export default function MyWatchlists() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify(payload),
         }
