@@ -17,6 +17,9 @@ import {
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
 
+// Supabase anon key for Edge Function authentication
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xeWRpZXFleWJneHRqcW9ncndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4Mzk4NjQsImV4cCI6MjA4NzQxNTg2NH0.jB8Uq9ClaPF4fQaXOYCZ7uhaGsYEX2qt3C2R-8zn_PE";
+
 interface AreaPreset {
   id: string;
   name: string;
@@ -111,8 +114,8 @@ export default function MyWatchlists() {
 
   const fetchAreaPresets = async (accessToken: string) => {
     try {
-      console.log("Fetching area presets with user JWT token...");
-      console.log("Token preview:", accessToken.substring(0, 20) + "...");
+      console.log("Fetching area presets...");
+      console.log("User token preview:", accessToken.substring(0, 20) + "...");
 
       const response = await fetch(
         "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets",
@@ -121,17 +124,19 @@ export default function MyWatchlists() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
+            apikey: SUPABASE_ANON_KEY,
           },
         }
       );
 
       const responseData = await response.json();
-      console.log("Area presets response status:", response.status, "Data:", responseData);
+      console.log("Area presets response status:", response.status, "Full response:", responseData);
 
       if (response.ok) {
+        console.log("Presets loaded successfully:", responseData);
         setAvailablePresets(Array.isArray(responseData) ? responseData : responseData.presets || []);
       } else {
-        console.error("Failed to fetch area presets: Status", response.status, "Response:", responseData);
+        console.error("Failed to fetch area presets: Status", response.status, "Message:", responseData?.message || responseData?.error || responseData);
       }
     } catch (err) {
       console.error("Error fetching area presets:", err);
@@ -229,12 +234,14 @@ export default function MyWatchlists() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
+            apikey: SUPABASE_ANON_KEY,
           },
           body: JSON.stringify(payload),
         }
       );
 
       const result = await response.json();
+      console.log("Save watchlist response status:", response.status, "Result:", result);
 
       if (response.ok) {
         setCurrentWatchlist(result.watchlist);
@@ -245,6 +252,7 @@ export default function MyWatchlists() {
           setNotification(null);
         }, 3000);
       } else {
+        console.error("Save failed with status", response.status, "Error:", result?.message || result?.error || result);
         showNotification("error", result.message || "Failed to save watchlist");
       }
     } catch (err: any) {
