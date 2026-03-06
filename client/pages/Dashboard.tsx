@@ -794,8 +794,12 @@ function StatCard({ title, value, displayValue, icon: Icon, color, change, index
   const isNegative = change && change < 0;
   const actualDisplayValue = displayValue !== undefined ? displayValue : value;
 
+  // For percentage display, split into main number and % sign
+  const displayString = String(actualDisplayValue);
+  const isWholeNumber = Number.isInteger(actualDisplayValue);
+
   return (
-    <div 
+    <div
       className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/60 hover:-translate-y-2 active:scale-95 animate-in fade-in slide-in-from-bottom-4 duration-500"
       style={{
         background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)",
@@ -807,14 +811,27 @@ function StatCard({ title, value, displayValue, icon: Icon, color, change, index
 
       <div className="relative p-8 z-10">
         <div className="flex items-start justify-between mb-8">
-          <div>
+          <div className="flex-1">
             <p className="text-sm text-cyan-200/80 font-bold mb-3 uppercase tracking-widest drop-shadow">
               {title}
             </p>
-            <div className="flex items-baseline gap-3">
-              <p className="text-6xl font-black text-cyan-300 tabular-nums drop-shadow-lg">
-                {actualDisplayValue}{isPercentage ? "%" : ""}
-              </p>
+            <div className="flex items-center gap-4">
+              {isPercentage ? (
+                <div className="relative inline-flex items-center">
+                  {/* Main percentage number with glow */}
+                  <span className="text-4xl md:text-5xl font-black bg-gradient-to-r from-cyan-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(6,182,212,0.5)] tabular-nums">
+                    {displayString}
+                  </span>
+                  {/* % sign - smaller, superscript-like, lighter */}
+                  <span className="text-lg md:text-xl font-bold text-cyan-300/80 ml-1 relative -top-2 drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]">
+                    %
+                  </span>
+                </div>
+              ) : (
+                <p className="text-4xl md:text-5xl font-black text-cyan-300 tabular-nums drop-shadow-lg">
+                  {actualDisplayValue}
+                </p>
+              )}
               {change !== undefined && (
                 <div
                   className={`text-sm font-black px-3 py-2 rounded-full font-mono transition-all duration-300 border border-white/30 backdrop-blur-sm ${
