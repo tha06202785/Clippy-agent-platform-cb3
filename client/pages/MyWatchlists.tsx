@@ -499,7 +499,6 @@ export default function MyWatchlists() {
                           ? "bg-cyan-500/25 border-cyan-400/90 shadow-lg shadow-cyan-500/50"
                           : "bg-slate-800/40 border-cyan-400/40 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-500/50 hover:-translate-y-4"
                       }`}
-                      style={{ animationDelay: `${idx * 100}ms` }}
                       style={{
                         animationDelay: `${idx * 100}ms`,
                         transform: searchMode === "preset" && selectedPresetId === preset.id ? "scale(1.03)" : "scale(1)"
