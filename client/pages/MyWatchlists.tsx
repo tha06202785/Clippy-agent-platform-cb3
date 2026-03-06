@@ -72,19 +72,26 @@ export default function MyWatchlists() {
       try {
         setLoading(true);
 
-        // Get user session
+        // Get user session with timeout
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Session fetch timeout")), 8000)
+        );
+
         const {
           data: { session },
-        } = await supabase.auth.getSession();
+        } = await Promise.race([sessionPromise, timeoutPromise]) as any;
 
         if (!session?.user?.id) {
+          console.warn("No active session, redirecting to login");
           navigate("/login");
           return;
         }
 
+        console.log("✓ User session found:", session.user.id);
         setUserId(session.user.id);
 
-        // Get user's org ID
+        // Get user's org ID (non-blocking)
         try {
           const { data } = await supabase
             .from("user_org_roles")
@@ -94,21 +101,37 @@ export default function MyWatchlists() {
 
           if (data) {
             setUserOrgId(data.org_id);
+            console.log("✓ Org ID loaded:", data.org_id);
           }
         } catch (err) {
-          console.warn("Could not fetch org_id:", err);
+          console.warn("⚠ Could not fetch org_id:", err);
+          // Non-blocking error - continue anyway
         }
 
-        // Fetch area presets with anon key
-        await fetchAreaPresets();
+        // Fetch area presets with anon key (non-blocking)
+        try {
+          await fetchAreaPresets();
+        } catch (err) {
+          console.warn("⚠ Could not fetch area presets:", err);
+          setAvailablePresets([]);
+        }
 
-        // Fetch existing watchlist for this user
-        await fetchCurrentWatchlist(session.user.id);
+        // Fetch existing watchlist for this user (non-blocking)
+        try {
+          await fetchCurrentWatchlist(session.user.id);
+        } catch (err) {
+          console.warn("⚠ Could not fetch current watchlist:", err);
+          // Show default form
+        }
 
         setLoading(false);
-      } catch (err) {
-        console.error("Initialization error:", err);
+      } catch (err: any) {
+        console.error("❌ Initialization error:", err?.message || err);
+        // Still load the page but show user message about connection issues
         setLoading(false);
+        if (err?.message?.includes("timeout")) {
+          showNotification("error", "Network connection slow - some features may be temporarily unavailable");
+        }
       }
     };
 
@@ -117,8 +140,7 @@ export default function MyWatchlists() {
 
   const fetchAreaPresets = async () => {
     try {
-      console.log("📍 Fetching area presets with ANON KEY only...");
-      console.log("🔑 Anon Key (first 40 chars):", SUPABASE_ANON_KEY.substring(0, 40) + "...");
+      console.log("📍 Fetching area presets with ANON KEY...");
 
       const headers = {
         "Content-Type": "application/json",
@@ -126,48 +148,53 @@ export default function MyWatchlists() {
         apikey: SUPABASE_ANON_KEY,
       };
 
-      console.log("📤 Sending GET request to: https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets");
-      console.log("📋 Headers:", {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY.substring(0, 40)}...`,
-        "apikey": SUPABASE_ANON_KEY.substring(0, 40) + "...",
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      const response = await fetch(
-        "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets",
-        {
-          method: "GET",
-          headers,
+      try {
+        const response = await fetch(
+          "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets",
+          {
+            method: "GET",
+            headers,
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeout);
+        console.log("📥 Response Status:", response.status);
+
+        const responseData = await response.json();
+
+        if (response.ok) {
+          console.log("✅ Presets loaded successfully:", responseData.length || 0, "presets");
+          const presets = Array.isArray(responseData) ? responseData : responseData.presets || [];
+          setAvailablePresets(presets);
+        } else {
+          console.warn("⚠ Failed to load presets, status:", response.status);
+          setAvailablePresets([]);
         }
-      );
-
-      console.log("📥 Response Status:", response.status, response.statusText);
-
-      const responseData = await response.json();
-      console.log("📊 Full Response Data:", responseData);
-
-      if (response.ok) {
-        console.log("✅ SUCCESS! Presets loaded:", responseData);
-        const presets = Array.isArray(responseData) ? responseData : responseData.presets || [];
-        setAvailablePresets(presets);
-        console.log("✓ Total presets loaded:", presets.length);
-      } else {
-        console.error("❌ FAILED TO FETCH AREA PRESETS");
-        console.error("Status Code:", response.status);
-        console.error("Status Text:", response.statusText);
-        console.error("Response Body:", JSON.stringify(responseData, null, 2));
+      } catch (timeoutErr: any) {
+        clearTimeout(timeout);
+        if (timeoutErr.name === "AbortError") {
+          console.warn("⚠ Presets fetch timeout (10s)");
+        } else {
+          console.warn("⚠ Presets fetch error:", timeoutErr.message);
+        }
         setAvailablePresets([]);
       }
     } catch (err: any) {
-      console.error("❌ NETWORK ERROR:", err.message);
-      console.error("Error Details:", err);
+      console.error("❌ Unexpected error fetching presets:", err.message);
       setAvailablePresets([]);
     }
   };
 
   const fetchCurrentWatchlist = async (userId: string) => {
     try {
-      const { data } = await supabase
+      console.log("📋 Fetching current watchlist for user:", userId);
+
+      // Add timeout with Promise.race
+      const watchlistPromise = supabase
         .from("suburb_watchlists")
         .select("*")
         .eq("user_id", userId)
@@ -175,7 +202,14 @@ export default function MyWatchlists() {
         .limit(1)
         .single();
 
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Watchlist fetch timeout")), 8000)
+      );
+
+      const { data } = await Promise.race([watchlistPromise, timeoutPromise]) as any;
+
       if (data) {
+        console.log("✓ Existing watchlist loaded");
         setCurrentWatchlist(data);
         setSelectedPresetId(data.search_mode === "preset" ? data.region_label : null);
         setSelectedPresetName(data.region_label);
@@ -183,9 +217,17 @@ export default function MyWatchlists() {
         setSelectedCustomSuburbs(data.suburbs);
         setPropertyMode(data.property_mode);
         setIsActive(data.is_active);
+      } else {
+        console.log("ℹ No existing watchlist found - showing default form");
       }
-    } catch (err) {
-      console.warn("No existing watchlist found:", err);
+    } catch (err: any) {
+      if (err?.code === "PGRST116") {
+        // No rows returned - this is expected for new users
+        console.log("ℹ No existing watchlist (new user)");
+      } else {
+        console.warn("⚠ Could not load watchlist:", err?.message || err);
+      }
+      // Allow page to continue - show default form
     }
   };
 
@@ -228,12 +270,17 @@ export default function MyWatchlists() {
     try {
       setSaving(true);
 
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Session timeout")), 5000)
+      );
+
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await Promise.race([sessionPromise, timeoutPromise]) as any;
 
       if (!session?.access_token) {
-        showNotification("error", "Authentication required");
+        showNotification("error", "Authentication required - please refresh and try again");
         setSaving(false);
         return;
       }
@@ -249,37 +296,53 @@ export default function MyWatchlists() {
         is_active: isActive,
       };
 
-      const response = await fetch(
-        "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/save-agent-watchlist",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify(payload),
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // 15 second timeout for save
+
+      try {
+        const response = await fetch(
+          "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/save-agent-watchlist",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeout);
+        const result = await response.json();
+        console.log("✓ Watchlist saved, status:", response.status);
+
+        if (response.ok) {
+          setCurrentWatchlist(result.watchlist);
+          showNotification("success", "Watchlist saved successfully!");
+
+          // Auto-dismiss notification after 3 seconds
+          setTimeout(() => {
+            setNotification(null);
+          }, 3000);
+        } else {
+          console.warn("Save failed with status", response.status);
+          showNotification("error", result?.message || "Failed to save watchlist");
         }
-      );
-
-      const result = await response.json();
-      console.log("Save watchlist response status:", response.status, "Result:", result);
-
-      if (response.ok) {
-        setCurrentWatchlist(result.watchlist);
-        showNotification("success", "Watchlist saved successfully!");
-
-        // Auto-dismiss notification after 3 seconds
-        setTimeout(() => {
-          setNotification(null);
-        }, 3000);
-      } else {
-        console.error("Save failed with status", response.status, "Error:", result?.message || result?.error || result);
-        showNotification("error", result.message || "Failed to save watchlist");
+      } catch (fetchErr: any) {
+        clearTimeout(timeout);
+        if (fetchErr.name === "AbortError") {
+          console.warn("⚠ Save request timeout");
+          showNotification("error", "Save request timed out - please try again");
+        } else {
+          console.warn("⚠ Save request failed:", fetchErr.message);
+          showNotification("error", "Network error - please try again");
+        }
       }
     } catch (err: any) {
-      console.error("Save error:", err);
-      showNotification("error", err.message || "An error occurred while saving");
+      console.error("Save error:", err?.message || err);
+      showNotification("error", err?.message || "An error occurred while saving");
     } finally {
       setSaving(false);
     }
