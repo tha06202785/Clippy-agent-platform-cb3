@@ -811,19 +811,19 @@ function StatCard({ title, value, displayValue, icon: Icon, color, change, index
 
       <div className="relative p-8 z-10">
         <div className="flex items-start justify-between mb-8">
-          <div className="flex-1">
+          <div>
             <p className="text-sm text-cyan-200/80 font-bold mb-3 uppercase tracking-widest drop-shadow">
               {title}
             </p>
-            <div className="flex items-center gap-4">
+            <div className="flex items-baseline gap-3">
               {isPercentage ? (
-                <div className="relative inline-flex items-center">
-                  {/* Main percentage number with glow */}
-                  <span className="text-4xl md:text-5xl font-black bg-gradient-to-r from-cyan-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(6,182,212,0.5)] tabular-nums">
+                <div className="inline-flex items-baseline gap-1">
+                  {/* Main percentage number - clean and balanced */}
+                  <span className="text-4xl md:text-5xl font-black bg-gradient-to-r from-cyan-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(6,182,212,0.5)] tabular-nums leading-none">
                     {displayString}
                   </span>
-                  {/* % sign - smaller, superscript-like, lighter */}
-                  <span className="text-lg md:text-xl font-bold text-cyan-300/80 ml-1 relative -top-2 drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]">
+                  {/* % sign - superscript-like, smaller, lighter */}
+                  <span className="text-lg md:text-xl font-bold text-cyan-300/70 drop-shadow-[0_0_8px_rgba(6,182,212,0.35)]">
                     %
                   </span>
                 </div>
