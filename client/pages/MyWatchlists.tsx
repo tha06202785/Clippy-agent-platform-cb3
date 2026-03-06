@@ -367,9 +367,9 @@ export default function MyWatchlists() {
         <div className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-gradient-to-tr from-blue-500/12 to-cyan-600/8 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "10s", animationDelay: "1s" }} />
       </div>
 
-      {/* Premium Animated Radar Grid Background */}
+      {/* Premium Animated Radar Grid Background - Ultra Faint Breathing */}
       <div className="fixed inset-0 -z-20 overflow-hidden pointer-events-none">
-        <svg className="absolute inset-0 w-full h-full opacity-[0.15] animate-pulse" preserveAspectRatio="none" style={{ animationDuration: "7s", animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)" }}>
+        <svg className="absolute inset-0 w-full h-full opacity-[0.12] sm:opacity-[0.14] md:opacity-[0.16] animate-pulse" preserveAspectRatio="none" style={{ animationDuration: "12s", animationTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)" }}>
           <defs>
             <pattern id="radar-grid-watchlist" x="60" y="60" width="60" height="60" patternUnits="userSpaceOnUse">
               <circle cx="30" cy="30" r="30" fill="none" stroke="#06b6d4" strokeWidth="0.8" opacity="0.5" />
@@ -393,30 +393,44 @@ export default function MyWatchlists() {
               <MapPin className="w-5 h-5 md:w-6 md:h-6 text-cyan-300" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-5xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">
+              <h1 className="text-2xl sm:text-3xl md:text-5xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:drop-shadow-[0_0_30px_rgba(6,182,212,0.6)] transition-all duration-500">
                 Manage Watched Areas
               </h1>
-              <p className="text-xs sm:text-sm text-cyan-200/80 font-semibold mt-1 md:mt-2 drop-shadow">
+              <p className="text-xs sm:text-sm text-cyan-200/80 font-semibold mt-1 md:mt-2 drop-shadow-[0_0_10px_rgba(6,182,212,0.2)]">
                 Define suburbs & property types for AI
               </p>
             </div>
           </div>
         </div>
 
-        {/* Floating AI Suggests Box - Premium Edition with Ultimate Shimmer */}
+        {/* Floating AI Suggests Box - Premium Edition with Ultimate Shimmer & 2s Pulse */}
         {availablePresets.length > 0 && (
           <div className="fixed bottom-6 right-6 md:bottom-auto md:top-32 md:right-8 max-w-xs z-40 animate-in slide-in-from-right-8 duration-700">
             <style>{`
-              @keyframes shimmer-premium {
-                0% { transform: translateX(-100%); }
-                100% { transform: translateX(100%); }
+              @keyframes fadeInSlideUp {
+                from {
+                  opacity: 0;
+                  transform: translateY(20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: translateY(0);
+                }
               }
-              @keyframes pulse-glow {
-                0%, 100% { opacity: 0.6; }
-                50% { opacity: 0.95; }
+              @keyframes shimmer-premium {
+                0% { transform: translateX(-100%); opacity: 0; }
+                50% { opacity: 1; }
+                100% { transform: translateX(100%); opacity: 0; }
+              }
+              @keyframes gentle-pulse {
+                0%, 100% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.4), inset 0 0 20px rgba(6, 182, 212, 0.1); }
+                50% { box-shadow: 0 0 40px rgba(6, 182, 212, 0.6), inset 0 0 30px rgba(6, 182, 212, 0.15); }
               }
               .shimmer-gradient {
-                animation: shimmer-premium 2.5s infinite;
+                animation: shimmer-premium 2s infinite;
+              }
+              .pulse-glow {
+                animation: gentle-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
               }
             `}</style>
             <div className="relative group cursor-pointer">
@@ -425,7 +439,7 @@ export default function MyWatchlists() {
               <div className="absolute -inset-2 bg-gradient-to-r from-cyan-400/50 via-blue-400/50 to-cyan-400/50 rounded-2xl blur-xl opacity-60 group-hover:opacity-75 animate-pulse transition-opacity" style={{ animationDuration: "3s", animationDelay: "0.3s" }} />
               <div className="absolute -inset-3 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-2xl blur-3xl opacity-40 group-hover:opacity-60 animate-pulse transition-opacity" style={{ animationDuration: "4s", animationDelay: "0.6s" }} />
 
-              <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 rounded-2xl p-4 md:p-5 border-2 border-cyan-400/80 group-hover:border-cyan-200 shadow-2xl shadow-cyan-500/60 group-hover:shadow-cyan-400/90 transition-all duration-300 backdrop-blur-xl group-hover:scale-110 group-hover:-translate-y-2 active:scale-95 overflow-hidden">
+              <div className="relative pulse-glow bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 rounded-2xl p-4 md:p-5 border-2 border-cyan-400/80 group-hover:border-cyan-200 shadow-2xl shadow-cyan-500/60 group-hover:shadow-cyan-400/90 transition-all duration-400 backdrop-blur-xl group-hover:scale-110 group-hover:-translate-y-2 active:scale-95 overflow-hidden" style={{ animationPlayState: 'running' }}>
                 <div className="flex items-center justify-between gap-3 relative z-10">
                   <div className="flex items-center gap-2 flex-1">
                     <div className="p-2 bg-gradient-to-br from-cyan-400/70 to-blue-500/70 rounded-lg animate-pulse border border-cyan-300/90 shadow-lg shadow-cyan-400/60 flex-shrink-0" style={{ animationDuration: "1.2s" }}>
@@ -517,14 +531,16 @@ export default function MyWatchlists() {
                     <button
                       key={preset.id}
                       onClick={() => handlePresetChange(preset.id)}
-                      className={`relative p-3 md:p-4 rounded-xl border-2 transition-all duration-300 text-left group/preset touch-manipulation overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 ${
+                      className={`relative p-3 md:p-4 rounded-xl border-2 text-left group/preset touch-manipulation overflow-hidden transition-all duration-500 ${
                         searchMode === "preset" && selectedPresetId === preset.id
                           ? "bg-cyan-500/25 border-cyan-400/90 shadow-lg shadow-cyan-500/50"
-                          : "bg-slate-800/40 border-cyan-400/40 hover:border-cyan-400/70 hover:shadow-2xl hover:shadow-cyan-500/50 hover:-translate-y-4"
-                      }`}
+                          : "bg-slate-800/40 border-cyan-400/40 hover:border-cyan-400/60 hover:shadow-2xl hover:shadow-cyan-500/40 hover:-translate-y-1.5 sm:hover:-translate-y-2 md:hover:-translate-y-1.5"
+                      } animate-in fade-in duration-700 sm:duration-600 md:duration-500`}
                       style={{
-                        animationDelay: `${idx * 100}ms`,
-                        transform: searchMode === "preset" && selectedPresetId === preset.id ? "scale(1.03)" : "scale(1)"
+                        animationDelay: `${idx * 80}ms`,
+                        transform: `${searchMode === "preset" && selectedPresetId === preset.id ? "scale(1.03)" : "scale(1)"} translateY(${idx * 20}px)`,
+                        animation: `fadeInSlideUp 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+                        animationDelay: `${idx * 80}ms`
                       }}
                     >
                       {/* Hover glow background */}
@@ -533,14 +549,14 @@ export default function MyWatchlists() {
                       {/* Selected card pulsing border effect */}
                       {searchMode === "preset" && selectedPresetId === preset.id && (
                         <>
-                          <div className="absolute inset-0 rounded-xl border-2 border-cyan-400/80 opacity-70 animate-pulse" style={{ animationDuration: "2s" }} />
-                          <div className="absolute inset-0 rounded-xl shadow-lg shadow-cyan-400/40 animate-pulse" style={{ animationDuration: "2s" }} />
+                          <div className="absolute inset-0 rounded-xl border-2 border-cyan-400/80 opacity-70 animate-pulse" style={{ animationDuration: "2s", animationTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)" }} />
+                          <div className="absolute inset-0 rounded-xl shadow-lg shadow-cyan-400/40 animate-pulse" style={{ animationDuration: "2s", animationTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)" }} />
                         </>
                       )}
 
                       <div className="flex items-start justify-between gap-2 relative z-10">
                         <div className="flex-1 min-w-0">
-                          <p className="font-black text-sm md:text-base bg-gradient-to-r from-cyan-300 to-cyan-400 bg-clip-text text-transparent drop-shadow truncate drop-shadow-[0_0_12px_rgba(6,182,212,0.4)]">
+                          <p className="font-black text-sm md:text-base bg-gradient-to-r from-cyan-300 to-cyan-400 bg-clip-text text-transparent drop-shadow truncate drop-shadow-[0_0_12px_rgba(6,182,212,0.45)] group-hover/preset:drop-shadow-[0_0_18px_rgba(6,182,212,0.65)] transition-all duration-400">
                             {preset.region_label}
                           </p>
                           <p className="text-xs md:text-sm text-cyan-200/70 mt-1 md:mt-2 line-clamp-2 font-semibold">
@@ -599,24 +615,27 @@ export default function MyWatchlists() {
             />
 
             {selectedCustomSuburbs.length > 0 && (
-              <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-600" style={{ animationDelay: `${(availablePresets.length * 80) + 100}ms` }}>
                 <p className="text-sm text-cyan-200/60 font-semibold mb-3">Selected Suburbs ({selectedCustomSuburbs.length})</p>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2 sm:gap-3">
                   {selectedCustomSuburbs.map((suburb, idx) => (
                     <div
                       key={suburb}
-                      className="relative flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 border-2 border-cyan-400/60 rounded-full group/tag hover:border-cyan-300 hover:shadow-2xl hover:shadow-cyan-500/40 hover:scale-105 hover:-translate-y-1 transition-all duration-300 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500"
-                      style={{ animationDelay: `${200 + idx * 80}ms` }}
+                      className="relative flex items-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 border-2 border-cyan-400/60 rounded-full group/tag hover:border-cyan-300 hover:shadow-2xl hover:shadow-cyan-500/40 hover:scale-104 sm:hover:scale-105 hover:-translate-y-1.5 sm:hover:-translate-y-2 transition-all duration-500 overflow-hidden"
+                      style={{
+                        animation: `fadeInSlideUp 600ms cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+                        animationDelay: `${(availablePresets.length * 80) + 150 + idx * 60}ms`
+                      }}
                     >
                       {/* Hover glow effect */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/40 to-blue-400/30 rounded-full opacity-0 group-hover/tag:opacity-100 transition-opacity duration-300 blur-lg -z-10" />
+                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/40 to-blue-400/30 rounded-full opacity-0 group-hover/tag:opacity-100 transition-opacity duration-400 blur-lg -z-10" />
 
-                      <span className="text-sm font-bold bg-gradient-to-r from-cyan-200 to-cyan-300 bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(6,182,212,0.3)] group-hover/tag:drop-shadow-[0_0_12px_rgba(6,182,212,0.5)] transition-all">{suburb}</span>
+                      <span className="text-xs sm:text-sm font-bold bg-gradient-to-r from-cyan-200 to-cyan-300 bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(6,182,212,0.35)] group-hover/tag:drop-shadow-[0_0_14px_rgba(6,182,212,0.55)] transition-all duration-400">{suburb}</span>
                       <button
                         onClick={() => handleRemoveSuburb(suburb)}
-                        className="ml-1 p-0.5 hover:bg-red-500/50 rounded-full transition-all opacity-60 hover:opacity-100 group-hover/tag:scale-110"
+                        className="ml-0.5 sm:ml-1 p-0.5 hover:bg-red-500/60 rounded-full transition-all opacity-60 hover:opacity-100 group-hover/tag:scale-120 duration-300"
                       >
-                        <X className="w-4 h-4 text-cyan-300 group-hover/tag:text-red-300 transition-colors" />
+                        <X className="w-3 sm:w-4 h-3 sm:h-4 text-cyan-300 group-hover/tag:text-red-300 transition-colors duration-300" />
                       </button>
                     </div>
                   ))}
