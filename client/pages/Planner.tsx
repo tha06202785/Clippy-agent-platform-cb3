@@ -7,9 +7,11 @@ import {
   Share2,
   Plus,
   Phone,
+  Check,
+  AlertCircle,
 } from "lucide-react";
 import Layout from "@/components/Layout";
-import { supabase } from "@/lib/supabase";
+import { usePendingTasks } from "@/hooks/usePendingTasks";
 
 // --- INTERFACES (Matching Supabase Schema) ---
 interface SupabaseTask {
@@ -29,12 +31,6 @@ interface SupabaseTask {
   listings?: { address: string } | null; // For joined listing address
 }
 
-interface SupabaseListing {
-  id: string;
-  address: string;
-  // Add other fields from listings table if needed for display
-}
-
 
 // --- CONFIGS for Task/Post Types ---
 const taskTypeConfig: { [key: string]: { bg: string; text: string; label: string; icon: React.ElementType } } = {
@@ -48,114 +44,50 @@ const taskTypeConfig: { [key: string]: { bg: string; text: string; label: string
 };
 
 export default function Planner() {
-  const [todayItems, setTodayItems] = useState<SupabaseTask[]>([]);
-  const [upcomingItems, setUpcomingItems] = useState<SupabaseTask[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [userOrgId, setUserOrgId] = useState<string | null>(null);
+  const { tasks, loading, error, markDone } = usePendingTasks();
+  const [todayItems, setTodayItems] = useState<typeof tasks>([]);
+  const [upcomingItems, setUpcomingItems] = useState<typeof tasks>([]);
+  const [completingId, setCompletingId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Effect to fetch user's org_id
+  // Separate tasks into today and upcoming
   useEffect(() => {
-    const fetchUserOrgId = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
+    const now = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-      if (!userId) {
-        navigate("/login");
-        return;
+    const taskForToday: typeof tasks = [];
+    const upcomingTasks: typeof tasks = [];
+
+    tasks.forEach((task) => {
+      const dueDate = new Date(task.due_at);
+      if (dueDate >= todayStart && dueDate < tomorrowStart) {
+        taskForToday.push(task);
+      } else if (dueDate >= tomorrowStart) {
+        upcomingTasks.push(task);
       }
+    });
 
-      try {
-        const { data, error: orgError } = await supabase
-          .from("user_org_roles")
-          .select("org_id")
-          .eq("user_id", userId)
-          .single();
+    setTodayItems(taskForToday);
+    setUpcomingItems(upcomingTasks);
+  }, [tasks]);
 
-        if (orgError) {
-          console.warn("No org role found, using default:", orgError.message);
-          setUserOrgId("default");
-        } else if (data) {
-          setUserOrgId(data.org_id);
-        } else {
-          setUserOrgId("default");
-        }
-      } catch (err) {
-        console.error("Error fetching org_id:", err);
-        setUserOrgId("default");
-      }
-    };
-    fetchUserOrgId();
-  }, [navigate]);
+  const handleMarkDone = async (id: string) => {
+    setCompletingId(id);
+    try {
+      await markDone(id);
+    } finally {
+      setCompletingId(null);
+    }
+  };
 
-  // Effect to fetch planner items
-  useEffect(() => {
-    const fetchPlannerItems = async () => {
-      if (!userOrgId) return; // Wait until org_id is available
-
-      setLoading(true);
-      setError(null);
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
-
-      if (!userId) {
-        navigate("/login"); // Redirect to login if not authenticated
-        return;
-      }
-
-      const now = new Date();
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const tomorrowStart = new Date(todayStart);
-      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-
-      // Fetch all relevant tasks (including scheduled posts)
-      const { data: fetchedTasks, error: tasksError } = await supabase
-        .from("tasks")
-        .select("*, listings(address)") // Select tasks and join listing address
-        .eq("org_id", userOrgId)
-        .eq("assigned_to_user_id", userId)
-        .gte("due_at", now.toISOString()) // Only future or current items
-        .order("due_at", { ascending: true });
-
-      if (tasksError) {
-        console.error("Error fetching planner items:", tasksError);
-        setError("Failed to load planner items.");
-        setLoading(false);
-        return;
-      }
-
-      const tasksForToday: SupabaseTask[] = [];
-      const upcomingTasks: SupabaseTask[] = [];
-
-      (fetchedTasks || []).forEach((task) => {
-        const dueDate = new Date(task.due_at);
-        if (dueDate >= todayStart && dueDate < tomorrowStart) {
-          tasksForToday.push(task);
-        } else if (dueDate >= tomorrowStart) {
-          upcomingTasks.push(task);
-        }
-      });
-
-      setTodayItems(tasksForToday);
-      setUpcomingItems(upcomingTasks);
-      setLoading(false);
-    };
-
-    fetchPlannerItems();
-  }, [userOrgId, navigate]); // Re-fetch when org_id changes
-
-  if (loading && !userOrgId) {
+  if (loading) {
     return (
       <Layout showNav={true}>
         <div className="max-w-7xl mx-auto p-6 text-center text-muted-foreground">
-          Initializing Planner...
+          Loading tasks...
         </div>
       </Layout>
     );
@@ -164,8 +96,11 @@ export default function Planner() {
   if (error) {
     return (
       <Layout showNav={true}>
-        <div className="max-w-7xl mx-auto p-6 text-center text-red-500">
-          {error}
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="flex items-center gap-3 p-4 bg-red-900/20 border border-red-700/50 rounded-lg text-red-200">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <p>{error}</p>
+          </div>
         </div>
       </Layout>
     );
@@ -192,16 +127,21 @@ export default function Planner() {
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <h2 className="text-lg md:text-xl font-bold text-foreground flex items-center gap-2">
               <CalendarIcon className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" /> Today
+              {todayItems.length > 0 && (
+                <span className="ml-2 px-2 py-1 text-xs font-semibold bg-primary/20 text-primary rounded-full">
+                  {todayItems.length}
+                </span>
+              )}
             </h2>
           </div>
           <div className="space-y-3">
-            {todayItems.length === 0 && !loading ? (
+            {todayItems.length === 0 ? (
               <p className="text-center text-muted-foreground py-4">No items scheduled for today!</p>
             ) : (
               todayItems.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-start gap-2 md:gap-4 p-3 md:p-4 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors"
+                  className="flex items-start gap-2 md:gap-4 p-3 md:p-4 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors group"
                 >
                   <div
                     className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${taskTypeConfig[item.type]?.bg || 'bg-gray-50'
@@ -214,13 +154,22 @@ export default function Planner() {
                       {item.title}
                     </p>
                     <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
-                      {item.listing_id && item.listings?.address ? `Listing: ${item.listings.address}` : ''}
-                      {item.lead_id ? ` Lead: ${item.lead_id.substring(0, 8)}...` : ''}
+                      {item.leads?.full_name && `Lead: ${item.leads.full_name}`}
                       {item.description && ` - ${item.description}`}
                     </p>
                   </div>
-                  <div className="text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap flex-shrink-0">
-                    {new Date(item.due_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap">
+                      {new Date(item.due_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <button
+                      onClick={() => handleMarkDone(item.id)}
+                      disabled={completingId === item.id}
+                      className="p-2 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors opacity-0 group-hover:opacity-100"
+                      title="Mark as done"
+                    >
+                      <Check className="w-4 h-4 md:w-5 md:h-5" />
+                    </button>
                   </div>
                 </div>
               ))
@@ -233,16 +182,21 @@ export default function Planner() {
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <h2 className="text-lg md:text-xl font-bold text-foreground flex items-center gap-2">
               <Clock className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" /> Upcoming
+              {upcomingItems.length > 0 && (
+                <span className="ml-2 px-2 py-1 text-xs font-semibold bg-primary/20 text-primary rounded-full">
+                  {upcomingItems.length}
+                </span>
+              )}
             </h2>
           </div>
           <div className="space-y-2 md:space-y-3">
-            {upcomingItems.length === 0 && !loading ? (
+            {upcomingItems.length === 0 ? (
               <p className="text-center text-muted-foreground py-4 text-sm">No upcoming items scheduled.</p>
             ) : (
               upcomingItems.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-start gap-2 md:gap-4 p-3 md:p-4 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors"
+                  className="flex items-start gap-2 md:gap-4 p-3 md:p-4 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors group"
                 >
                   <div
                     className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${taskTypeConfig[item.type]?.bg || 'bg-gray-50'
@@ -255,14 +209,23 @@ export default function Planner() {
                       {item.title}
                     </p>
                     <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
-                      {item.listing_id && item.listings?.address ? `Listing: ${item.listings.address}` : ''}
-                      {item.lead_id ? ` Lead: ${item.lead_id.substring(0, 8)}...` : ''}
+                      {item.leads?.full_name && `Lead: ${item.leads.full_name}`}
                       {item.description && ` - ${item.description}`}
                     </p>
                   </div>
-                  <div className="text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap flex-shrink-0">
-                    <span className="hidden md:inline">{new Date(item.due_at).toLocaleDateString()} </span>
-                    {new Date(item.due_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap">
+                      <span className="hidden md:inline">{new Date(item.due_at).toLocaleDateString()} </span>
+                      {new Date(item.due_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <button
+                      onClick={() => handleMarkDone(item.id)}
+                      disabled={completingId === item.id}
+                      className="p-2 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors opacity-0 group-hover:opacity-100"
+                      title="Mark as done"
+                    >
+                      <Check className="w-4 h-4 md:w-5 md:h-5" />
+                    </button>
                   </div>
                 </div>
               ))
