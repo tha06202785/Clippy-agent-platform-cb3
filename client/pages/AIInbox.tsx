@@ -10,20 +10,10 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import Layout from '@/components/Layout';
-import { supabase } from '@/lib/supabase';
+import { useConversationsList } from '@/hooks/useConversationsList';
 import { useConversationWithDraft } from '@/hooks/useConversationWithDraft';
 
-interface Conversation {
-  id: string;
-  lead_id: string;
-  channel: string;
-  last_message_at: string;
-  leads?: {
-    full_name: string;
-    phone: string | null;
-    avatar_url?: string;
-  } | null;
-}
+type Conversation = ReturnType<typeof useConversationsList>['conversations'][number] & { lead_id?: string };
 
 interface Message {
   id: string;
@@ -34,50 +24,22 @@ interface Message {
 
 export default function AIInbox() {
   const navigate = useNavigate();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const { conversations, loading, error } = useConversationsList();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [sendingDraft, setSendingDraft] = useState(false);
   const [draftSent, setDraftSent] = useState(false);
   const [copiedDraft, setCopiedDraft] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { messages, aiDraft, loading: draftLoading, error: draftError } =
-    useConversationWithDraft(selectedConversation?.id || null, selectedConversation?.lead_id || null);
+    useConversationWithDraft(selectedConversation?.id || null, selectedConversation?.leads?.id || null);
 
-  // Fetch conversations on mount
+  // Auto-select first conversation when conversations load
   useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const { data, error: fetchError } = await supabase
-          .from('conversations')
-          .select('id, lead_id, channel, last_message_at, leads(full_name, phone, avatar_url)')
-          .order('last_message_at', { ascending: false });
-
-        if (fetchError) {
-          console.error('Error fetching conversations:', fetchError);
-          setError('Failed to load conversations');
-        } else {
-          setConversations(data || []);
-          // Auto-select first conversation
-          if (data && data.length > 0) {
-            setSelectedConversation(data[0]);
-          }
-        }
-      } catch (err) {
-        console.error('Error in fetchConversations:', err);
-        setError('An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConversations();
-  }, []);
+    if (conversations.length > 0 && !selectedConversation) {
+      setSelectedConversation(conversations[0]);
+    }
+  }, [conversations, selectedConversation]);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -162,10 +124,10 @@ export default function AIInbox() {
                   }`}
                 >
                   <p className="font-semibold text-sm text-foreground truncate">
-                    {conv.leads?.full_name || 'Unknown Lead'}
+                    {conv.leads?.full_name || 'Unknown'}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {conv.channel || 'Direct'} • {new Date(conv.last_message_at).toLocaleDateString()}
+                    {conv.channel} • {new Date(conv.last_message_at).toLocaleDateString()}
                   </p>
                 </button>
               ))}
@@ -180,11 +142,10 @@ export default function AIInbox() {
               {/* Header */}
               <div className="border-b border-border p-4 bg-card">
                 <h3 className="font-bold text-foreground">
-                  {selectedConversation.leads?.full_name || 'Unknown Lead'}
+                  {selectedConversation.leads?.full_name || 'Unknown'}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  {selectedConversation.channel || 'Direct Message'} • Last message:{' '}
-                  {new Date(selectedConversation.last_message_at).toLocaleString()}
+                  {selectedConversation.channel} • {new Date(selectedConversation.last_message_at).toLocaleString()}
                 </p>
               </div>
 
