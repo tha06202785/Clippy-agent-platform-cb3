@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Send,
   AlertCircle,
@@ -23,15 +22,13 @@ interface Message {
 }
 
 export default function AIInbox() {
-  const navigate = useNavigate();
   const { conversations, loading, error } = useConversationsList();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [sendingDraft, setSendingDraft] = useState(false);
   const [draftSent, setDraftSent] = useState(false);
   const [copiedDraft, setCopiedDraft] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { messages, aiDraft, loading: draftLoading, error: draftError } =
+  const { messages, aiDraft, loading: draftLoading, error: draftError, sending, sendDraft } =
     useConversationWithDraft(selectedConversation?.id || null, selectedConversation?.leads?.id || null);
 
   // Auto-select first conversation when conversations load
@@ -49,32 +46,10 @@ export default function AIInbox() {
   const handleSendDraft = async () => {
     if (!selectedConversation || !aiDraft?.suggested_reply) return;
 
-    setSendingDraft(true);
-    try {
-      // Insert the draft as an outgoing message
-      const { error: insertError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: selectedConversation.id,
-          text: aiDraft.suggested_reply,
-          direction_in_out: 'out',
-          created_at: new Date().toISOString(),
-        });
-
-      if (insertError) {
-        console.error('Error sending draft:', insertError);
-        setError('Failed to send draft');
-      } else {
-        setDraftSent(true);
-        // Show success for 2 seconds then reset
-        setTimeout(() => setDraftSent(false), 2000);
-      }
-    } catch (err) {
-      console.error('Error in handleSendDraft:', err);
-      setError('An error occurred while sending');
-    } finally {
-      setSendingDraft(false);
-    }
+    await sendDraft(aiDraft.suggested_reply);
+    setDraftSent(true);
+    // Show success for 2 seconds then reset
+    setTimeout(() => setDraftSent(false), 2000);
   };
 
   const handleCopyDraft = () => {
@@ -248,7 +223,7 @@ export default function AIInbox() {
                       {/* Send Draft Button */}
                       <button
                         onClick={handleSendDraft}
-                        disabled={sendingDraft}
+                        disabled={sending}
                         className={`w-full py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                           draftSent
                             ? 'bg-green-600/30 text-green-300 border border-green-600/50'
@@ -260,7 +235,7 @@ export default function AIInbox() {
                             <CheckCircle2 className="w-5 h-5" />
                             Sent!
                           </>
-                        ) : sendingDraft ? (
+                        ) : sending ? (
                           <>
                             <Clock className="w-5 h-5 animate-spin" />
                             Sending...
