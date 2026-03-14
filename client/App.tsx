@@ -12,6 +12,7 @@ import AIRadar from "./pages/AIRadar";
 import MyWatchlists from "./pages/MyWatchlists";
 import LeadInbox from "./pages/LeadInbox";
 import AIInbox from "./pages/AIInbox";
+import CopilotMobile from "./pages/CopilotMobile";
 import Listings from "./pages/Listings";
 import Planner from "./pages/Planner";
 import Integrations from "./pages/Integrations";
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/ai-radar/my-watchlists" element={<MyWatchlists />} />
           <Route path="/inbox" element={<LeadInbox />} />
           <Route path="/ai-inbox" element={<AIInbox />} />
+          <Route path="/copilot" element={<CopilotMobile />} />
           <Route path="/listings" element={<Listings />} />
           <Route path="/planner" element={<Planner />} />
           <Route path="/integrations" element={<Integrations />} />

@@ -13,6 +13,7 @@ import {
   Radar,
   ChevronDown,
   Sparkles,
+  Mic,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
     { path: "/ai-radar", label: "AI Radar", icon: Radar, premium: true },
     { path: "/inbox", label: "Lead Inbox", icon: Inbox },
     { path: "/ai-inbox", label: "AI Inbox", icon: Sparkles, premium: true },
+    { path: "/copilot", label: "Copilot", icon: Mic, premium: true },
     { path: "/listings", label: "Listings", icon: FileText },
     { path: "/planner", label: "Planner", icon: Calendar },
   ];
