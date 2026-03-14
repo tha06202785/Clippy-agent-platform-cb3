@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Mic, Loader, Keyboard, X, MessageCircle } from 'lucide-react';
+import { Send, Mic, Loader, Keyboard, X } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -153,21 +153,8 @@ export default function CopilotMobile() {
     }
   };
 
-  const closeWidget = () => {
-    setIsOpen(false);
-  };
-
   return (
-    <div className="fixed inset-0 pointer-events-none">
-      {/* Overlay - Click to close */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm pointer-events-auto z-40 transition-opacity duration-300"
-          onClick={closeWidget}
-        />
-      )}
-
-      {/* Chat Window - Slides up from bottom right */}
+    <>
       <style>{`
         @keyframes glowPulse {
           0%, 100% {
@@ -180,193 +167,167 @@ export default function CopilotMobile() {
         .mic-recording {
           animation: glowPulse 1.5s ease-in-out infinite;
         }
-        @keyframes slideUp {
-          from {
-            transform: translateY(500px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        .slide-up-enter {
-          animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-        @keyframes slideDown {
-          from {
-            transform: translateY(0);
-            opacity: 1;
-          }
-          to {
-            transform: translateY(500px);
-            opacity: 0;
-          }
-        }
-        .slide-down-exit {
-          animation: slideDown 0.3s ease-in forwards;
-        }
       `}</style>
 
-      <div
-        className={`fixed bottom-24 right-6 w-full max-w-md h-[90vh] flex flex-col bg-slate-900/80 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden pointer-events-auto z-50 transition-all duration-300 ${
-          isOpen ? 'slide-up-enter' : 'slide-down-exit hidden'
-        }`}
-      >
-        {/* Header with Close Button */}
-        <div className="bg-gradient-to-b from-slate-800 to-slate-900/50 p-6 border-b border-slate-700/30 flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">🤖 Clippy</h1>
-            <p className="text-xs text-slate-400 mt-1">AI Real Estate Copilot</p>
-          </div>
-          <button
-            onClick={closeWidget}
-            className="p-2 rounded-full hover:bg-slate-700/50 text-slate-400 hover:text-slate-300 transition-colors"
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+      {/* Global Wrapper - Fixed to bottom-right */}
+      <div className="fixed bottom-0 right-0 z-50 p-4">
+        
+        {/* Floating Action Button */}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-2xl font-bold text-xl mb-4 ${
+            isOpen
+              ? 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+              : 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 hover:scale-110 active:scale-95'
+          }`}
+          title={isOpen ? 'Close Clippy' : 'Open Clippy'}
+        >
+          <Mic className="w-8 h-8" />
+        </button>
 
-        {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col">
-          {messages.length === 0 && !isLoading && (
-            <div className="flex items-center justify-center h-full text-center mb-24">
-              <div className="space-y-3">
-                <p className="text-5xl">🎤</p>
-                <p className="text-2xl font-bold text-foreground">
-                  Hi, I'm Clippy.<br />
-                  What do you need today?
-                </p>
-                <p className="text-sm text-slate-400 mt-4">
-                  Tap and hold the microphone to speak
-                </p>
+        {/* Chat Popup Window - Conditionally Rendered */}
+        {isOpen && (
+          <div className="absolute bottom-20 right-0 w-96 h-[600px] bg-slate-900/95 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-700/50 backdrop-blur-md">
+            
+            {/* Chat Header */}
+            <div className="bg-gradient-to-b from-slate-800 to-slate-900/50 p-4 border-b border-slate-700/30 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">🤖 Clippy Copilot</h2>
               </div>
-            </div>
-          )}
-
-          {/* Messages */}
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs px-5 py-3 ${
-                  msg.type === 'user'
-                    ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white rounded-2xl rounded-br-none shadow-lg'
-                    : 'bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 rounded-2xl rounded-bl-none shadow-lg border border-slate-600/30'
-                }`}
-              >
-                <p className="text-sm break-words">{msg.content}</p>
-                <p className="text-xs mt-2 opacity-70">
-                  {msg.timestamp.toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </p>
-              </div>
-            </div>
-          ))}
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 px-5 py-3 rounded-2xl rounded-bl-none flex items-center gap-2 shadow-lg border border-slate-600/30">
-                <Loader className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Clippy is thinking...</span>
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="flex justify-start">
-              <div className="bg-red-900/40 text-red-200 px-5 py-3 rounded-2xl rounded-bl-none text-sm border border-red-700/30 shadow-lg">
-                ⚠️ {error}
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Text Input (Hidden by Default) */}
-        {showTextInput && (
-          <div className="px-4 py-3 border-t border-slate-700/30 bg-slate-800/50">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type a message..."
-                autoFocus
-                className="flex-1 px-4 py-3 rounded-full bg-slate-700/50 border border-slate-600/50 text-foreground placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors text-sm"
-              />
               <button
-                onClick={() => handleSendMessage()}
-                disabled={!inputText.trim() || isLoading}
-                className="px-4 py-3 rounded-full bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:from-cyan-700 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                onClick={() => setIsOpen(false)}
+                className="p-2 rounded-full hover:bg-slate-700/50 text-slate-400 hover:text-slate-300 transition-colors"
+                title="Close"
               >
-                <Send className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-          </div>
-        )}
 
-        {/* Control Bar - Voice First Design */}
-        <div className="relative px-6 py-8 bg-gradient-to-t from-slate-900 to-slate-900/50 border-t border-slate-700/30 flex justify-center items-end gap-4">
-          {/* Microphone Button */}
-          <button
-            onClick={toggleMicrophone}
-            disabled={isLoading}
-            className={`w-20 h-20 rounded-full flex items-center justify-center transition-all font-bold text-lg shadow-2xl relative ${
-              isRecording
-                ? 'bg-gradient-to-br from-red-500 to-red-600 text-white mic-recording scale-110'
-                : 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 hover:scale-105 active:scale-95'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-            title={isRecording ? 'Stop recording' : 'Start recording'}
-          >
-            <Mic className="w-9 h-9" />
-          </button>
+            {/* Chat Body - Scrollable Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col">
+              {messages.length === 0 && !isLoading && (
+                <div className="flex items-center justify-center h-full text-center">
+                  <div className="space-y-3">
+                    <p className="text-4xl">🎤</p>
+                    <p className="text-lg font-bold text-foreground">
+                      Hi, I'm Clippy.<br />
+                      What do you need today?
+                    </p>
+                    <p className="text-xs text-slate-400 mt-3">
+                      Tap the microphone to speak
+                    </p>
+                  </div>
+                </div>
+              )}
 
-          {/* Keyboard Toggle Button */}
-          <button
-            onClick={() => setShowTextInput(!showTextInput)}
-            className="p-2 rounded-full bg-slate-700/50 text-slate-400 hover:bg-slate-600 hover:text-slate-300 transition-colors"
-            title={showTextInput ? 'Hide keyboard' : 'Show keyboard'}
-          >
-            <Keyboard className="w-5 h-5" />
-          </button>
-        </div>
+              {/* Messages */}
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-xs px-4 py-3 ${
+                      msg.type === 'user'
+                        ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white rounded-2xl rounded-br-none shadow-lg'
+                        : 'bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 rounded-2xl rounded-bl-none shadow-lg border border-slate-600/30'
+                    }`}
+                  >
+                    <p className="text-sm break-words">{msg.content}</p>
+                    <p className="text-xs mt-1 opacity-70">
+                      {msg.timestamp.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                </div>
+              ))}
 
-        {/* Recording Status Indicator */}
-        {isRecording && (
-          <div className="px-6 pb-4 text-center">
-            <p className="text-xs text-cyan-400 animate-pulse font-medium">
-              🎤 Listening...
-            </p>
+              {/* Loading State */}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 px-4 py-3 rounded-2xl rounded-bl-none flex items-center gap-2 shadow-lg border border-slate-600/30">
+                    <Loader className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Clippy is thinking...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="flex justify-start">
+                  <div className="bg-red-900/40 text-red-200 px-4 py-3 rounded-2xl rounded-bl-none text-sm border border-red-700/30 shadow-lg">
+                    ⚠️ {error}
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Text Input (Hidden by Default) */}
+            {showTextInput && (
+              <div className="px-4 py-3 border-t border-slate-700/30 bg-slate-800/50">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type a message..."
+                    autoFocus
+                    className="flex-1 px-4 py-2 rounded-full bg-slate-700/50 border border-slate-600/50 text-foreground placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors text-sm"
+                  />
+                  <button
+                    onClick={() => handleSendMessage()}
+                    disabled={!inputText.trim() || isLoading}
+                    className="px-4 py-2 rounded-full bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:from-cyan-700 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Voice Input Control Bar */}
+            <div className="px-4 py-6 bg-gradient-to-t from-slate-900 to-slate-900/50 border-t border-slate-700/30 flex justify-center items-center gap-4">
+              
+              {/* Massive Microphone Button */}
+              <button
+                onClick={toggleMicrophone}
+                disabled={isLoading}
+                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all font-bold text-lg shadow-2xl relative ${
+                  isRecording
+                    ? 'bg-gradient-to-br from-red-500 to-red-600 text-white mic-recording scale-110'
+                    : 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 hover:scale-105 active:scale-95'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                title={isRecording ? 'Stop recording' : 'Start recording'}
+              >
+                <Mic className="w-8 h-8" />
+              </button>
+
+              {/* Keyboard Toggle */}
+              <button
+                onClick={() => setShowTextInput(!showTextInput)}
+                className="p-2 rounded-full bg-slate-700/50 text-slate-400 hover:bg-slate-600 hover:text-slate-300 transition-colors"
+                title={showTextInput ? 'Hide keyboard' : 'Show keyboard'}
+              >
+                <Keyboard className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Recording Status */}
+            {isRecording && (
+              <div className="px-4 pb-4 text-center">
+                <p className="text-xs text-cyan-400 animate-pulse font-medium">
+                  🎤 Listening...
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
-
-      {/* Floating Action Button - Always Visible */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 w-16 h-16 rounded-full flex items-center justify-center pointer-events-auto z-50 transition-all duration-300 font-bold text-lg shadow-2xl ${
-          isOpen
-            ? 'bg-slate-700 text-slate-400 hover:bg-slate-600 scale-95'
-            : 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 hover:scale-110 active:scale-95'
-        }`}
-        title={isOpen ? 'Close Clippy' : 'Open Clippy'}
-      >
-        {isOpen ? (
-          <MessageCircle className="w-8 h-8" />
-        ) : (
-          <Mic className="w-8 h-8" />
-        )}
-      </button>
-    </div>
+    </>
   );
 }
