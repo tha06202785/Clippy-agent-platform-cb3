@@ -26,6 +26,7 @@ export default function AIInbox() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [draftSent, setDraftSent] = useState(false);
   const [copiedDraft, setCopiedDraft] = useState(false);
+  const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { messages, aiDraft, loading: draftLoading, error: draftError, sending, sendDraft } =
@@ -50,6 +51,22 @@ export default function AIInbox() {
     setDraftSent(true);
     // Show success for 2 seconds then reset
     setTimeout(() => setDraftSent(false), 2000);
+  };
+
+  const handleSendManual = async () => {
+    if (!inputText.trim()) return;
+
+    await sendDraft(inputText);
+    setInputText('');
+    setDraftSent(true);
+    // Show success for 2 seconds then reset
+    setTimeout(() => setDraftSent(false), 2000);
+  };
+
+  const handleEditDraft = () => {
+    if (aiDraft?.suggested_reply) {
+      setInputText(aiDraft.suggested_reply);
+    }
   };
 
   const handleCopyDraft = () => {
@@ -166,6 +183,27 @@ export default function AIInbox() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Message Input */}
+              <div className="border-t border-border p-4 bg-card">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendManual()}
+                    placeholder="Type a message..."
+                    className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary"
+                  />
+                  <button
+                    onClick={handleSendManual}
+                    disabled={!inputText.trim() || sending}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
             </>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -246,6 +284,14 @@ export default function AIInbox() {
                             Send Draft
                           </>
                         )}
+                      </button>
+
+                      {/* Edit Draft Button */}
+                      <button
+                        onClick={handleEditDraft}
+                        className="w-full py-2 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 bg-background border border-border text-foreground hover:bg-muted"
+                      >
+                        ✏️ Edit Draft
                       </button>
 
                       {/* Copy Button */}
