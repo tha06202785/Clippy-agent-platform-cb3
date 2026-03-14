@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Mic, Loader } from 'lucide-react';
+import { Send, Mic, Loader, Keyboard } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -14,6 +14,7 @@ export default function CopilotMobile() {
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTextInput, setShowTextInput] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -50,7 +51,7 @@ export default function CopilotMobile() {
           transcribedText += event.results[i][0].transcript;
         }
         if (transcribedText.trim()) {
-          setInputText(transcribedText);
+          handleSendMessage(transcribedText);
         }
       };
 
@@ -77,7 +78,6 @@ export default function CopilotMobile() {
     if (isRecording) {
       recognitionRef.current.stop();
     } else {
-      setInputText('');
       recognitionRef.current.start();
     }
   };
@@ -96,6 +96,7 @@ export default function CopilotMobile() {
 
     setMessages((prev) => [...prev, userMessage]);
     setInputText('');
+    setShowTextInput(false);
     setIsLoading(true);
     setError(null);
 
@@ -152,126 +153,154 @@ export default function CopilotMobile() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
-      <div className="bg-card border-b border-border p-4 sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-foreground">🤖 Clippy</h1>
-        <p className="text-xs text-muted-foreground">AI Real Estate Copilot</p>
-      </div>
-
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && !isLoading && (
-          <div className="flex items-center justify-center h-full text-center">
-            <div className="space-y-2">
-              <p className="text-2xl">👋</p>
-              <p className="text-foreground font-semibold">Hey there!</p>
-              <p className="text-sm text-muted-foreground">
-                Tap the microphone or type to get started
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Messages */}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-xs px-4 py-3 rounded-2xl ${
-                msg.type === 'user'
-                  ? 'bg-primary text-primary-foreground rounded-br-none'
-                  : 'bg-muted text-foreground rounded-bl-none'
-              }`}
-            >
-              <p className="text-sm break-words">{msg.content}</p>
-              <p
-                className={`text-xs mt-1 ${
-                  msg.type === 'user'
-                    ? 'text-primary-foreground/60'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                {msg.timestamp.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </p>
-            </div>
-          </div>
-        ))}
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-muted text-foreground px-4 py-3 rounded-2xl rounded-bl-none flex items-center gap-2">
-              <Loader className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Clippy is thinking...</span>
-            </div>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="flex justify-start">
-            <div className="bg-red-900/20 text-red-200 px-4 py-3 rounded-2xl rounded-bl-none text-sm">
-              ⚠️ {error}
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Control Bar - Fixed at Bottom */}
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 space-y-3">
-        {/* Text Input */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-3 rounded-full bg-background border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors"
-          />
-          <button
-            onClick={() => handleSendMessage()}
-            disabled={!inputText.trim() || isLoading}
-            className="px-4 py-3 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Send className="w-5 h-5" />
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      {/* Premium Mobile Container */}
+      <div className="w-full max-w-md flex flex-col h-[90vh] bg-slate-900/80 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden">
+        
+        {/* Header */}
+        <div className="bg-gradient-to-b from-slate-800 to-slate-900/50 p-6 border-b border-slate-700/30">
+          <h1 className="text-2xl font-bold text-foreground">🤖 Clippy</h1>
+          <p className="text-xs text-slate-400 mt-1">AI Real Estate Copilot</p>
         </div>
 
-        {/* Microphone Button */}
-        <div className="flex justify-center">
+        {/* Messages Container */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col">
+          {messages.length === 0 && !isLoading && (
+            <div className="flex items-center justify-center h-full text-center mb-24">
+              <div className="space-y-3">
+                <p className="text-5xl">🎤</p>
+                <p className="text-2xl font-bold text-foreground">
+                  Hi, I'm Clippy.<br />
+                  What do you need today?
+                </p>
+                <p className="text-sm text-slate-400 mt-4">
+                  Tap and hold the microphone to speak
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Messages */}
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-xs px-5 py-3 ${
+                  msg.type === 'user'
+                    ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white rounded-2xl rounded-br-none shadow-lg'
+                    : 'bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 rounded-2xl rounded-bl-none shadow-lg border border-slate-600/30'
+                }`}
+              >
+                <p className="text-sm break-words">{msg.content}</p>
+                <p
+                  className={`text-xs mt-2 opacity-70`}
+                >
+                  {msg.timestamp.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
+            </div>
+          ))}
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 px-5 py-3 rounded-2xl rounded-bl-none flex items-center gap-2 shadow-lg border border-slate-600/30">
+                <Loader className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Clippy is thinking...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="flex justify-start">
+              <div className="bg-red-900/40 text-red-200 px-5 py-3 rounded-2xl rounded-bl-none text-sm border border-red-700/30 shadow-lg">
+                ⚠️ {error}
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Text Input (Hidden by Default) */}
+        {showTextInput && (
+          <div className="px-4 py-3 border-t border-slate-700/30 bg-slate-800/50">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type a message..."
+                autoFocus
+                className="flex-1 px-4 py-3 rounded-full bg-slate-700/50 border border-slate-600/50 text-foreground placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors text-sm"
+              />
+              <button
+                onClick={() => handleSendMessage()}
+                disabled={!inputText.trim() || isLoading}
+                className="px-4 py-3 rounded-full bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:from-cyan-700 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Control Bar - Voice First Design */}
+        <div className="relative px-6 py-8 bg-gradient-to-t from-slate-900 to-slate-900/50 border-t border-slate-700/30 flex justify-center items-end gap-4">
+          {/* Microphone Button - The Hero */}
+          <style>{`
+            @keyframes glowPulse {
+              0%, 100% {
+                box-shadow: 0 0 20px rgba(6, 182, 212, 0.3), 0 0 40px rgba(6, 182, 212, 0.1);
+              }
+              50% {
+                box-shadow: 0 0 40px rgba(6, 182, 212, 0.6), 0 0 80px rgba(6, 182, 212, 0.2);
+              }
+            }
+            .mic-recording {
+              animation: glowPulse 1.5s ease-in-out infinite;
+            }
+          `}</style>
+          
           <button
             onClick={toggleMicrophone}
             disabled={isLoading}
-            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${
+            className={`w-20 h-20 rounded-full flex items-center justify-center transition-all font-bold text-lg shadow-2xl relative ${
               isRecording
-                ? 'bg-red-600 text-white animate-pulse scale-110'
-                : 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:from-cyan-700 hover:to-cyan-600 hover:scale-105'
+                ? 'bg-gradient-to-br from-red-500 to-red-600 text-white mic-recording scale-110'
+                : 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 hover:scale-105 active:scale-95'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             title={isRecording ? 'Stop recording' : 'Start recording'}
           >
-            <Mic className="w-7 h-7" />
+            <Mic className="w-9 h-9" />
+          </button>
+
+          {/* Keyboard Toggle Button */}
+          <button
+            onClick={() => setShowTextInput(!showTextInput)}
+            className="p-2 rounded-full bg-slate-700/50 text-slate-400 hover:bg-slate-600 hover:text-slate-300 transition-colors"
+            title={showTextInput ? 'Hide keyboard' : 'Show keyboard'}
+          >
+            <Keyboard className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Recording Status */}
+        {/* Recording Status Indicator */}
         {isRecording && (
-          <p className="text-center text-xs text-cyan-400 animate-pulse">
-            🎤 Listening...
-          </p>
+          <div className="px-6 pb-4 text-center">
+            <p className="text-xs text-cyan-400 animate-pulse font-medium">
+              🎤 Listening...
+            </p>
+          </div>
         )}
       </div>
-
-      {/* Spacer for fixed control bar */}
-      <div className="h-40" />
     </div>
   );
 }
