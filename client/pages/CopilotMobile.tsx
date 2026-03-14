@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Mic, Loader, Keyboard } from 'lucide-react';
+import { Send, Mic, Loader, Keyboard, X, MessageCircle } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -15,6 +15,7 @@ export default function CopilotMobile() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTextInput, setShowTextInput] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -152,15 +153,79 @@ export default function CopilotMobile() {
     }
   };
 
+  const closeWidget = () => {
+    setIsOpen(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-      {/* Premium Mobile Container */}
-      <div className="w-full max-w-md flex flex-col h-[90vh] bg-slate-900/80 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden">
-        
-        {/* Header */}
-        <div className="bg-gradient-to-b from-slate-800 to-slate-900/50 p-6 border-b border-slate-700/30">
-          <h1 className="text-2xl font-bold text-foreground">🤖 Clippy</h1>
-          <p className="text-xs text-slate-400 mt-1">AI Real Estate Copilot</p>
+    <div className="fixed inset-0 pointer-events-none">
+      {/* Overlay - Click to close */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm pointer-events-auto z-40 transition-opacity duration-300"
+          onClick={closeWidget}
+        />
+      )}
+
+      {/* Chat Window - Slides up from bottom right */}
+      <style>{`
+        @keyframes glowPulse {
+          0%, 100% {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.3), 0 0 40px rgba(6, 182, 212, 0.1);
+          }
+          50% {
+            box-shadow: 0 0 40px rgba(6, 182, 212, 0.6), 0 0 80px rgba(6, 182, 212, 0.2);
+          }
+        }
+        .mic-recording {
+          animation: glowPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes slideUp {
+          from {
+            transform: translateY(500px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        .slide-up-enter {
+          animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes slideDown {
+          from {
+            transform: translateY(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateY(500px);
+            opacity: 0;
+          }
+        }
+        .slide-down-exit {
+          animation: slideDown 0.3s ease-in forwards;
+        }
+      `}</style>
+
+      <div
+        className={`fixed bottom-24 right-6 w-full max-w-md h-[90vh] flex flex-col bg-slate-900/80 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden pointer-events-auto z-50 transition-all duration-300 ${
+          isOpen ? 'slide-up-enter' : 'slide-down-exit hidden'
+        }`}
+      >
+        {/* Header with Close Button */}
+        <div className="bg-gradient-to-b from-slate-800 to-slate-900/50 p-6 border-b border-slate-700/30 flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">🤖 Clippy</h1>
+            <p className="text-xs text-slate-400 mt-1">AI Real Estate Copilot</p>
+          </div>
+          <button
+            onClick={closeWidget}
+            className="p-2 rounded-full hover:bg-slate-700/50 text-slate-400 hover:text-slate-300 transition-colors"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Messages Container */}
@@ -194,9 +259,7 @@ export default function CopilotMobile() {
                 }`}
               >
                 <p className="text-sm break-words">{msg.content}</p>
-                <p
-                  className={`text-xs mt-2 opacity-70`}
-                >
+                <p className="text-xs mt-2 opacity-70">
                   {msg.timestamp.toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
@@ -254,21 +317,7 @@ export default function CopilotMobile() {
 
         {/* Control Bar - Voice First Design */}
         <div className="relative px-6 py-8 bg-gradient-to-t from-slate-900 to-slate-900/50 border-t border-slate-700/30 flex justify-center items-end gap-4">
-          {/* Microphone Button - The Hero */}
-          <style>{`
-            @keyframes glowPulse {
-              0%, 100% {
-                box-shadow: 0 0 20px rgba(6, 182, 212, 0.3), 0 0 40px rgba(6, 182, 212, 0.1);
-              }
-              50% {
-                box-shadow: 0 0 40px rgba(6, 182, 212, 0.6), 0 0 80px rgba(6, 182, 212, 0.2);
-              }
-            }
-            .mic-recording {
-              animation: glowPulse 1.5s ease-in-out infinite;
-            }
-          `}</style>
-          
+          {/* Microphone Button */}
           <button
             onClick={toggleMicrophone}
             disabled={isLoading}
@@ -301,6 +350,23 @@ export default function CopilotMobile() {
           </div>
         )}
       </div>
+
+      {/* Floating Action Button - Always Visible */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`fixed bottom-6 right-6 w-16 h-16 rounded-full flex items-center justify-center pointer-events-auto z-50 transition-all duration-300 font-bold text-lg shadow-2xl ${
+          isOpen
+            ? 'bg-slate-700 text-slate-400 hover:bg-slate-600 scale-95'
+            : 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 hover:scale-110 active:scale-95'
+        }`}
+        title={isOpen ? 'Close Clippy' : 'Open Clippy'}
+      >
+        {isOpen ? (
+          <MessageCircle className="w-8 h-8" />
+        ) : (
+          <Mic className="w-8 h-8" />
+        )}
+      </button>
     </div>
   );
 }
