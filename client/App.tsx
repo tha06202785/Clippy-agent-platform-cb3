@@ -29,6 +29,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        {/* Global Clippy Widget - Renders on all pages */}
+        <CopilotMobile />
+
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/login" element={<Login />} />
@@ -39,7 +42,6 @@ const App = () => (
           <Route path="/ai-radar/my-watchlists" element={<MyWatchlists />} />
           <Route path="/inbox" element={<LeadInbox />} />
           <Route path="/ai-inbox" element={<AIInbox />} />
-          <Route path="/copilot" element={<CopilotMobile />} />
           <Route path="/listings" element={<Listings />} />
           <Route path="/planner" element={<Planner />} />
           <Route path="/integrations" element={<Integrations />} />
