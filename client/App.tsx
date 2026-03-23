@@ -20,6 +20,13 @@ import Settings from "./pages/Settings";
 import ForgotPassword from "./pages/ForgotPassword";
 import SignUp from "./pages/SignUp";
 import NotFound from "./pages/NotFound";
+import LandingPage from "./pages/LandingPage";
+import OnboardingPage from "./pages/OnboardingPage";
+import ContentPage from "./pages/ContentPage";
+import VoicePage from "./pages/VoicePage";
+import IntegrationsNewPage from "./pages/IntegrationsNewPage";
+import LogsPage from "./pages/LogsPage";
+import AutomationPage from "./pages/AutomationPage";
 
 const queryClient = new QueryClient();
 
@@ -33,11 +40,17 @@ const App = () => (
         <CopilotMobile />
 
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/content" element={<ContentPage />} />
+          <Route path="/voice" element={<VoicePage />} />
+          <Route path="/integrations-new" element={<IntegrationsNewPage />} />
+          <Route path="/logs" element={<LogsPage />} />
+          <Route path="/automation" element={<AutomationPage />} />
           <Route path="/ai-radar" element={<AIRadar />} />
           <Route path="/ai-radar/my-watchlists" element={<MyWatchlists />} />
           <Route path="/inbox" element={<LeadInbox />} />

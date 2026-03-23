@@ -13,6 +13,11 @@ import {
   Radar,
   ChevronDown,
   Sparkles,
+  Wand2,
+  Users,
+  MessageSquare,
+  PlugIcon,
+  Activity,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +32,7 @@ interface LayoutProps {
 export default function Layout({ children, showNav = true }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false); // Changed to false for mobile-first
   const [adminOpen, setAdminOpen] = useState(false);
+  const [clippyFeaturesOpen, setClippyFeaturesOpen] = useState(false);
   const [radarOpen, setRadarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // Mobile menu state
   const [user, setUser] = useState<any>(null);
@@ -48,6 +54,15 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
     { path: "/ai-inbox", label: "AI Inbox", icon: Sparkles, premium: true },
     { path: "/listings", label: "Listings", icon: FileText },
     { path: "/planner", label: "Planner", icon: Calendar },
+  ];
+
+  const clippyFeatures = [
+    { path: "/content", label: "Content Generator", icon: Wand2 },
+    { path: "/voice", label: "Voice Settings", icon: MessageSquare },
+    { path: "/onboarding", label: "Onboarding", icon: Users },
+    { path: "/integrations-new", label: "Integrations", icon: PlugIcon },
+    { path: "/logs", label: "Activity Logs", icon: Activity },
+    { path: "/automation", label: "Automation", icon: Sparkles },
   ];
 
   const adminItems = [
@@ -178,8 +193,52 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
             );
           })}
 
-          {/* Admin Section */}
+          {/* Clippy Features Section */}
           <div className="pt-2 mt-4 border-t border-sidebar-border">
+            <button
+              onClick={() => setClippyFeaturesOpen(!clippyFeaturesOpen)}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors group"
+            >
+              <Wand2 className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && (
+                <>
+                  <span className="font-medium text-sm">Clippy Features</span>
+                  <ChevronDown
+                    className={`ml-auto w-4 h-4 transition-transform duration-200 ${
+                      clippyFeaturesOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </>
+              )}
+            </button>
+
+            {/* Clippy Features Submenu */}
+            {clippyFeaturesOpen && sidebarOpen && (
+              <div className="mt-1 ml-2 pl-2 border-l-2 border-sidebar-accent space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                {clippyFeatures.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors ${
+                        active
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="font-medium">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Admin Section */}
+          <div className="pt-2 mt-2 border-t border-sidebar-border">
             <button
               onClick={() => setAdminOpen(!adminOpen)}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors group"
