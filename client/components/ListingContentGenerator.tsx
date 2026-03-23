@@ -23,14 +23,6 @@ interface GeneratedContent {
   sms: string;
 }
 
-const PLATFORM_LIMITS = {
-  whatsapp: 4096,
-  facebook: 63206,
-  instagram: 2200,
-  email: 'unlimited',
-  sms: 160,
-};
-
 const PLATFORM_DESCRIPTIONS = {
   whatsapp: 'WhatsApp Business Message (up to 4,096 characters)',
   facebook: 'Facebook Post (up to 63,206 characters)',
@@ -72,13 +64,8 @@ export default function ListingContentGenerator() {
   const generateContent = async () => {
     setIsGenerating(true);
     
-    // Simulate API call - in production this would call your backend
     setTimeout(() => {
-      const baseContent = `
-        Stunning ${propertyDetails.bedrooms}BR/${propertyDetails.bathrooms}BA property at ${propertyDetails.address}
-        Price: $${propertyDetails.price} | ${propertyDetails.sqft} sqft
-        Features: ${propertyDetails.features}
-      `.trim();
+      const baseContent = `Stunning ${propertyDetails.bedrooms}BR/${propertyDetails.bathrooms}BA property at ${propertyDetails.address} | Price: $${propertyDetails.price} | ${propertyDetails.sqft} sqft | Features: ${propertyDetails.features}`;
 
       setGeneratedContent({
         whatsapp: `📍 ${baseContent}\n\n✨ Premium Features:\n• Modern Kitchen\n• Hardwood Floors\n• Great Location\n\nSchedule your viewing today! 🏠`,
@@ -115,175 +102,197 @@ export default function ListingContentGenerator() {
   const isFormComplete = propertyDetails.address && propertyDetails.bedrooms && propertyDetails.bathrooms && propertyDetails.price;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 py-8 px-4">
       <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Listing Content Generator</h1>
-          <p className="text-gray-600 mt-2">Create AI-powered content for your property across all social platforms</p>
+          <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent mb-2 drop-shadow-lg">
+            Listing Content Generator
+          </h1>
+          <p className="text-cyan-200/80 text-lg drop-shadow">
+            Create AI-powered content for your property across all social platforms
+          </p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Property Details Form */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Property Details</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address *
-                </label>
-                <Input
-                  type="text"
-                  placeholder="123 Main St, San Francisco, CA"
-                  value={propertyDetails.address}
-                  onChange={(e) => handlePropertyChange('address', e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+          <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 animate-in fade-in slide-in-from-left-4 duration-500" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)' }}>
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+            <div className="relative p-6 z-10">
+              <h2 className="text-2xl font-black text-cyan-300 drop-shadow-lg mb-6">Property Details</h2>
+              
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bedrooms *
+                  <label className="block text-sm font-semibold text-cyan-200 mb-2">
+                    Address *
                   </label>
                   <Input
-                    type="number"
-                    placeholder="3"
-                    value={propertyDetails.bedrooms}
-                    onChange={(e) => handlePropertyChange('bedrooms', e.target.value)}
+                    type="text"
+                    placeholder="123 Main St, San Francisco, CA"
+                    value={propertyDetails.address}
+                    onChange={(e) => handlePropertyChange('address', e.target.value)}
+                    className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200 placeholder-cyan-200/40"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bathrooms *
-                  </label>
-                  <Input
-                    type="number"
-                    placeholder="2"
-                    value={propertyDetails.bathrooms}
-                    onChange={(e) => handlePropertyChange('bathrooms', e.target.value)}
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Price *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-cyan-200 mb-2">
+                      Bedrooms *
+                    </label>
                     <Input
                       type="number"
-                      placeholder="450000"
-                      value={propertyDetails.price}
-                      onChange={(e) => handlePropertyChange('price', e.target.value)}
-                      className="pl-7"
+                      placeholder="3"
+                      value={propertyDetails.bedrooms}
+                      onChange={(e) => handlePropertyChange('bedrooms', e.target.value)}
+                      className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-cyan-200 mb-2">
+                      Bathrooms *
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="2"
+                      value={propertyDetails.bathrooms}
+                      onChange={(e) => handlePropertyChange('bathrooms', e.target.value)}
+                      className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200"
                     />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-cyan-200 mb-2">
+                      Price *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-cyan-400 font-bold">$</span>
+                      <Input
+                        type="number"
+                        placeholder="450000"
+                        value={propertyDetails.price}
+                        onChange={(e) => handlePropertyChange('price', e.target.value)}
+                        className="pl-7 border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-cyan-200 mb-2">
+                      Square Feet
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="2500"
+                      value={propertyDetails.sqft}
+                      onChange={(e) => handlePropertyChange('sqft', e.target.value)}
+                      className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Square Feet
+                  <label className="block text-sm font-semibold text-cyan-200 mb-2">
+                    Features
                   </label>
-                  <Input
-                    type="number"
-                    placeholder="2500"
-                    value={propertyDetails.sqft}
-                    onChange={(e) => handlePropertyChange('sqft', e.target.value)}
+                  <Textarea
+                    placeholder="Hardwood floors, modern kitchen, updated bathroom, spacious backyard..."
+                    value={propertyDetails.features}
+                    onChange={(e) => handlePropertyChange('features', e.target.value)}
+                    rows={4}
+                    className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200 placeholder-cyan-200/40 resize-none"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Features
-                </label>
-                <Textarea
-                  placeholder="Hardwood floors, modern kitchen, updated bathroom, spacious backyard..."
-                  value={propertyDetails.features}
-                  onChange={(e) => handlePropertyChange('features', e.target.value)}
-                  rows={4}
-                />
+                <Button
+                  onClick={generateContent}
+                  disabled={!isFormComplete || isGenerating}
+                  className="w-full bg-cyan-600/80 hover:bg-cyan-700 text-white font-black text-lg py-6"
+                >
+                  <Wand2 className="w-5 h-5 mr-2" />
+                  {isGenerating ? 'Generating...' : 'Generate Content'}
+                </Button>
               </div>
-
-              <Button
-                onClick={generateContent}
-                disabled={!isFormComplete || isGenerating}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                <Wand2 className="w-4 h-4 mr-2" />
-                {isGenerating ? 'Generating...' : 'Generate Content'}
-              </Button>
             </div>
           </div>
 
           {/* Generated Content */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b">
-              <h2 className="text-xl font-semibold text-gray-900">Generated Content</h2>
-              {generatedContent.whatsapp && (
-                <Button
-                  onClick={downloadAsFile}
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download All
-                </Button>
+          <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 animate-in fade-in slide-in-from-right-4 duration-500" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)' }}>
+            <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+            <div className="relative z-10">
+              <div className="p-6 border-b-2 border-cyan-400/30">
+                <h2 className="text-2xl font-black text-cyan-300 drop-shadow-lg">Generated Content</h2>
+                {generatedContent.whatsapp && (
+                  <Button
+                    onClick={downloadAsFile}
+                    className="mt-4 bg-cyan-600/80 hover:bg-cyan-700 text-white font-semibold"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download All
+                  </Button>
+                )}
+              </div>
+
+              {generatedContent.whatsapp ? (
+                <div className="p-6">
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="w-full rounded-lg bg-slate-800/50 border-2 border-cyan-400/30 p-1">
+                      {['whatsapp', 'facebook', 'instagram', 'email', 'sms'].map((tab) => (
+                        <TabsTrigger
+                          key={tab}
+                          value={tab}
+                          className="data-[state=active]:bg-cyan-600/80 data-[state=active]:text-white text-cyan-200/80 capitalize font-semibold"
+                        >
+                          {tab}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+
+                    {(['whatsapp', 'facebook', 'instagram', 'email', 'sms'] as const).map(platform => (
+                      <TabsContent key={platform} value={platform} className="mt-4">
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm text-cyan-200/80 mb-2 font-semibold">
+                              {PLATFORM_DESCRIPTIONS[platform]}
+                            </p>
+                            <p className="text-xs text-cyan-200/60 font-mono">
+                              Character count: {generatedContent[platform].length}
+                            </p>
+                          </div>
+
+                          <Textarea
+                            value={generatedContent[platform]}
+                            onChange={(e) => handleContentChange(platform, e.target.value)}
+                            rows={8}
+                            className="font-mono text-sm border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200 resize-none"
+                          />
+
+                          <Button
+                            onClick={() => copyToClipboard(platform)}
+                            className={`w-full font-semibold ${
+                              copiedPlatform === platform
+                                ? 'bg-green-600/80 hover:bg-green-700'
+                                : 'bg-cyan-600/80 hover:bg-cyan-700'
+                            } text-white`}
+                          >
+                            <Copy className="w-4 h-4 mr-2" />
+                            {copiedPlatform === platform ? 'Copied!' : 'Copy to Clipboard'}
+                          </Button>
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </div>
+              ) : (
+                <div className="p-12 text-center">
+                  <div className="text-cyan-400/40 text-5xl mb-4">📝</div>
+                  <p className="text-cyan-200/60 font-semibold">
+                    Fill in the property details and click "Generate Content" to see previews for each platform
+                  </p>
+                </div>
               )}
             </div>
-
-            {generatedContent.whatsapp ? (
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="w-full rounded-none border-b">
-                  <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
-                  <TabsTrigger value="facebook">Facebook</TabsTrigger>
-                  <TabsTrigger value="instagram">Instagram</TabsTrigger>
-                  <TabsTrigger value="email">Email</TabsTrigger>
-                  <TabsTrigger value="sms">SMS</TabsTrigger>
-                </TabsList>
-
-                {(['whatsapp', 'facebook', 'instagram', 'email', 'sms'] as const).map(platform => (
-                  <TabsContent key={platform} value={platform}>
-                    <div className="p-6">
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-600 mb-2">
-                          {PLATFORM_DESCRIPTIONS[platform]}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Character count: {generatedContent[platform].length}
-                          {PLATFORM_LIMITS[platform] !== 'unlimited' && ` / ${PLATFORM_LIMITS[platform]}`}
-                        </p>
-                      </div>
-
-                      <Textarea
-                        value={generatedContent[platform]}
-                        onChange={(e) => handleContentChange(platform, e.target.value)}
-                        rows={8}
-                        className="mb-4 font-mono text-sm"
-                      />
-
-                      <Button
-                        onClick={() => copyToClipboard(platform)}
-                        className="w-full"
-                        variant={copiedPlatform === platform ? 'default' : 'outline'}
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        {copiedPlatform === platform ? 'Copied!' : 'Copy to Clipboard'}
-                      </Button>
-                    </div>
-                  </TabsContent>
-                ))}
-              </Tabs>
-            ) : (
-              <div className="p-12 text-center">
-                <div className="text-gray-400 text-4xl mb-4">📝</div>
-                <p className="text-gray-500">
-                  Fill in the property details and click "Generate Content" to see previews for each platform
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>

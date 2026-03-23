@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Download, Filter } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, Filter, Activity } from 'lucide-react';
 
 interface LogEntry {
   id: string;
@@ -131,11 +131,22 @@ export default function IntegrationLogsViewer() {
   ) => {
     switch (status) {
       case 'success':
-        return 'bg-green-50 border-green-200';
+        return 'border-green-400/50';
       case 'error':
-        return 'bg-red-50 border-red-200';
+        return 'border-red-400/50';
       case 'pending':
-        return 'bg-yellow-50 border-yellow-200';
+        return 'border-amber-400/50';
+    }
+  };
+
+  const getStatusBg = (status: 'success' | 'error' | 'pending') => {
+    switch (status) {
+      case 'success':
+        return 'bg-green-400/10';
+      case 'error':
+        return 'bg-red-400/10';
+      case 'pending':
+        return 'bg-amber-400/10';
     }
   };
 
@@ -144,11 +155,11 @@ export default function IntegrationLogsViewer() {
   ) => {
     switch (status) {
       case 'success':
-        return <Badge className="bg-green-600">✓ Success</Badge>;
+        return <Badge className="bg-green-600/80 text-green-100">✓ Success</Badge>;
       case 'error':
-        return <Badge variant="destructive">✗ Error</Badge>;
+        return <Badge className="bg-red-600/80 text-red-100">✗ Error</Badge>;
       case 'pending':
-        return <Badge variant="secondary">⏳ Pending</Badge>;
+        return <Badge className="bg-amber-600/80 text-amber-100">⏳ Pending</Badge>;
     }
   };
 
@@ -188,46 +199,43 @@ export default function IntegrationLogsViewer() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 py-8 px-4">
       <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Integration Logs</h1>
-          <p className="text-gray-600 mt-2">Monitor system activity and debug integration issues</p>
+          <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent mb-2 drop-shadow-lg">
+            Integration Logs
+          </h1>
+          <p className="text-cyan-200/80 text-lg drop-shadow">
+            Monitor system activity and debug integration issues
+          </p>
         </div>
 
         {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+        <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 mb-6" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)' }}>
+          <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+          <div className="relative p-6 z-10">
+            <h3 className="text-xl font-black text-white flex items-center gap-2 drop-shadow-lg mb-4">
               <Filter className="w-5 h-5" />
               Filters
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
             <div className="flex flex-col md:flex-row gap-4">
-              {/* Search */}
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Search
-                </label>
+                <label className="block text-sm font-semibold text-cyan-200 mb-2">Search</label>
                 <input
                   type="text"
                   placeholder="Search by message or action..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border-2 border-cyan-400/50 rounded-lg bg-slate-900/50 text-cyan-200 placeholder-cyan-200/40 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
                 />
               </div>
-
-              {/* Source Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Source
-                </label>
+                <label className="block text-sm font-semibold text-cyan-200 mb-2">Source</label>
                 <select
                   value={sourceFilter || ''}
                   onChange={(e) => setSourceFilter(e.target.value || null)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 border-2 border-cyan-400/50 rounded-lg bg-slate-900/50 text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
                 >
                   <option value="">All Sources</option>
                   <option value="facebook">Facebook</option>
@@ -236,16 +244,12 @@ export default function IntegrationLogsViewer() {
                   <option value="openai">OpenAI</option>
                 </select>
               </div>
-
-              {/* Status Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
-                </label>
+                <label className="block text-sm font-semibold text-cyan-200 mb-2">Status</label>
                 <select
                   value={statusFilter || ''}
                   onChange={(e) => setStatusFilter(e.target.value || null)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 border-2 border-cyan-400/50 rounded-lg bg-slate-900/50 text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
                 >
                   <option value="">All Statuses</option>
                   <option value="success">Success</option>
@@ -253,188 +257,142 @@ export default function IntegrationLogsViewer() {
                   <option value="pending">Pending</option>
                 </select>
               </div>
-
-              {/* Export */}
               <div className="flex items-end">
-                <Button onClick={exportLogs} variant="outline">
+                <Button 
+                  onClick={exportLogs} 
+                  className="bg-cyan-600/80 hover:bg-cyan-700 text-white font-semibold"
+                >
                   <Download className="w-4 h-4 mr-2" />
                   Export CSV
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Logs List */}
         <div className="space-y-3">
           {filteredLogs.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center">
-                <p className="text-gray-500">No logs found matching your filters</p>
-              </CardContent>
-            </Card>
+            <div className="text-center py-12 border-2 border-cyan-400/30 rounded-2xl bg-slate-800/30">
+              <p className="text-cyan-200/60 font-semibold">No logs found matching your filters</p>
+            </div>
           ) : (
             filteredLogs.map(log => (
-              <Card
+              <div
                 key={log.id}
-                className={`cursor-pointer transition-all ${getStatusColor(log.status)}`}
+                className={`cursor-pointer transition-all border-2 rounded-2xl backdrop-blur-sm p-4 ${getStatusColor(log.status)} ${getStatusBg(log.status)} hover:border-cyan-400/80 hover:shadow-lg hover:shadow-cyan-500/30`}
                 onClick={() =>
                   setExpandedLog(expandedLog === log.id ? null : log.id)
                 }
               >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-2xl">{getSourceIcon(log.source)}</span>
-                        <div>
-                          <p className="font-semibold text-gray-900">{log.action}</p>
-                          <p className="text-sm text-gray-600">{log.message}</p>
-                        </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-2xl">{getSourceIcon(log.source)}</span>
+                      <div>
+                        <p className="font-semibold text-cyan-300">{log.action}</p>
+                        <p className="text-sm text-cyan-200/70">{log.message}</p>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      {getStatusBadge(log.status)}
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500">{formatTime(log.timestamp)}</p>
-                      </div>
-                      <button className="text-gray-400 hover:text-gray-600">
-                        {expandedLog === log.id ? (
-                          <ChevronUp className="w-5 h-5" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5" />
-                        )}
-                      </button>
                     </div>
                   </div>
 
-                  {/* Expanded Details */}
-                  {expandedLog === log.id && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="space-y-3">
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 uppercase">
-                              Source
-                            </p>
-                            <p className="text-sm text-gray-600 capitalize mt-1">
-                              {log.source}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 uppercase">
-                              Timestamp
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {log.timestamp.toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
+                  <div className="flex items-center gap-4">
+                    {getStatusBadge(log.status)}
+                    <div className="text-right">
+                      <p className="text-xs text-cyan-200/60">{formatTime(log.timestamp)}</p>
+                    </div>
+                    <button className="text-cyan-400/60 hover:text-cyan-300">
+                      {expandedLog === log.id ? (
+                        <ChevronUp className="w-5 h-5" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
 
-                        {log.details?.leadName && (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 uppercase">
-                              Lead Name
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {log.details.leadName}
-                            </p>
-                          </div>
-                        )}
-
-                        {log.details?.leadEmail && (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 uppercase">
-                              Lead Email
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {log.details.leadEmail}
-                            </p>
-                          </div>
-                        )}
-
-                        {log.details?.errorMessage && (
-                          <div className="bg-red-100 border border-red-300 rounded p-3">
-                            <p className="text-xs font-semibold text-red-800 uppercase">
-                              Error Details
-                            </p>
-                            <p className="text-sm text-red-700 mt-1">
-                              {log.details.errorMessage}
-                            </p>
-                          </div>
-                        )}
-
-                        {log.details?.duration && (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 uppercase">
-                              Duration
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {log.details.duration}ms
-                            </p>
-                          </div>
-                        )}
-
-                        <div>
-                          <p className="text-xs font-semibold text-gray-700 uppercase">
-                            Full Message
-                          </p>
-                          <p className="text-sm text-gray-600 mt-1 font-mono bg-gray-100 p-2 rounded">
-                            {log.message}
-                          </p>
-                        </div>
+                {/* Expanded Details */}
+                {expandedLog === log.id && (
+                  <div className="mt-4 pt-4 border-t-2 border-cyan-400/20 space-y-3">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-semibold text-cyan-200 uppercase tracking-widest">Source</p>
+                        <p className="text-sm text-cyan-300 mt-1 capitalize font-semibold">{log.source}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-cyan-200 uppercase tracking-widest">Timestamp</p>
+                        <p className="text-sm text-cyan-300 mt-1 font-semibold">{log.timestamp.toLocaleString()}</p>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+
+                    {log.details?.leadName && (
+                      <div>
+                        <p className="text-xs font-semibold text-cyan-200 uppercase tracking-widest">Lead Name</p>
+                        <p className="text-sm text-cyan-300 mt-1">{log.details.leadName}</p>
+                      </div>
+                    )}
+
+                    {log.details?.leadEmail && (
+                      <div>
+                        <p className="text-xs font-semibold text-cyan-200 uppercase tracking-widest">Lead Email</p>
+                        <p className="text-sm text-cyan-300 mt-1">{log.details.leadEmail}</p>
+                      </div>
+                    )}
+
+                    {log.details?.errorMessage && (
+                      <div className="bg-red-900/30 border-2 border-red-400/50 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-red-300 uppercase tracking-widest">Error Details</p>
+                        <p className="text-sm text-red-200 mt-1">{log.details.errorMessage}</p>
+                      </div>
+                    )}
+
+                    {log.details?.duration && (
+                      <div>
+                        <p className="text-xs font-semibold text-cyan-200 uppercase tracking-widest">Duration</p>
+                        <p className="text-sm text-cyan-300 mt-1 font-mono">{log.details.duration}ms</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-xs font-semibold text-cyan-200 uppercase tracking-widest">Full Message</p>
+                      <p className="text-sm text-cyan-300 mt-1 font-mono bg-slate-900/50 p-2 rounded border border-cyan-400/20">
+                        {log.message}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             ))
           )}
         </div>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-4 gap-4 mt-8">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-green-600">
-                  {filteredLogs.filter(l => l.status === 'success').length}
+        <div className="grid md:grid-cols-4 gap-4 mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {[
+            { label: 'Successful', value: filteredLogs.filter(l => l.status === 'success').length, color: 'from-green-500 to-green-600' },
+            { label: 'Errors', value: filteredLogs.filter(l => l.status === 'error').length, color: 'from-red-500 to-red-600' },
+            { label: 'Pending', value: filteredLogs.filter(l => l.status === 'pending').length, color: 'from-amber-500 to-amber-600' },
+            { label: 'Total Logs', value: filteredLogs.length, color: 'from-cyan-500 to-blue-600' },
+          ].map((stat, idx) => (
+            <div
+              key={idx}
+              className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 hover:-translate-y-2"
+              style={{
+                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)',
+                animationDelay: `${idx * 100}ms`,
+              }}
+            >
+              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+              <div className="relative p-6 z-10 text-center">
+                <p className="text-4xl font-black text-cyan-300 tabular-nums drop-shadow-lg mb-2">
+                  {stat.value}
                 </p>
-                <p className="text-sm text-gray-600 mt-1">Successful</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-red-600">
-                  {filteredLogs.filter(l => l.status === 'error').length}
+                <p className="text-sm text-cyan-200/80 font-bold uppercase tracking-widest drop-shadow">
+                  {stat.label}
                 </p>
-                <p className="text-sm text-gray-600 mt-1">Errors</p>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-yellow-600">
-                  {filteredLogs.filter(l => l.status === 'pending').length}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">Pending</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-blue-600">
-                  {filteredLogs.length}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">Total Logs</p>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          ))}
         </div>
       </div>
     </div>

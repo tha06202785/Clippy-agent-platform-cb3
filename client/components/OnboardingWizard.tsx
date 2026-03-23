@@ -67,7 +67,6 @@ export default function OnboardingWizard() {
 
   const handleComplete = () => {
     console.log('Onboarding completed:', data);
-    // API call would go here
   };
 
   const progressPercent = ((currentStep + 1) / STEPS.length) * 100;
@@ -78,7 +77,7 @@ export default function OnboardingWizard() {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-cyan-200 mb-2">
                 Full Name
               </label>
               <Input
@@ -86,10 +85,11 @@ export default function OnboardingWizard() {
                 placeholder="John Doe"
                 value={data.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
+                className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200 placeholder-cyan-200/40"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-cyan-200 mb-2">
                 Email
               </label>
               <Input
@@ -97,10 +97,11 @@ export default function OnboardingWizard() {
                 placeholder="john@example.com"
                 value={data.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
+                className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200 placeholder-cyan-200/40"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-cyan-200 mb-2">
                 Phone Number
               </label>
               <Input
@@ -108,10 +109,11 @@ export default function OnboardingWizard() {
                 placeholder="+1 (555) 000-0000"
                 value={data.phone}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
+                className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200 placeholder-cyan-200/40"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-cyan-200 mb-2">
                 Agency Name (Optional)
               </label>
               <Input
@@ -119,6 +121,7 @@ export default function OnboardingWizard() {
                 placeholder="Your Agency"
                 value={data.agency}
                 onChange={(e) => handleInputChange('agency', e.target.value)}
+                className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200 placeholder-cyan-200/40"
               />
             </div>
           </div>
@@ -126,23 +129,19 @@ export default function OnboardingWizard() {
 
       case 1:
         return (
-          <div className="space-y-4">
-            <div className="text-center py-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Connect Facebook</h3>
-              <p className="text-gray-600 mb-6">Connect your Facebook business page for automated posting and lead capture</p>
-              <Button
-                onClick={() => handleInputChange('facebookConnected', true)}
-                disabled={data.facebookConnected}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                {data.facebookConnected ? '✓ Connected' : 'Connect Facebook'}
-              </Button>
+          <div className="space-y-4 text-center py-8">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-900/40 border-2 border-blue-400/50 rounded-full mb-4">
+              <span className="text-4xl">📘</span>
             </div>
+            <h3 className="text-2xl font-black text-cyan-300">Connect Facebook</h3>
+            <p className="text-cyan-200/80 max-w-md">Connect your Facebook business page for automated posting and lead capture</p>
+            <Button
+              onClick={() => handleInputChange('facebookConnected', true)}
+              disabled={data.facebookConnected}
+              className="w-full bg-blue-600/80 hover:bg-blue-700 text-white font-semibold mt-6"
+            >
+              {data.facebookConnected ? '✓ Connected' : 'Connect Facebook'}
+            </Button>
           </div>
         );
 
@@ -150,10 +149,10 @@ export default function OnboardingWizard() {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-cyan-200 mb-2">
                 Email Forwarding Address
               </label>
-              <p className="text-xs text-gray-500 mb-2">
+              <p className="text-xs text-cyan-200/60 mb-2 font-medium">
                 This unique email will forward leads and inquiries to your inbox
               </p>
               <Input
@@ -162,6 +161,7 @@ export default function OnboardingWizard() {
                 value={data.forwardingEmail}
                 onChange={(e) => handleInputChange('forwardingEmail', e.target.value)}
                 disabled
+                className="border-2 border-cyan-400/50 bg-slate-900/50 text-cyan-200/70 cursor-not-allowed"
               />
               <Button
                 onClick={() => {
@@ -169,20 +169,21 @@ export default function OnboardingWizard() {
                   handleInputChange('emailConnected', true);
                 }}
                 disabled={data.emailConnected}
-                className="mt-4 w-full"
+                className="mt-4 w-full bg-cyan-600/80 hover:bg-cyan-700 text-white font-semibold"
               >
                 {data.emailConnected ? '✓ Email Connected' : 'Generate Email Address'}
               </Button>
               {data.emailConnected && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-800">
-                    Email forwarding address generated: <strong>{data.forwardingEmail}</strong>
+                <div className="mt-4 p-4 bg-green-900/30 border-2 border-green-400/50 rounded-lg">
+                  <p className="text-sm text-green-300 font-semibold">
+                    Email forwarding address generated
                   </p>
+                  <p className="text-sm text-green-200 font-mono mt-2">{data.forwardingEmail}</p>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => navigator.clipboard.writeText(data.forwardingEmail)}
-                    className="mt-2"
+                    className="mt-3 border-2 border-green-400/50 text-green-300 hover:bg-green-400/20 font-semibold"
                   >
                     Copy to Clipboard
                   </Button>
@@ -194,37 +195,37 @@ export default function OnboardingWizard() {
 
       case 3:
         return (
-          <div className="space-y-4">
-            <p className="text-gray-600 mb-4">Select your calendar provider for meeting scheduling and lead follow-ups</p>
+          <div className="space-y-4 text-center py-4">
+            <p className="text-cyan-200/80 font-semibold mb-6">Select your calendar provider for meeting scheduling and lead follow-ups</p>
             <div className="grid grid-cols-2 gap-4">
-              <Card
-                className={`cursor-pointer transition-all ${
-                  data.calendarType === 'google' ? 'ring-2 ring-blue-500' : ''
-                }`}
+              <button
                 onClick={() => handleInputChange('calendarType', 'google')}
-              >
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl mb-2">📅</div>
-                  <p className="font-semibold text-sm">Google Calendar</p>
-                </CardContent>
-              </Card>
-              <Card
-                className={`cursor-pointer transition-all ${
-                  data.calendarType === 'outlook' ? 'ring-2 ring-blue-500' : ''
+                className={`p-6 rounded-xl border-2 transition-all cursor-pointer font-semibold ${
+                  data.calendarType === 'google'
+                    ? 'border-cyan-400 bg-cyan-900/40 text-cyan-300'
+                    : 'border-cyan-400/30 bg-slate-800/40 text-cyan-200/70 hover:border-cyan-400/60'
                 }`}
-                onClick={() => handleInputChange('calendarType', 'outlook')}
               >
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl mb-2">📅</div>
-                  <p className="font-semibold text-sm">Outlook Calendar</p>
-                </CardContent>
-              </Card>
+                <div className="text-3xl mb-2">📅</div>
+                <p className="text-sm">Google Calendar</p>
+              </button>
+              <button
+                onClick={() => handleInputChange('calendarType', 'outlook')}
+                className={`p-6 rounded-xl border-2 transition-all cursor-pointer font-semibold ${
+                  data.calendarType === 'outlook'
+                    ? 'border-cyan-400 bg-cyan-900/40 text-cyan-300'
+                    : 'border-cyan-400/30 bg-slate-800/40 text-cyan-200/70 hover:border-cyan-400/60'
+                }`}
+              >
+                <div className="text-3xl mb-2">📅</div>
+                <p className="text-sm">Outlook Calendar</p>
+              </button>
             </div>
             {data.calendarType !== 'none' && (
               <Button
                 onClick={() => handleInputChange('calendarConnected', true)}
                 disabled={data.calendarConnected}
-                className="w-full mt-4"
+                className="mt-4 w-full bg-cyan-600/80 hover:bg-cyan-700 text-white font-semibold"
               >
                 {data.calendarConnected ? '✓ Calendar Connected' : 'Connect Calendar'}
               </Button>
@@ -234,30 +235,31 @@ export default function OnboardingWizard() {
 
       case 4:
         return (
-          <div className="space-y-4 text-center">
-            <div className="py-8">
-              <div className="inline-flex items-center justify-center w-32 h-32 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 mb-4">
-                <span className="text-sm text-gray-500">QR Code</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Scan to Share Profile</h3>
-              <p className="text-gray-600 mb-6">
-                Use this QR code to share your Clippy profile with leads and clients
-              </p>
-              <Button
-                onClick={() => {
-                  handleInputChange('qrCodeGenerated', true);
-                }}
-                disabled={data.qrCodeGenerated}
-                className="w-full mb-4"
-              >
-                {data.qrCodeGenerated ? '✓ QR Code Generated' : 'Generate QR Code'}
-              </Button>
-              {data.qrCodeGenerated && (
-                <Button variant="outline" className="w-full">
-                  Download QR Code
-                </Button>
-              )}
+          <div className="space-y-4 text-center py-8">
+            <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-cyan-900/40 to-blue-900/40 border-4 border-dashed border-cyan-400/50 rounded-lg mb-4">
+              <span className="text-5xl">📱</span>
             </div>
+            <h3 className="text-2xl font-black text-cyan-300">Scan to Share Profile</h3>
+            <p className="text-cyan-200/80 mb-6 font-semibold">
+              Use this QR code to share your Clippy profile with leads and clients
+            </p>
+            <Button
+              onClick={() => {
+                handleInputChange('qrCodeGenerated', true);
+              }}
+              disabled={data.qrCodeGenerated}
+              className="w-full bg-cyan-600/80 hover:bg-cyan-700 text-white font-semibold mb-3"
+            >
+              {data.qrCodeGenerated ? '✓ QR Code Generated' : 'Generate QR Code'}
+            </Button>
+            {data.qrCodeGenerated && (
+              <Button 
+                variant="outline" 
+                className="w-full border-2 border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/20 font-semibold"
+              >
+                Download QR Code
+              </Button>
+            )}
           </div>
         );
 
@@ -284,77 +286,81 @@ export default function OnboardingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Clippy</h1>
-            <p className="text-gray-600">Complete your profile in 5 easy steps</p>
-          </div>
+        <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 58, 138, 0.5) 100%)' }}>
+          <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-cyan-500/20 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-3xl" />
+          <div className="relative p-8 z-10">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent mb-2 drop-shadow-lg">
+                Welcome to Clippy
+              </h1>
+              <p className="text-cyan-200/80 font-semibold">Complete your profile in 5 easy steps</p>
+            </div>
 
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex justify-between mb-2">
-              {STEPS.map((step, idx) => (
-                <div key={idx} className="flex-1">
+            {/* Progress Bar */}
+            <div className="mb-8">
+              <div className="flex justify-between gap-1 mb-3">
+                {STEPS.map((step, idx) => (
                   <div
-                    className={`h-2 rounded-full transition-all ${
+                    key={idx}
+                    className={`h-3 flex-1 rounded-full transition-all ${
                       idx < currentStep
-                        ? 'bg-green-500'
+                        ? 'bg-green-500/80 shadow-lg shadow-green-500/50'
                         : idx === currentStep
-                        ? 'bg-blue-500'
-                        : 'bg-gray-200'
+                        ? 'bg-cyan-500/80 shadow-lg shadow-cyan-500/50'
+                        : 'bg-slate-700'
                     }`}
                   />
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className="text-sm text-cyan-200/80 font-semibold">
+                Step {currentStep + 1} of {STEPS.length} ({progressPercent.toFixed(0)}% complete)
+              </div>
             </div>
-            <div className="text-sm text-gray-600">
-              Step {currentStep + 1} of {STEPS.length} ({progressPercent.toFixed(0)}% complete)
+
+            {/* Step Indicator */}
+            <div className="mb-8 bg-slate-800/40 border-2 border-cyan-400/30 rounded-xl p-4">
+              <h2 className="text-xl font-black text-cyan-300">{STEPS[currentStep].title}</h2>
+              <p className="text-cyan-200/70 text-sm font-semibold mt-1">{STEPS[currentStep].description}</p>
             </div>
-          </div>
 
-          {/* Step Indicator */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900">{STEPS[currentStep].title}</h2>
-            <p className="text-gray-600">{STEPS[currentStep].description}</p>
-          </div>
+            {/* Step Content */}
+            <div className="mb-8">{renderStep()}</div>
 
-          {/* Step Content */}
-          <div className="mb-8">{renderStep()}</div>
-
-          {/* Navigation Buttons */}
-          <div className="flex gap-4">
-            <Button
-              onClick={handlePrev}
-              disabled={currentStep === 0}
-              variant="outline"
-              className="flex-1"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Previous
-            </Button>
-
-            {currentStep < STEPS.length - 1 ? (
+            {/* Navigation Buttons */}
+            <div className="flex gap-4">
               <Button
-                onClick={handleNext}
-                disabled={!isStepValid()}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                onClick={handlePrev}
+                disabled={currentStep === 0}
+                variant="outline"
+                className="flex-1 border-2 border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/20 font-semibold disabled:opacity-50"
               >
-                Next
-                <ArrowRight className="w-4 h-4 ml-2" />
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Previous
               </Button>
-            ) : (
-              <Button
-                onClick={handleComplete}
-                disabled={!isStepValid()}
-                className="flex-1 bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Complete Onboarding
-              </Button>
-            )}
+
+              {currentStep < STEPS.length - 1 ? (
+                <Button
+                  onClick={handleNext}
+                  disabled={!isStepValid()}
+                  className="flex-1 bg-cyan-600/80 hover:bg-cyan-700 text-white font-semibold disabled:opacity-50"
+                >
+                  Next
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleComplete}
+                  disabled={!isStepValid()}
+                  className="flex-1 bg-green-600/80 hover:bg-green-700 text-white font-semibold disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Complete Onboarding
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Trash2, Download, Upload } from 'lucide-react';
+import { Copy, Trash2, Download, Upload, Plug } from 'lucide-react';
 
 interface IntegrationStatus {
   facebook: {
@@ -166,31 +166,37 @@ export default function CRMIntegrationPanel() {
     isConnected: boolean;
     children: React.ReactNode;
   }) => (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between">
+    <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)' }}>
+      <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+      <div className="relative p-6 z-10">
+        <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className="text-3xl">{icon}</span>
             <div>
-              <CardTitle>{title}</CardTitle>
-              <CardDescription>{description}</CardDescription>
+              <p className="font-black text-cyan-300 text-lg">{title}</p>
+              <p className="text-sm text-cyan-200/70">{description}</p>
             </div>
           </div>
-          <Badge variant={isConnected ? 'default' : 'secondary'}>
+          <Badge className={isConnected ? 'bg-green-600/80 text-green-100' : 'bg-gray-600/80 text-gray-100'}>
             {isConnected ? '✓ Connected' : 'Disconnected'}
           </Badge>
         </div>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+        <div className="mt-4">{children}</div>
+      </div>
+    </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 py-8 px-4">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Integration Center</h1>
-          <p className="text-gray-600 mt-2">Connect your favorite tools and platforms</p>
+          <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent mb-2 drop-shadow-lg">
+            Integration Center
+          </h1>
+          <p className="text-cyan-200/80 text-lg drop-shadow">
+            Connect your favorite tools and platforms
+          </p>
         </div>
 
         {/* Primary Integrations */}
@@ -204,27 +210,27 @@ export default function CRMIntegrationPanel() {
           >
             {!integrations.facebook.connected ? (
               <div className="space-y-4">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-cyan-200/80">
                   Connect your Facebook business page to automate lead capture and post scheduling
                 </p>
                 <Button
                   onClick={handleFacebookConnect}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full bg-cyan-600/80 hover:bg-cyan-700 text-white font-semibold"
                 >
                   Connect Facebook
                 </Button>
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Connected Page</p>
-                  <p className="text-sm text-gray-900 font-semibold mb-1">{integrations.facebook.pageName}</p>
-                  <p className="text-xs text-gray-500">ID: {integrations.facebook.pageId}</p>
+                <div className="bg-cyan-900/30 border-2 border-cyan-400/30 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-cyan-300 mb-2">Connected Page</p>
+                  <p className="text-sm text-cyan-200 font-semibold mb-1">{integrations.facebook.pageName}</p>
+                  <p className="text-xs text-cyan-200/60">ID: {integrations.facebook.pageId}</p>
                 </div>
                 <Button
                   onClick={handleFacebookDisconnect}
                   variant="destructive"
-                  className="w-full"
+                  className="w-full bg-red-600/80 hover:bg-red-700"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Disconnect
@@ -238,34 +244,34 @@ export default function CRMIntegrationPanel() {
             title="Email Forwarding"
             icon="📧"
             description="Unique email address for lead capture"
-            isConnected={integrations.email.connected}
+            isConnected={true}
           >
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-cyan-200 mb-2">
                   Forwarding Address
                 </label>
                 <div className="flex gap-2">
                   <Input
                     value={integrations.email.forwardingEmail}
                     readOnly
-                    className="bg-gray-50"
+                    className="bg-slate-900/50 border-2 border-cyan-400/30 text-cyan-300"
                   />
                   <Button
                     onClick={() =>
                       copyToClipboard(integrations.email.forwardingEmail, 'email')
                     }
-                    variant="outline"
+                    className="bg-cyan-600/80 hover:bg-cyan-700"
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
                 </div>
                 {copiedField === 'email' && (
-                  <p className="text-xs text-green-600 mt-1">✓ Copied!</p>
+                  <p className="text-xs text-green-400 mt-2">✓ Copied!</p>
                 )}
               </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-xs text-green-800">
+              <div className="bg-green-900/30 border-2 border-green-400/30 rounded-lg p-3">
+                <p className="text-xs text-green-300 font-semibold">
                   Use this email to capture leads from listings, ads, and marketing materials.
                 </p>
               </div>
@@ -281,57 +287,41 @@ export default function CRMIntegrationPanel() {
           >
             {!integrations.calendar.connected ? (
               <div className="space-y-3">
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-cyan-200/80 mb-4">
                   Connect your calendar to automatically schedule showings and follow-ups
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     onClick={() => handleCalendarConnect('google')}
+                    className="border-2 border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/20 font-semibold"
                     variant="outline"
                   >
-                    <svg
-                      className="w-4 h-4 mr-2"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                    </svg>
                     Google Calendar
                   </Button>
                   <Button
                     onClick={() => handleCalendarConnect('outlook')}
+                    className="border-2 border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/20 font-semibold"
                     variant="outline"
                   >
-                    <svg
-                      className="w-4 h-4 mr-2"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M11.6 2h-8c-.6 0-1 .5-1 1v18c0 .5.4 1 1 1h8v-2h-7V3h7V2z" />
-                      <path d="M19 8h-7V7h-2v9h2v-5h7v5h2V8h-2z" />
-                    </svg>
                     Outlook Calendar
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Connected Calendar</p>
-                  <p className="text-sm text-gray-900 font-semibold mb-1">
+                <div className="bg-cyan-900/30 border-2 border-cyan-400/30 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-cyan-300 mb-1">Connected Calendar</p>
+                  <p className="text-sm text-cyan-200 font-semibold mb-1">
                     {integrations.calendar.type === 'google'
                       ? 'Google Calendar'
                       : 'Outlook Calendar'}
                   </p>
-                  <p className="text-xs text-gray-500">{integrations.calendar.email}</p>
+                  <p className="text-xs text-cyan-200/60">{integrations.calendar.email}</p>
                 </div>
                 <Button
                   onClick={handleCalendarDisconnect}
                   variant="destructive"
-                  className="w-full"
+                  className="w-full bg-red-600/80 hover:bg-red-700"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Disconnect
@@ -349,28 +339,28 @@ export default function CRMIntegrationPanel() {
           >
             {!integrations.crm.connected ? (
               <div className="space-y-3">
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-cyan-200/80 mb-4">
                   Connect your CRM to automatically sync leads and track sales
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   <Button
                     onClick={() => handleCRMConnect('hubspot')}
+                    className="border-2 border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/20 font-semibold text-sm"
                     variant="outline"
-                    className="text-xs"
                   >
                     HubSpot
                   </Button>
                   <Button
                     onClick={() => handleCRMConnect('salesforce')}
+                    className="border-2 border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/20 font-semibold text-sm"
                     variant="outline"
-                    className="text-xs"
                   >
                     Salesforce
                   </Button>
                   <Button
                     onClick={() => handleCRMConnect('pipedrive')}
+                    className="border-2 border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/20 font-semibold text-sm"
                     variant="outline"
-                    className="text-xs"
                   >
                     Pipedrive
                   </Button>
@@ -378,16 +368,16 @@ export default function CRMIntegrationPanel() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Connected CRM</p>
-                  <p className="text-sm text-gray-900 font-semibold capitalize">
+                <div className="bg-cyan-900/30 border-2 border-cyan-400/30 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-cyan-300 mb-1">Connected CRM</p>
+                  <p className="text-sm text-cyan-200 font-semibold capitalize">
                     {integrations.crm.type}
                   </p>
                 </div>
                 <Button
                   onClick={handleCRMDisconnect}
                   variant="destructive"
-                  className="w-full"
+                  className="w-full bg-red-600/80 hover:bg-red-700"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Disconnect
@@ -398,30 +388,32 @@ export default function CRMIntegrationPanel() {
         </div>
 
         {/* Data Management */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Management</CardTitle>
-            <CardDescription>Export and import your Clippy data</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)' }}>
+          <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+          <div className="relative p-6 z-10">
+            <h3 className="text-xl font-black text-white flex items-center gap-2 drop-shadow-lg mb-6">
+              <Plug className="w-5 h-5" />
+              Data Management
+            </h3>
+            <p className="text-sm text-cyan-200/80 mb-4">Export and import your Clippy data</p>
             <div className="grid md:grid-cols-2 gap-4">
               <Button
                 onClick={exportData}
+                className="border-2 border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/20 font-semibold h-auto flex-col items-start p-4 text-left"
                 variant="outline"
-                className="h-auto flex-col items-start p-4 text-left"
               >
-                <Download className="w-6 h-6 mb-2 text-blue-600" />
-                <span className="font-semibold text-sm">Export Data</span>
-                <span className="text-xs text-gray-500 mt-1">Download your leads and settings</span>
+                <Download className="w-6 h-6 mb-2" />
+                <span className="font-black">Export Data</span>
+                <span className="text-xs text-cyan-200/60 font-normal">Download your leads and settings</span>
               </Button>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                <Upload className="w-6 h-6 mx-auto mb-2 text-gray-400" />
-                <p className="text-sm font-medium text-gray-700">Import Data</p>
-                <p className="text-xs text-gray-500 mt-1">Coming Soon</p>
+              <div className="border-2 border-dashed border-cyan-400/30 rounded-lg p-4 text-center">
+                <Upload className="w-6 h-6 mx-auto mb-2 text-cyan-400/40" />
+                <p className="text-sm font-semibold text-cyan-300">Import Data</p>
+                <p className="text-xs text-cyan-200/60 mt-1">Coming Soon</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

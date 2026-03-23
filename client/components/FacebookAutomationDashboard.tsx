@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Edit2, Check, X } from 'lucide-react';
+import { Trash2, Edit2, Check, X, Activity } from 'lucide-react';
 
 interface ScheduledPost {
   id: string;
@@ -117,15 +117,15 @@ export default function FacebookAutomationDashboard() {
     value: boolean;
     onChange: (value: boolean) => void;
   }) => (
-    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+    <div className="flex items-center justify-between p-4 rounded-lg border-2 border-cyan-400/50 bg-gradient-to-br from-slate-800/40 to-blue-900/30 hover:border-cyan-300 transition-all">
       <div className="flex-1">
-        <p className="font-semibold text-gray-900">{label}</p>
-        <p className="text-sm text-gray-600">{description}</p>
+        <p className="font-semibold text-cyan-300">{label}</p>
+        <p className="text-sm text-cyan-200/70">{description}</p>
       </div>
       <button
         onClick={() => onChange(!value)}
         className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-          value ? 'bg-green-600' : 'bg-gray-300'
+          value ? 'bg-gradient-to-r from-cyan-500 to-blue-500' : 'bg-slate-700'
         }`}
       >
         <span
@@ -138,118 +138,109 @@ export default function FacebookAutomationDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 py-8 px-4">
       <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Facebook Automation</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-400 bg-clip-text text-transparent mb-2 drop-shadow-lg">
+            Facebook Automation
+          </h1>
+          <p className="text-cyan-200/80 text-lg drop-shadow">
             Manage automated posts, replies, and lead responses
           </p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-blue-600">{totalLeads}</p>
-                <p className="text-sm text-gray-600 mt-2">Leads Captured</p>
-                <p className="text-xs text-gray-500 mt-1">This month</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-green-600">{totalPosts}</p>
-                <p className="text-sm text-gray-600 mt-2">Posts Published</p>
-                <p className="text-xs text-gray-500 mt-1">All time</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-purple-600">
-                  {totalReplies}
+        <div className="grid md:grid-cols-4 gap-4 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {[
+            { label: 'Leads Captured', value: totalLeads, icon: '📊', color: 'from-blue-500 to-blue-600' },
+            { label: 'Posts Published', value: totalPosts, icon: '📝', color: 'from-green-500 to-green-600' },
+            { label: 'Auto Replies Sent', value: totalReplies, icon: '💬', color: 'from-purple-500 to-purple-600' },
+            { label: 'Scheduled Posts', value: activeScheduledPosts, icon: '⏰', color: 'from-orange-500 to-orange-600' },
+          ].map((stat, idx) => (
+            <div
+              key={idx}
+              className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 hover:-translate-y-2 active:scale-95"
+              style={{
+                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)',
+                animationDelay: `${idx * 100}ms`,
+              }}
+            >
+              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+              <div className="relative p-6 z-10 text-center">
+                <p className="text-4xl mb-2">{stat.icon}</p>
+                <p className="text-4xl md:text-5xl font-black text-cyan-300 tabular-nums drop-shadow-lg">
+                  {stat.value}
                 </p>
-                <p className="text-sm text-gray-600 mt-2">Auto Replies Sent</p>
-                <p className="text-xs text-gray-500 mt-1">This month</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-orange-600">
-                  {activeScheduledPosts}
+                <p className="text-sm text-cyan-200/80 font-bold mt-3 uppercase tracking-widest drop-shadow">
+                  {stat.label}
                 </p>
-                <p className="text-sm text-gray-600 mt-2">Scheduled Posts</p>
-                <p className="text-xs text-gray-500 mt-1">Awaiting posting</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          ))}
         </div>
 
         {/* Automation Controls */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Automation Settings</CardTitle>
-            <CardDescription>
-              Enable or disable automated posting and responses
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <ToggleSwitch
-              label="Auto-Post"
-              description="Automatically post scheduled content to Facebook"
-              value={autoPost}
-              onChange={setAutoPost}
-            />
+        <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 mb-8 animate-in fade-in slide-in-from-left-4 duration-500" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)' }}>
+          <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+          <div className="relative p-8 z-10">
+            <h2 className="text-3xl font-black text-white flex items-center gap-3 drop-shadow-lg mb-8">
+              <div className="p-2 bg-gradient-to-br from-cyan-500/40 to-blue-600/30 rounded-lg border border-cyan-400/60 shadow-lg shadow-cyan-500/30">
+                <Activity className="w-6 h-6 text-cyan-300" />
+              </div>
+              Automation Settings
+            </h2>
+            <div className="space-y-3">
+              <ToggleSwitch
+                label="Auto-Post"
+                description="Automatically post scheduled content to Facebook"
+                value={autoPost}
+                onChange={setAutoPost}
+              />
 
-            <ToggleSwitch
-              label="Auto-Reply"
-              description="Send automatic responses to inquiries"
-              value={autoReply}
-              onChange={setAutoReply}
-            />
+              <ToggleSwitch
+                label="Auto-Reply"
+                description="Send automatic responses to inquiries"
+                value={autoReply}
+                onChange={setAutoReply}
+              />
 
-            <ToggleSwitch
-              label="CEO Approval Required"
-              description="Require CEO approval before posting content"
-              value={ceoApproval}
-              onChange={setCeoApproval}
-            />
+              <ToggleSwitch
+                label="CEO Approval Required"
+                description="Require CEO approval before posting content"
+                value={ceoApproval}
+                onChange={setCeoApproval}
+              />
 
-            <ToggleSwitch
-              label="Escalation Alerts"
-              description="Receive notifications for complex inquiries"
-              value={escalationAlerts}
-              onChange={setEscalationAlerts}
-            />
-          </CardContent>
-        </Card>
+              <ToggleSwitch
+                label="Escalation Alerts"
+                description="Receive notifications for complex inquiries"
+                value={escalationAlerts}
+                onChange={setEscalationAlerts}
+              />
+            </div>
+          </div>
+        </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Scheduled Posts */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Scheduled Posts</CardTitle>
-                <CardDescription>
-                  {activeScheduledPosts} posts scheduled for posting
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 animate-in fade-in slide-in-from-left-4 duration-500" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)' }}>
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+            <div className="relative p-8 z-10">
+              <h3 className="text-2xl font-black text-white flex items-center gap-2 drop-shadow-lg mb-6">
+                <span>📅 Scheduled Posts</span>
+              </h3>
+              <p className="text-sm text-cyan-200/80 font-semibold mb-6 uppercase tracking-widest">
+                {activeScheduledPosts} posts scheduled
+              </p>
+
+              <div className="space-y-4 max-h-96 overflow-y-auto">
                 {scheduledPosts.map(post => (
                   <div
                     key={post.id}
-                    className="border border-gray-200 rounded-lg p-4 space-y-3"
+                    className="border-2 border-cyan-400/30 rounded-lg p-4 bg-slate-800/30 hover:bg-slate-800/60 hover:border-cyan-400/60 transition-all"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between mb-3">
                       <Badge
                         variant={
                           post.status === 'scheduled'
@@ -257,6 +248,13 @@ export default function FacebookAutomationDashboard() {
                             : post.status === 'posted'
                             ? 'secondary'
                             : 'destructive'
+                        }
+                        className={
+                          post.status === 'scheduled'
+                            ? 'bg-cyan-600/80 text-cyan-100'
+                            : post.status === 'posted'
+                            ? 'bg-green-600/80 text-green-100'
+                            : 'bg-red-600/80 text-red-100'
                         }
                       >
                         {post.status === 'scheduled'
@@ -267,22 +265,22 @@ export default function FacebookAutomationDashboard() {
                       </Badge>
                     </div>
 
-                    <p className="text-sm text-gray-700 line-clamp-3">
+                    <p className="text-sm text-cyan-200 line-clamp-3 font-medium mb-2">
                       {post.content}
                     </p>
 
                     {post.scheduledTime && (
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-cyan-200/60 mb-3">
                         {post.scheduledTime.toLocaleString()}
                       </p>
                     )}
 
                     {post.status === 'scheduled' && (
-                      <div className="flex gap-2 pt-2 border-t">
+                      <div className="flex gap-2 pt-2 border-t border-cyan-400/20">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1"
+                          className="flex-1 border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/20"
                         >
                           <Edit2 className="w-4 h-4 mr-1" />
                           Edit
@@ -290,7 +288,7 @@ export default function FacebookAutomationDashboard() {
                         <Button
                           size="sm"
                           variant="destructive"
-                          className="flex-1"
+                          className="flex-1 bg-red-600/80 hover:bg-red-700"
                           onClick={() => handleCancelPost(post.id)}
                         >
                           <Trash2 className="w-4 h-4 mr-1" />
@@ -300,59 +298,61 @@ export default function FacebookAutomationDashboard() {
                     )}
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           {/* Pending Approvals */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Pending Approvals</CardTitle>
-                <CardDescription>
-                  {pendingApprovals.length} items waiting for review
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 animate-in fade-in slide-in-from-right-4 duration-500" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)' }}>
+            <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+            <div className="relative p-8 z-10">
+              <h3 className="text-2xl font-black text-white flex items-center gap-2 drop-shadow-lg mb-6">
+                <span>⏳ Pending Approvals</span>
+              </h3>
+              <p className="text-sm text-cyan-200/80 font-semibold mb-6 uppercase tracking-widest">
+                {pendingApprovals.length} items waiting for review
+              </p>
+
+              <div className="space-y-4 max-h-96 overflow-y-auto">
                 {pendingApprovals.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">
-                      ✓ No pending items. All caught up!
-                    </p>
+                  <div className="text-center py-8 text-cyan-200/60">
+                    <p className="font-semibold">✓ No pending items. All caught up!</p>
                   </div>
                 ) : (
                   pendingApprovals.map(item => (
                     <div
                       key={item.id}
-                      className="border border-yellow-200 bg-yellow-50 rounded-lg p-4 space-y-3"
+                      className="border-2 border-amber-400/50 bg-amber-400/10 rounded-lg p-4 hover:border-amber-400/80 transition-all"
                     >
-                      <div className="flex items-start justify-between">
-                        <Badge variant="secondary">⏳ Pending Review</Badge>
-                        <p className="text-xs text-gray-500">
+                      <div className="flex items-start justify-between mb-3">
+                        <Badge className="bg-amber-600/80 text-amber-100">⏳ Pending</Badge>
+                        <p className="text-xs text-cyan-200/60">
                           {item.submittedAt.toLocaleTimeString()}
                         </p>
                       </div>
 
                       {item.leadInfo && (
-                        <div className="bg-white p-3 rounded border border-gray-200">
-                          <p className="font-medium text-sm text-gray-900">
+                        <div className="bg-slate-800/60 p-3 rounded border border-cyan-400/20 mb-3">
+                          <p className="font-semibold text-cyan-300 text-sm">
                             {item.leadInfo.name}
                           </p>
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-cyan-200/70">
                             {item.leadInfo.email}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-cyan-200/60 mt-1">
                             Property: {item.leadInfo.property}
                           </p>
                         </div>
                       )}
 
-                      <p className="text-sm text-gray-700">{item.content}</p>
+                      <p className="text-sm text-cyan-200 font-medium mb-3">
+                        {item.content}
+                      </p>
 
-                      <div className="flex gap-2 pt-2 border-t border-yellow-200">
+                      <div className="flex gap-2 pt-2 border-t border-amber-400/20">
                         <Button
                           size="sm"
-                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          className="flex-1 bg-green-600/80 hover:bg-green-700 text-white font-semibold"
                           onClick={() => handleApprove(item.id)}
                         >
                           <Check className="w-4 h-4 mr-1" />
@@ -361,7 +361,7 @@ export default function FacebookAutomationDashboard() {
                         <Button
                           size="sm"
                           variant="destructive"
-                          className="flex-1"
+                          className="flex-1 bg-red-600/80 hover:bg-red-700"
                           onClick={() => handleReject(item.id)}
                         >
                           <X className="w-4 h-4 mr-1" />
@@ -371,40 +371,37 @@ export default function FacebookAutomationDashboard() {
                     </div>
                   ))
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Performance Metrics */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle>Performance Metrics</CardTitle>
-            <CardDescription>
-              Monitor your automation effectiveness
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 group-hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 58, 138, 0.4) 100%)' }}>
+          <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/30 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-2xl" />
+          <div className="relative p-8 z-10">
+            <h3 className="text-2xl font-black text-white drop-shadow-lg mb-6">
+              Performance Metrics
+            </h3>
             <div className="grid md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-gray-600 font-medium">Avg Response Time</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">2.3 min</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 font-medium">Lead Conversion Rate</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">18%</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 font-medium">Post Engagement Avg</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">4.7%</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 font-medium">Uptime</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">99.9%</p>
-              </div>
+              {[
+                { label: 'Avg Response Time', value: '2.3 min' },
+                { label: 'Lead Conversion Rate', value: '18%' },
+                { label: 'Post Engagement Avg', value: '4.7%' },
+                { label: 'Uptime', value: '99.9%' },
+              ].map((metric, idx) => (
+                <div key={idx} className="text-center">
+                  <p className="text-sm text-cyan-200/80 font-bold mb-2 uppercase tracking-widest">
+                    {metric.label}
+                  </p>
+                  <p className="text-2xl font-black text-cyan-300 drop-shadow">
+                    {metric.value}
+                  </p>
+                </div>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
