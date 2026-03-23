@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Download, Filter, Activity } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, Filter, Activity, ArrowLeft } from 'lucide-react';
 
 interface LogEntry {
   id: string;
@@ -91,6 +92,7 @@ const SAMPLE_LOGS: LogEntry[] = [
 ];
 
 export default function IntegrationLogsViewer() {
+  const navigate = useNavigate();
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -199,7 +201,20 @@ export default function IntegrationLogsViewer() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 py-8 px-4">
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950">
+      {/* Left Sidebar */}
+      <div className="w-20 border-r-2 border-cyan-400/30 bg-slate-900/40 backdrop-blur-sm p-4 flex flex-col">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center justify-center w-12 h-12 rounded-lg border-2 border-cyan-400/50 bg-slate-800/50 hover:bg-cyan-600/40 hover:border-cyan-400 text-cyan-300 transition-all hover:shadow-lg hover:shadow-cyan-500/30 group mb-8"
+          title="Go Back to Dashboard"
+        >
+          <ArrowLeft className="w-5 h-5 group-hover:scale-110 transition-transform" />
+        </button>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 py-8 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -394,6 +409,7 @@ export default function IntegrationLogsViewer() {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

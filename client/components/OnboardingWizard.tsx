@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle2, X } from 'lucide-react';
 
 interface OnboardingData {
   // Step 1: Profile Setup
@@ -35,6 +36,7 @@ const STEPS = [
 ];
 
 export default function OnboardingWizard() {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData>({
     name: '',
@@ -286,7 +288,20 @@ export default function OnboardingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950 py-12 px-4">
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-950">
+      {/* Left Sidebar */}
+      <div className="w-20 border-r-2 border-cyan-400/30 bg-slate-900/40 backdrop-blur-sm p-4 flex flex-col">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center justify-center w-12 h-12 rounded-lg border-2 border-cyan-400/50 bg-slate-800/50 hover:bg-cyan-600/40 hover:border-cyan-400 text-cyan-300 transition-all hover:shadow-lg hover:shadow-cyan-500/30 group mb-8"
+          title="Close Onboarding"
+        >
+          <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
+        </button>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="group relative overflow-hidden rounded-2xl backdrop-blur-sm transition-all duration-300 border-2 border-cyan-400/50 hover:border-cyan-300 hover:shadow-3xl hover:shadow-cyan-500/50 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 58, 138, 0.5) 100%)' }}>
           <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-cyan-500/20 to-blue-600/20 rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-3xl" />
@@ -363,6 +378,7 @@ export default function OnboardingWizard() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
