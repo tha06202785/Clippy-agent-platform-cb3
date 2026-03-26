@@ -1,0 +1,75 @@
+{
+  "timestamp": "2026-03-23T16:07:09.600345",
+  "url": "https://useclippy-7z8jm3tcx-kenoltha-4584s-projects.vercel.app",
+  "summary": {
+    "total": 10,
+    "passed": 7,
+    "failed": 2,
+    "skipped": 1,
+    "warnings": 0,
+    "pass_rate": "70.0%"
+  },
+  "status": "NEEDS_WORK",
+  "results": [
+    {
+      "name": "Health Check",
+      "status": "FAIL",
+      "message": "Status 401",
+      "timestamp": "2026-03-23T16:07:06.048959"
+    },
+    {
+      "name": "Supabase Connection",
+      "status": "PASS",
+      "message": "Database accessible",
+      "timestamp": "2026-03-23T16:07:08.168751"
+    },
+    {
+      "name": "OpenAI Connection",
+      "status": "SKIP",
+      "message": "No API key configured",
+      "timestamp": "2026-03-23T16:07:08.171364"
+    },
+    {
+      "name": "Frontend Loading",
+      "status": "FAIL",
+      "message": "Status 401",
+      "timestamp": "2026-03-23T16:07:08.416311"
+    },
+    {
+      "name": "API /api/health",
+      "status": "PASS",
+      "message": "Status 401",
+      "timestamp": "2026-03-23T16:07:08.677394"
+    },
+    {
+      "name": "API /api/leads",
+      "status": "PASS",
+      "message": "Status 401",
+      "timestamp": "2026-03-23T16:07:08.935588"
+    },
+    {
+      "name": "API /api/listing/generate-content",
+      "status": "PASS",
+      "message": "Status 401",
+      "timestamp": "2026-03-23T16:07:09.194626"
+    },
+    {
+      "name": "API /webhook/health",
+      "status": "PASS",
+      "message": "Status 401",
+      "timestamp": "2026-03-23T16:07:09.452904"
+    },
+    {
+      "name": "Integration Logs",
+      "status": "PASS",
+      "message": "Logging system working",
+      "timestamp": "2026-03-23T16:07:09.522670"
+    },
+    {
+      "name": "Idempotency System",
+      "status": "PASS",
+      "message": "Duplicate detection working",
+      "timestamp": "2026-03-23T16:07:09.600190"
+    }
+  ]
+}

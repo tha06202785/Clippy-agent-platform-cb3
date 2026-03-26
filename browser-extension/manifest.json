@@ -1,0 +1,83 @@
+{
+  "manifest_version": 3,
+  "name": "Clippy AI - Real Estate Assistant",
+  "version": "1.0.0",
+  "description": "AI-powered lead capture and content generation for real estate agents",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "notifications",
+    "https://*.realestate.com.au/*",
+    "https://*.domain.com.au/*",
+    "https://*.facebook.com/*",
+    "https://*.instagram.com/*",
+    "https://*.gmail.com/*",
+    "https://*.outlook.com/*"
+  ],
+  "host_permissions": [
+    "https://*.useclippy.com/*",
+    "https://*.supabase.co/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.realestate.com.au/*",
+        "https://*.domain.com.au/*"
+      ],
+      "js": ["content-scripts/property-scraper.js"],
+      "css": ["styles/clippy-overlay.css"]
+    },
+    {
+      "matches": [
+        "https://*.facebook.com/*",
+        "https://*.messenger.com/*"
+      ],
+      "js": ["content-scripts/facebook-helper.js"]
+    },
+    {
+      "matches": [
+        "https://*.gmail.com/*",
+        "https://*.outlook.com/*"
+      ],
+      "js": ["content-scripts/email-parser.js"]
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+C",
+        "mac": "Command+Shift+C"
+      },
+      "description": "Open Clippy"
+    },
+    "quick-capture": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      },
+      "description": "Quick lead capture"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["styles/*", "assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
