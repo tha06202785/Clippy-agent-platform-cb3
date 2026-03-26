@@ -1,0 +1,17 @@
+{
+  "api_token": "24b9675c-1306-4911-8961-4d8609b4ca66",
+  "region": "us2",
+  "base_url": "https://us2.make.com/api/v2",
+  "organization_id": "7059064",
+  "organization_name": "Clippy",
+  "webhook_secret": "18f57bfe886502d81496a78b4b023b0d86746ea9253ccf1454f0912463e22a8a",
+  "webhook_url": "https://hook.us2.make.com/ztt1r2eyho4vs6zwc65b6xlfd1zm8qg1",
+  "configured": true,
+  "scenarios": [
+    "Lead Capture",
+    "AI Reply Drafts",
+    "Facebook Posts",
+    "Daily Reminders"
+  ],
+  "status": "active"
+}

@@ -193,9 +193,9 @@ export function CRMIntegrationPanel() {
               disabled={syncing}
             >
               {syncing ? (
-                <>RefreshCw className="h-4 w-4 mr-2 animate-spin" />Syncing...</>
+                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Syncing...</>
               ) : (
-                <>RefreshCw className="h-4 w-4 mr-2" />Sync All Integrations</>
+                <><RefreshCw className="h-4 w-4 mr-2" /> Sync All Integrations</>
               )}
             </Button>
           )}
