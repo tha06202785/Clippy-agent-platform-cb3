@@ -134,7 +134,7 @@ export function QRCodeGenerator({
                   size="icon"
                   onClick={copyLink}
                 >
-                  <Copy className="h-4 w-4" /
+                  <Copy className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -146,7 +146,7 @@ export function QRCodeGenerator({
                 className="flex-1"
                 onClick={downloadQR}
               >
-                <Download className="h-4 w-4 mr-2" /
+                <Download className="h-4 w-4 mr-2" />
                 Download QR
               </Button>
               

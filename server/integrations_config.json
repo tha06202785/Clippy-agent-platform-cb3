@@ -1,0 +1,25 @@
+{
+  "make_com_webhooks": {
+    "lead_capture": {
+      "url": "https://hook.us2.make.com/tesmjmtuiireyrvdxmjjj6al94wxw8yb",
+      "status": "active",
+      "tested": "2026-03-26T14:38:00Z",
+      "result": "200 OK - Accepted"
+    },
+    "ai_reply": {
+      "url": "https://hook.us2.make.com/immjt2oghud66w5r6p2plp35ssp6spmz",
+      "status": "active",
+      "tested": "2026-03-26T14:38:00Z",
+      "result": "200 OK - Accepted"
+    }
+  },
+  "facebook": {
+    "page_token": "EAAN028orkiIBRLnPIjMXVz5i4pr7EXzPigZBNwRXdxRxCmtyjB0jhZCxcmengfwcJ9FU3KgrdZBoX293CU0XgTokm0epcpJP95ZBmwRdJDmhTZA2ZB1VliI6mNYZAmiD40yXsd25RQdDXOYpJdZAXS0VpqDyFjZBXnzxY2jrB51iOcZAYaYJuU8Rgj4CI6LZCA8GZCmqNvW28uK9TZAM3n8Uqj9g1P6wmDHpOCUsp3WpCOh5PzIDFHZCUQZAsXxQgTZCdtGw9dOXDJUMFQVJxSUUnEuzdIba8zKDmgZDZD",
+    "page_id": "2793164101023034",
+    "page_name": "Ted Thamel",
+    "status": "connected"
+  },
+  "completion": "100%",
+  "status": "production_ready",
+  "updated_at": "2026-03-26T14:38:00Z"
+}
