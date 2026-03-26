@@ -1,0 +1,42 @@
+{
+  "name": "Clippy Background Worker",
+  "version": "1.0.0",
+  "description": "Autonomous background automation for Clippy",
+  "main": "webhook_handler.py",
+  "scripts": {
+    "start": "python webhook_handler.py",
+    "worker": "python background_worker.py",
+    "test": "pytest test_integrations.py -v"
+  },
+  "dependencies": {
+    "flask": "^3.0.0",
+    "flask-cors": "^4.0.0",
+    "schedule": "^1.2.0",
+    "openai": "^1.0.0",
+    "supabase": "^2.0.0",
+    "requests": "^2.31.0",
+    "pytest": "^7.4.0"
+  },
+  "python": {
+    "version": "3.12",
+    "venv": "venv"
+  },
+  "services": {
+    "webhook_server": {
+      "port": 5001,
+      "host": "0.0.0.0",
+      "command": "python webhook_handler.py"
+    },
+    "background_worker": {
+      "command": "python background_worker.py",
+      "autostart": true
+    }
+  },
+  "endpoints": {
+    "webhook_make": "/webhook/make",
+    "webhook_facebook": "/webhook/facebook",
+    "webhook_email": "/webhook/email",
+    "webhook_qr": "/webhook/qr",
+    "health": "/webhook/health"
+  }
+}
