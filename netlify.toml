@@ -3,13 +3,24 @@
   functions = "netlify/functions"
   publish = "dist/spa"
 
-
 [functions]
   external_node_modules = ["express"]
   node_bundler = "esbuild"
-  
+
+# Facebook webhook endpoint - MUST be before SPA redirect
+[[redirects]]
+  from = "/webhook/facebook"
+  to = "/.netlify/functions/facebook-webhook"
+  status = 200
+
 [[redirects]]
   force = true
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/api/:splat"
+
+# SPA fallback - LAST
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
