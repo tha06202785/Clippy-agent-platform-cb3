@@ -537,10 +537,7 @@ export default function MyWatchlists() {
                           : "bg-slate-800/40 border-cyan-400/40 hover:border-cyan-400/60 hover:shadow-2xl hover:shadow-cyan-500/40 hover:-translate-y-1.5 sm:hover:-translate-y-2 md:hover:-translate-y-1.5"
                       } animate-in fade-in duration-700 sm:duration-600 md:duration-500`}
                       style={{
-                        animationDelay: `${idx * 80}ms`,
-                        transform: `${searchMode === "preset" && selectedPresetId === preset.id ? "scale(1.03)" : "scale(1)"} translateY(${idx * 20}px)`,
                         animation: `fadeInSlideUp 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards`,
-                        animationDelay: `${idx * 80}ms`
                       }}
                     >
                       {/* Hover glow background */}

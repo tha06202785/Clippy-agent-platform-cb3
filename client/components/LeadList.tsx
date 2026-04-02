@@ -26,6 +26,28 @@ interface Lead {
   assigned_to_user_id?: string;
 }
 
+// Helper functions (defined outside component for reuse)
+const getStatusColor = (status: string) => {
+  const colors: Record<string, string> = {
+    new: 'bg-blue-100 text-blue-800',
+    contacted: 'bg-yellow-100 text-yellow-800',
+    qualified: 'bg-green-100 text-green-800',
+    inspection_booked: 'bg-purple-100 text-purple-800',
+    converted: 'bg-emerald-100 text-emerald-800',
+    lost: 'bg-gray-100 text-gray-800'
+  };
+  return colors[status] || 'bg-gray-100 text-gray-800';
+};
+
+const getTemperatureColor = (temp: string) => {
+  const colors: Record<string, string> = {
+    hot: 'bg-red-500',
+    warm: 'bg-orange-400',
+    cold: 'bg-blue-300'
+  };
+  return colors[temp] || 'bg-gray-300';
+};
+
 export function LeadList({ orgId }: { orgId: string }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -75,27 +97,6 @@ export function LeadList({ orgId }: { orgId: string }) {
       lead.phone?.includes(query)
     );
   });
-  
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      new: 'bg-blue-100 text-blue-800',
-      contacted: 'bg-yellow-100 text-yellow-800',
-      qualified: 'bg-green-100 text-green-800',
-      inspection_booked: 'bg-purple-100 text-purple-800',
-      converted: 'bg-emerald-100 text-emerald-800',
-      lost: 'bg-gray-100 text-gray-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-  
-  const getTemperatureColor = (temp: string) => {
-    const colors: Record<string, string> = {
-      hot: 'bg-red-500',
-      warm: 'bg-orange-400',
-      cold: 'bg-blue-300'
-    };
-    return colors[temp] || 'bg-gray-300';
-  };
 
   return (
     <div className="space-y-4">

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { QRCode, Download, Link as LinkIcon, Copy } from 'lucide-react';
+import { QrCode, Download, Link as LinkIcon, Copy } from 'lucide-react';
 
 interface QRCodeGeneratorProps {
   listingId: string;
@@ -77,7 +77,7 @@ export function QRCodeGenerator({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <QRCode className="h-5 w-5" />
+          <QrCode className="h-5 w-5" />
           QR Code Generator
         </CardTitle>
       </CardHeader>
