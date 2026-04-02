@@ -17,23 +17,11 @@ import {
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
+import { getTodaysTasks, getRecentLeads, Task as DataTask, Lead as DataLead } from "@/lib/dataService";
 
-interface Task {
-  id: string;
-  title: string;
-  type: string;
-  description?: string;
-  due_at: string;
-  lead_id?: string;
-  listing_id?: string;
-}
+interface Task extends DataTask {}
 
-interface Lead {
-  id: string;
-  full_name: string;
-  source: string;
-  created_at: string;
-}
+interface Lead extends DataLead {}
 
 interface Post {
   id: string;
@@ -42,6 +30,7 @@ interface Post {
   listings?: { address: string };
 }
 
+// Fallback demo data if no real data is available
 const SAMPLE_TASKS: Task[] = [
   {
     id: "1",
@@ -49,6 +38,7 @@ const SAMPLE_TASKS: Task[] = [
     type: "follow_up_24h",
     description: "Check on property interest",
     due_at: new Date().toISOString(),
+    assigned_to_user_id: "demo",
   },
   {
     id: "2",
@@ -56,6 +46,7 @@ const SAMPLE_TASKS: Task[] = [
     type: "post_facebook",
     description: "Schedule listing post",
     due_at: new Date().toISOString(),
+    assigned_to_user_id: "demo",
   },
 ];
 
@@ -65,12 +56,14 @@ const SAMPLE_LEADS: Lead[] = [
     full_name: "Jane Smith",
     source: "web",
     created_at: new Date().toISOString(),
+    assigned_to_user_id: "demo",
   },
   {
     id: "2",
     full_name: "Mike Wilson",
     source: "phone",
     created_at: new Date().toISOString(),
+    assigned_to_user_id: "demo",
   },
 ];
 
@@ -153,41 +146,21 @@ export default function Dashboard() {
         console.log("Logged in as:", currentUserEmail);
 
         try {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const tomorrow = new Date(today);
-          tomorrow.setDate(tomorrow.getDate() + 1);
+          // Load real data from Supabase using dataService
+          const [todaysTasks, recentLeads] = await Promise.all([
+            getTodaysTasks(currentUserId),
+            getRecentLeads(currentUserId, 24),
+          ]);
 
-          const { data: tasks, error: tasksError } = await supabase
-            .from("tasks")
-            .select("*")
-            .eq("assigned_to_user_id", currentUserId)
-            .gte("due_at", today.toISOString())
-            .lt("due_at", tomorrow.toISOString())
-            .order("due_at", { ascending: true });
-
-          if (tasksError) {
-            console.warn("Tasks fetch warning:", tasksError.message);
-          } else if (tasks && tasks.length > 0) {
-            setTasksToday(tasks);
+          if (todaysTasks && todaysTasks.length > 0) {
+            setTasksToday(todaysTasks);
           }
 
-          const oneDayAgo = new Date();
-          oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-
-          const { data: leads, error: leadsError } = await supabase
-            .from("leads")
-            .select("*")
-            .eq("assigned_to_user_id", currentUserId)
-            .gte("created_at", oneDayAgo.toISOString())
-            .order("created_at", { ascending: false });
-
-          if (leadsError) {
-            console.warn("Leads fetch warning:", leadsError.message);
-          } else if (leads && leads.length > 0) {
-            setNewLeads(leads);
+          if (recentLeads && recentLeads.length > 0) {
+            setNewLeads(recentLeads);
           }
 
+          // Fetch scheduled posts
           const { data: posts, error: postsError } = await supabase
             .from("tasks")
             .select("*, listings(address)")
@@ -202,11 +175,18 @@ export default function Dashboard() {
             setScheduledPosts(posts);
           }
 
-          if ((!tasks || tasks.length === 0) && (!leads || leads.length === 0) && (!posts || posts.length === 0)) {
+          // Only use sample data if no real data found
+          if (
+            (!todaysTasks || todaysTasks.length === 0) &&
+            (!recentLeads || recentLeads.length === 0) &&
+            (!posts || posts.length === 0)
+          ) {
             console.log("No data found in database, using sample data for demo");
             setUsingSampleData(true);
             setTasksToday(SAMPLE_TASKS);
             setNewLeads(SAMPLE_LEADS);
+          } else {
+            setUsingSampleData(false);
           }
         } catch (err: any) {
           console.error("Error fetching data:", err);

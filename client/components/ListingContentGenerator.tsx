@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Copy, Wand2, Download, ArrowLeft } from 'lucide-react';
+import { generateListingDescription, generateSocialPost, openai } from '@/lib/openai';
 
 interface PropertyDetails {
   address: string;
@@ -64,21 +66,63 @@ export default function ListingContentGenerator() {
   };
 
   const generateContent = async () => {
+    if (!propertyDetails.address || !propertyDetails.bedrooms || !propertyDetails.bathrooms || !propertyDetails.price) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
     setIsGenerating(true);
-    
-    setTimeout(() => {
-      const baseContent = `Stunning ${propertyDetails.bedrooms}BR/${propertyDetails.bathrooms}BA property at ${propertyDetails.address} | Price: $${propertyDetails.price} | ${propertyDetails.sqft} sqft | Features: ${propertyDetails.features}`;
 
-      setGeneratedContent({
-        whatsapp: `📍 ${baseContent}\n\n✨ Premium Features:\n• Modern Kitchen\n• Hardwood Floors\n• Great Location\n\nSchedule your viewing today! 🏠`,
-        facebook: `🏡 NEW LISTING ALERT! 🏡\n\n${baseContent}\n\n✨ Highlights:\n• Move-in Ready\n• Updated Systems\n• Prime Location\n• Excellent Schools\n\nDon't miss this opportunity! Contact us today for a private showing.\n\n📞 Schedule your tour now! #RealEstateLoving #NewListing #HomesForSale`,
-        instagram: `✨ Dream Home Alert! ✨\n${propertyDetails.address}\n💰 $${propertyDetails.price} | ${propertyDetails.bedrooms}BR ${propertyDetails.bathrooms}BA\n\n#RealEstate #Luxury #NewListing #HomeForsale #DreamHome`,
-        email: `Subject: Exclusive Preview - ${propertyDetails.address}\n\nDear Valued Buyer,\n\nWe're thrilled to present this exceptional property:\n\n${baseContent}\n\nKey Features:\n• Move-in Ready\n• Updated Finishes\n• Excellent Neighborhood\n• Great Investment Opportunity\n\nSchedule your private showing today!\n\nBest regards,\nYour Real Estate Team`,
-        sms: `New listing: ${propertyDetails.bedrooms}BR at ${propertyDetails.address}. $${propertyDetails.price}. View: clippy.io/listing`,
-      });
+    try {
+      const featureList = propertyDetails.features
+        .split(',')
+        .map(f => f.trim())
+        .filter(f => f);
 
+      const propertyData = {
+        address: propertyDetails.address,
+        bedrooms: parseInt(propertyDetails.bedrooms) || 0,
+        bathrooms: parseInt(propertyDetails.bathrooms) || 0,
+        sqft: parseInt(propertyDetails.sqft) || 0,
+        price: parseInt(propertyDetails.price.replace(/,/g, '')) || 0,
+        features: featureList,
+      };
+
+      if (!openai) {
+        // Fallback to template-based content if OpenAI not configured
+        const baseContent = `Stunning ${propertyDetails.bedrooms}BR/${propertyDetails.bathrooms}BA property at ${propertyDetails.address} | Price: $${propertyDetails.price} | ${propertyDetails.sqft} sqft | Features: ${propertyDetails.features}`;
+        setGeneratedContent({
+          whatsapp: `📍 ${baseContent}\n\n✨ Premium Features:\n• Modern Kitchen\n• Hardwood Floors\n• Great Location\n\nSchedule your viewing today! 🏠`,
+          facebook: `🏡 NEW LISTING ALERT! 🏡\n\n${baseContent}\n\n✨ Highlights:\n• Move-in Ready\n• Updated Systems\n• Prime Location\n• Excellent Schools\n\nDon't miss this opportunity! Contact us today for a private showing.\n\n📞 Schedule your tour now! #RealEstateLoving #NewListing #HomesForSale`,
+          instagram: `✨ Dream Home Alert! ✨\n${propertyDetails.address}\n💰 $${propertyDetails.price} | ${propertyDetails.bedrooms}BR ${propertyDetails.bathrooms}BA\n\n#RealEstate #Luxury #NewListing #HomeForsale #DreamHome`,
+          email: `Subject: Exclusive Preview - ${propertyDetails.address}\n\nDear Valued Buyer,\n\nWe're thrilled to present this exceptional property:\n\n${baseContent}\n\nKey Features:\n• Move-in Ready\n• Updated Finishes\n• Excellent Neighborhood\n• Great Investment Opportunity\n\nSchedule your private showing today!\n\nBest regards,\nYour Real Estate Team`,
+          sms: `New listing: ${propertyDetails.bedrooms}BR at ${propertyDetails.address}. $${propertyDetails.price}. View: clippy.io/listing`,
+        });
+      } else {
+        // Generate content using OpenAI
+        const [description, facebook, instagram, email] = await Promise.all([
+          generateListingDescription(propertyData, { tone: 'professional' }),
+          generateSocialPost(propertyData, 'facebook', 'professional'),
+          generateSocialPost(propertyData, 'instagram', 'professional'),
+          generateListingDescription(propertyData, { tone: 'professional', characterLimit: 5000 }),
+        ]);
+
+        const sms = `New listing: ${propertyDetails.bedrooms}BR at ${propertyDetails.address}. $${propertyDetails.price}. View: useclippy.com`;
+
+        setGeneratedContent({
+          whatsapp: description,
+          facebook: facebook,
+          instagram: instagram,
+          email: `Subject: Exclusive Preview - ${propertyDetails.address}\n\nDear Valued Buyer,\n\n${email}\n\nSchedule your private showing today!\n\nBest regards,\nYour Clippy Real Estate Team`,
+          sms: sms,
+        });
+      }
+    } catch (error) {
+      console.error('Error generating content:', error);
+      alert('Failed to generate content. Please try again.');
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
   };
 
   const copyToClipboard = (platform: keyof GeneratedContent) => {
