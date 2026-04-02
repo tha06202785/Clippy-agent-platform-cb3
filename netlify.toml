@@ -12,6 +12,12 @@
   from = "/webhook/facebook"
   to = "/.netlify/functions/facebook-webhook"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
 
 [[redirects]]
   force = true
@@ -19,8 +25,9 @@
   status = 200
   to = "/.netlify/functions/api/:splat"
 
-# SPA fallback - LAST
+# SPA fallback - LAST (exclude functions)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  conditions = {Role = ["anonymous"]}
