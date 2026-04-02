@@ -5,6 +5,8 @@ const router = Router();
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const FACEBOOK_ACCESS_TOKEN = process.env.FACEBOOK_ACCESS_TOKEN || "";
+const FACEBOOK_VERIFY_TOKEN = process.env.FACEBOOK_VERIFY_TOKEN || "clippy-webhook-verify";
 
 // Initialize supabase only if credentials are available
 let supabase: any = null;
@@ -44,7 +46,22 @@ interface EmailWebhookPayload {
 /**
  * Facebook Webhook Handler
  * Captures leads from Facebook messages
+ * GET /api/webhooks/facebook - Webhook verification
+ * POST /api/webhooks/facebook - Receive messages
  */
+router.get("/webhooks/facebook", (req: Request, res: Response) => {
+  const token = req.query.hub_verify_token as string;
+  const challenge = req.query.hub_challenge as string;
+
+  if (token === FACEBOOK_VERIFY_TOKEN) {
+    console.log("✅ Facebook webhook verified");
+    return res.status(200).send(challenge);
+  }
+
+  console.warn("❌ Facebook webhook verification failed");
+  return res.status(403).json({ error: "Invalid token" });
+});
+
 router.post("/webhooks/facebook", async (req: Request, res: Response) => {
   if (!supabase) {
     return res.status(503).json({ error: "Supabase is not configured" });
@@ -52,14 +69,6 @@ router.post("/webhooks/facebook", async (req: Request, res: Response) => {
 
   try {
     const payload: FacebookWebhookPayload = req.body;
-
-    // Verify webhook token (in production, verify X-Hub-Signature)
-    const token = req.query.hub_verify_token;
-    const challenge = req.query.hub_challenge;
-
-    if (token === process.env.FACEBOOK_VERIFY_TOKEN) {
-      return res.status(200).send(challenge);
-    }
 
     // Process incoming messages
     if (payload.entry && Array.isArray(payload.entry)) {
@@ -88,6 +97,11 @@ router.post("/webhooks/facebook", async (req: Request, res: Response) => {
 
                 if (error) {
                   console.error("Error creating lead from Facebook:", error);
+                } else {
+                  // Send automatic welcome reply
+                  const replyMessage =
+                    "Thanks for your interest! 🏠 We'll get back to you shortly with property recommendations. In the meantime, feel free to browse our listings!";
+                  await sendFacebookReply(event.sender.id, replyMessage);
                 }
 
                 // Log the automation event
@@ -243,6 +257,43 @@ router.post("/webhooks/test", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+/**
+ * Send automatic reply to Facebook message
+ */
+async function sendFacebookReply(senderId: string, message: string): Promise<boolean> {
+  if (!FACEBOOK_ACCESS_TOKEN) {
+    console.warn("Facebook access token not configured");
+    return false;
+  }
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v18.0/me/messages?access_token=${FACEBOOK_ACCESS_TOKEN}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipient: { id: senderId },
+          message: { text: message },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Failed to send Facebook reply:", await response.text());
+      return false;
+    }
+
+    console.log("✅ Auto-reply sent to Facebook");
+    return true;
+  } catch (error) {
+    console.error("Error sending Facebook reply:", error);
+    return false;
+  }
+}
 
 // Helper functions
 function extractNameFromMessage(text: string): string | null {
