@@ -32,7 +32,7 @@ export const signOut = async () => {
 };
 
 // Lead API
-export const getLeads = async (orgId, options = {}) => {
+export const getLeads = async (orgId: string, options: { status?: string; assigned_to?: string } = {}) => {
   let query = supabase
     .from('leads')
     .select('*, lead_events(count), conversations(last_message_at)')
@@ -93,7 +93,7 @@ export const addLeadEvent = async (eventData) => {
 };
 
 // Tasks API
-export const getTasks = async (orgId, options = {}) => {
+export const getTasks = async (orgId: string, options: { status?: string; assigned_to?: string } = {}) => {
   let query = supabase
     .from('tasks')
     .select(`
@@ -125,7 +125,7 @@ export const completeTask = async (taskId) => {
 };
 
 // Listings API
-export const getListings = async (orgId, options = {}) => {
+export const getListings = async (orgId: string, options: { status?: string } = {}) => {
   let query = supabase
     .from('listings')
     .select('*')
@@ -171,7 +171,7 @@ export const generateAIDraft = async (conversationId, tone = 'professional') => 
   return response.json();
 };
 
-export const generateContentPack = async (listingId, options = {}) => {
+export const generateContentPack = async (listingId: string, options: { pack_type?: string; tone?: string } = {}) => {
   const response = await fetch('/api/ai/content-pack', {
     method: 'POST',
     headers: {

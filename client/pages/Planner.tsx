@@ -154,7 +154,7 @@ export default function Planner() {
                       {item.title}
                     </p>
                     <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
-                      {item.leads?.full_name && `Lead: ${item.leads.full_name}`}
+                      {item.leads?.[0]?.full_name && `Lead: ${item.leads[0].full_name}`}
                       {item.description && ` - ${item.description}`}
                     </p>
                   </div>
@@ -209,7 +209,7 @@ export default function Planner() {
                       {item.title}
                     </p>
                     <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
-                      {item.leads?.full_name && `Lead: ${item.leads.full_name}`}
+                      {item.leads?.[0]?.full_name && `Lead: ${item.leads[0].full_name}`}
                       {item.description && ` - ${item.description}`}
                     </p>
                   </div>
