@@ -1,0 +1,50 @@
+{
+  "name": "Clippy Lead to Facebook Post",
+  "description": "Automatically post Clippy real estate leads to Facebook page",
+  "version": 1,
+  "modules": [
+    {
+      "name": "webhook",
+      "type": "webhooks",
+      "action": "custom",
+      "label": "Clippy Lead Webhook",
+      "parameters": {
+        "hook": {
+          "name": "Clippy Lead Webhook",
+          "type": "webhook",
+          "response": {
+            "status": "200",
+            "body": "{\"status\": \"received\"}"
+          }
+        }
+      }
+    },
+    {
+      "name": "facebook",
+      "type": "facebook",
+      "action": "createAPost",
+      "label": "Post to Facebook Page",
+      "parameters": {
+        "page": "{{your-facebook-page-id}}",
+        "message": "{{1.message}}",
+        "link": "{{1.property_url}}",
+        "picture": "{{1.image_url}}"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "webhook",
+      "to": "facebook"
+    }
+  ],
+  "setup_instructions": {
+    "step1": "Copy your Clippy webhook URL from dashboard",
+    "step2": "In Make.com: Create scenario → Import Blueprint",
+    "step3": "Paste this JSON",
+    "step4": "Configure webhook with your Clippy URL",
+    "step5": "Connect Facebook: Select your page",
+    "step6": "Map fields: message, property_url, image_url",
+    "step7": "Save and activate"
+  }
+}
