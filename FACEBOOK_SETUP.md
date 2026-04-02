@@ -15,7 +15,7 @@ https://useclippy.com/api/webhooks/facebook
 
 **Verify Token:**
 ```
-clippy_verify_token_2026
+clippy-webhook-verify
 ```
 
 **Subscription Fields:**

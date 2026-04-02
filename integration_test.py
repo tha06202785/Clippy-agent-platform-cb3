@@ -26,7 +26,7 @@ CONFIG = {
         "public_key": "bpk-193f83cc97304c6d8b4f254d1321380a"
     },
     "facebook": {
-        "page_token": "EAAN028orkiIBRLnPIjMXVz5i4pr7EXzPigZBNwRXdxRxCmtyjB0jhZCxcmengfwcJ9FU3KgrdZBoX293CU0XgTokm0epcpJP95ZBmwRdJDmhTZA2ZB1VliI6mNYZAmiD40yXsd25RQdDXOYpJdZAXS0VpqDyFjZBXnzxY2jrB51iOcZAYaYJuU8Rgj4CI6LZCA8GZCmqNvW28uK9TZAM3n8Uqj9g1P6wmDHpOCUsp3WpCOh5PzIDFHZCUQZAsXxQgTZCdtGw9dOXDJUMFQVJxSUUnEuzdIba8zKDmgZDZD"
+        "page_token": "EAAN028orkiIBRLZBfMeShu1sfVczALjLbi5aZAJsrKBW1H0Wfg8mNNGHBBZAk0MoRP9yIdM4X2mjDqhAInTTp8fq9IAgViQ5mZBk6xwkD3ycrfhr5ypVhXsJuLHQuYwYGcZBuhFtBHLnRI5cA70LtYS3dno5afLWbBtM19qVQMX2QJOzvJqWK0BL5EIeGSPfJJSYsA3m8mTyKMj0Uema6DiRYJIQidOwiHsgpUQZDZD"
     },
     "site": {
         "url": "https://useclippy.com"

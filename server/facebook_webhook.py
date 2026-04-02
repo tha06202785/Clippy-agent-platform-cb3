@@ -113,7 +113,7 @@ async def verify_webhook(request: Request):
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
     
-    handler = FacebookWebhookHandler("", "clippy_verify_token")
+    handler = FacebookWebhookHandler("", "clippy-webhook-verify")
     
     if mode == "subscribe" and token == handler.verify_token:
         return int(challenge)
@@ -124,7 +124,7 @@ async def verify_webhook(request: Request):
 async def receive_webhook(request: Request):
     """Receive Facebook webhook events."""
     
-    handler = FacebookWebhookHandler("app_secret", "clippy_verify_token")
+    handler = FacebookWebhookHandler("app_secret", "clippy-webhook-verify")
     
     # Verify signature
     signature = request.headers.get("X-Hub-Signature-256")
