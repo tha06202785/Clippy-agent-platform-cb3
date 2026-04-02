@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Copy, Wand2, Download, ArrowLeft } from 'lucide-react';
 import { generateListingDescription, generateSocialPost, openai } from '@/lib/openai';
+import { createAutomationLog } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 interface PropertyDetails {
   address: string;
@@ -56,6 +58,20 @@ export default function ListingContentGenerator() {
   const [activeTab, setActiveTab] = useState('whatsapp');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Get user ID on mount
+  useEffect(() => {
+    const getUserId = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+      }
+    };
+    getUserId();
+  }, []);
 
   const handlePropertyChange = (field: keyof PropertyDetails, value: string) => {
     setPropertyDetails(prev => ({ ...prev, [field]: value }));
@@ -120,8 +136,30 @@ export default function ListingContentGenerator() {
     } catch (error) {
       console.error('Error generating content:', error);
       alert('Failed to generate content. Please try again.');
+
+      // Log error to automation logs
+      if (userId) {
+        await createAutomationLog({
+          type: "content_generation",
+          source: "listing_generator",
+          status: "error",
+          message: `Failed to generate content for ${propertyDetails.address}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          user_id: userId,
+        });
+      }
     } finally {
       setIsGenerating(false);
+
+      // Log successful generation
+      if (userId && propertyDetails.address) {
+        await createAutomationLog({
+          type: "content_generation",
+          source: "listing_generator",
+          status: "success",
+          message: `Generated content for ${propertyDetails.address} (${propertyDetails.bedrooms}BR/${propertyDetails.bathrooms}BA at $${propertyDetails.price})`,
+          user_id: userId,
+        });
+      }
     }
   };
 

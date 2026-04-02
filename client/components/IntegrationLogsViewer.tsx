@@ -1,9 +1,12 @@
 import React, { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp, Download, Filter, Activity, ArrowLeft } from 'lucide-react';
+import { getAutomationLogs, AutomationLog } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 interface LogEntry {
   id: string;
@@ -91,27 +94,71 @@ const SAMPLE_LOGS: LogEntry[] = [
   },
 ];
 
+interface LogEntry {
+  id: string;
+  timestamp: Date;
+  source: string;
+  status: 'success' | 'error' | 'pending';
+  action: string;
+  message: string;
+}
+
 export default function IntegrationLogsViewer() {
   const navigate = useNavigate();
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [logs, setLogs] = useState<LogEntry[]>(SAMPLE_LOGS);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const filteredLogs = useMemo(() => {
-    return SAMPLE_LOGS.filter(log => {
-      if (sourceFilter && log.source !== sourceFilter) return false;
-      if (statusFilter && log.status !== statusFilter) return false;
-      if (
-        searchTerm &&
-        !log.message.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !log.action.toLowerCase().includes(searchTerm.toLowerCase())
-      ) {
-        return false;
+  // Load real logs from database
+  useEffect(() => {
+    const loadLogs = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.user?.id) {
+          setUserId(session.user.id);
+          const automationLogs = await getAutomationLogs(session.user.id, { limit: 50 });
+
+          if (automationLogs && automationLogs.length > 0) {
+            const mappedLogs: LogEntry[] = automationLogs.map(log => ({
+              id: log.id,
+              timestamp: new Date(log.created_at),
+              source: log.source || 'webhook',
+              status: log.status as 'success' | 'error' | 'pending',
+              action: log.type,
+              message: log.message || 'No details available',
+            }));
+            setLogs(mappedLogs);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading automation logs:', error);
+      } finally {
+        setLoading(false);
       }
-      return true;
-    });
-  }, [sourceFilter, statusFilter, searchTerm]);
+    };
+
+    loadLogs();
+  }, []);
+
+  const filteredLogs = logs.filter(log => {
+    if (sourceFilter && log.source !== sourceFilter) return false;
+    if (statusFilter && log.status !== statusFilter) return false;
+    if (
+      searchTerm &&
+      !log.message.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !log.action.toLowerCase().includes(searchTerm.toLowerCase())
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   const getSourceIcon = (source: string) => {
     switch (source) {

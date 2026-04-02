@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Edit2, Check, X, Activity, ArrowLeft } from 'lucide-react';
+import { getTasks, updateTask, Task } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 interface ScheduledPost {
   id: string;
@@ -71,33 +74,110 @@ const SAMPLE_PENDING_APPROVALS: PendingApproval[] = [
   },
 ];
 
+interface ScheduledPost {
+  id: string;
+  content: string;
+  scheduledTime: Date;
+  status: 'scheduled' | 'posted' | 'cancelled';
+}
+
+interface PendingApproval {
+  id: string;
+  content: string;
+  submittedBy: string;
+  submittedAt: Date;
+  leadInfo?: {
+    name: string;
+    email: string;
+    property: string;
+  };
+}
+
 export default function FacebookAutomationDashboard() {
   const navigate = useNavigate();
   const [autoPost, setAutoPost] = useState(true);
   const [autoReply, setAutoReply] = useState(true);
   const [ceoApproval, setCeoApproval] = useState(false);
   const [escalationAlerts, setEscalationAlerts] = useState(true);
-  const [scheduledPosts, setScheduledPosts] = useState(SAMPLE_SCHEDULED_POSTS);
-  const [pendingApprovals, setPendingApprovals] = useState(SAMPLE_PENDING_APPROVALS);
+  const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>(SAMPLE_SCHEDULED_POSTS);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(SAMPLE_PENDING_APPROVALS);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleApprove = (id: string) => {
-    setPendingApprovals(prev =>
-      prev.filter(item => item.id !== id)
-    );
+  // Initialize user and load real data
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.user?.id) {
+          setUserId(session.user.id);
+
+          // Load scheduled posts and pending approvals from real database
+          const tasks = await getTasks(session.user.id, { type: 'post_facebook' });
+
+          if (tasks && tasks.length > 0) {
+            const posts: ScheduledPost[] = tasks
+              .filter(t => new Date(t.due_at) > new Date())
+              .map(t => ({
+                id: t.id,
+                content: t.description || t.title,
+                scheduledTime: new Date(t.due_at),
+                status: t.status === 'completed' ? 'posted' : 'scheduled',
+              }));
+
+            if (posts.length > 0) {
+              setScheduledPosts(posts);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading automation data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeData();
+  }, []);
+
+  const handleApprove = async (id: string) => {
+    if (!userId) return;
+
+    try {
+      await updateTask(id, { status: 'completed' });
+      setPendingApprovals(prev => prev.filter(item => item.id !== id));
+    } catch (error) {
+      console.error('Error approving task:', error);
+    }
   };
 
-  const handleReject = (id: string) => {
-    setPendingApprovals(prev =>
-      prev.filter(item => item.id !== id)
-    );
+  const handleReject = async (id: string) => {
+    if (!userId) return;
+
+    try {
+      await updateTask(id, { status: 'cancelled' });
+      setPendingApprovals(prev => prev.filter(item => item.id !== id));
+    } catch (error) {
+      console.error('Error rejecting task:', error);
+    }
   };
 
-  const handleCancelPost = (id: string) => {
-    setScheduledPosts(prev =>
-      prev.map(post =>
-        post.id === id ? { ...post, status: 'cancelled' } : post
-      )
-    );
+  const handleCancelPost = async (id: string) => {
+    if (!userId) return;
+
+    try {
+      await updateTask(id, { status: 'cancelled' });
+      setScheduledPosts(prev =>
+        prev.map(post =>
+          post.id === id ? { ...post, status: 'cancelled' } : post
+        )
+      );
+    } catch (error) {
+      console.error('Error cancelling post:', error);
+    }
   };
 
   const activeScheduledPosts = scheduledPosts.filter(

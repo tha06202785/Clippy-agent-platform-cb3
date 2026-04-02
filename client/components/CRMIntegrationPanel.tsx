@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Copy, Trash2, Download, Upload, Plug, ArrowLeft } from 'lucide-react';
+import { getIntegrationStatus, updateIntegrationStatus } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 interface IntegrationStatus {
   facebook: {
@@ -53,6 +56,63 @@ export default function CRMIntegrationPanel() {
   });
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load real integration status
+  useEffect(() => {
+    const loadIntegrations = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.user?.id) {
+          setUserId(session.user.id);
+          const statuses = await getIntegrationStatus(session.user.id);
+
+          if (statuses && statuses.length > 0) {
+            const newIntegrations = { ...integrations };
+
+            statuses.forEach(status => {
+              if (status.service_name === 'facebook' && status.is_connected) {
+                newIntegrations.facebook = {
+                  connected: true,
+                  pageId: status.settings?.page_id || 'PAGE_123456789',
+                  pageName: status.settings?.page_name || 'My Real Estate Agency',
+                  accessToken: '***',
+                };
+              } else if (status.service_name === 'email' && status.is_connected) {
+                newIntegrations.email = {
+                  connected: true,
+                  forwardingEmail: status.settings?.email || 'agent@clippy.io',
+                };
+              } else if (status.service_name === 'calendar' && status.is_connected) {
+                newIntegrations.calendar = {
+                  connected: true,
+                  type: (status.settings?.type || 'google') as 'google' | 'outlook',
+                  email: status.settings?.email || 'user@example.com',
+                };
+              } else if (status.service_name === 'crm' && status.is_connected) {
+                newIntegrations.crm = {
+                  connected: true,
+                  type: (status.settings?.crm_type || 'hubspot') as 'salesforce' | 'pipedrive' | 'hubspot',
+                };
+              }
+            });
+
+            setIntegrations(newIntegrations);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading integrations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadIntegrations();
+  }, []);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -60,72 +120,146 @@ export default function CRMIntegrationPanel() {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const handleFacebookConnect = () => {
-    setIntegrations(prev => ({
-      ...prev,
-      facebook: {
-        ...prev.facebook,
-        connected: true,
-        pageId: 'PAGE_123456789',
-        pageName: 'My Real Estate Agency',
-      },
-    }));
+  const handleFacebookConnect = async () => {
+    if (!userId) return;
+
+    try {
+      await updateIntegrationStatus(userId, 'facebook', {
+        is_connected: true,
+        settings: {
+          page_id: 'PAGE_123456789',
+          page_name: 'My Real Estate Agency',
+        },
+        connected_at: new Date().toISOString(),
+      });
+
+      setIntegrations(prev => ({
+        ...prev,
+        facebook: {
+          ...prev.facebook,
+          connected: true,
+          pageId: 'PAGE_123456789',
+          pageName: 'My Real Estate Agency',
+        },
+      }));
+    } catch (error) {
+      console.error('Error connecting Facebook:', error);
+    }
   };
 
-  const handleFacebookDisconnect = () => {
-    setIntegrations(prev => ({
-      ...prev,
-      facebook: {
-        connected: false,
-        pageId: '',
-        pageName: '',
-        accessToken: '',
-      },
-    }));
+  const handleFacebookDisconnect = async () => {
+    if (!userId) return;
+
+    try {
+      await updateIntegrationStatus(userId, 'facebook', {
+        is_connected: false,
+      });
+
+      setIntegrations(prev => ({
+        ...prev,
+        facebook: {
+          connected: false,
+          pageId: '',
+          pageName: '',
+          accessToken: '',
+        },
+      }));
+    } catch (error) {
+      console.error('Error disconnecting Facebook:', error);
+    }
   };
 
-  const handleCalendarConnect = (type: 'google' | 'outlook') => {
-    setIntegrations(prev => ({
-      ...prev,
-      calendar: {
-        ...prev.calendar,
-        connected: true,
-        type,
-        email: 'user@example.com',
-      },
-    }));
+  const handleCalendarConnect = async (type: 'google' | 'outlook') => {
+    if (!userId) return;
+
+    try {
+      await updateIntegrationStatus(userId, 'calendar', {
+        is_connected: true,
+        settings: {
+          type,
+          email: 'user@example.com',
+        },
+        connected_at: new Date().toISOString(),
+      });
+
+      setIntegrations(prev => ({
+        ...prev,
+        calendar: {
+          ...prev.calendar,
+          connected: true,
+          type,
+          email: 'user@example.com',
+        },
+      }));
+    } catch (error) {
+      console.error(`Error connecting ${type} calendar:`, error);
+    }
   };
 
-  const handleCalendarDisconnect = () => {
-    setIntegrations(prev => ({
-      ...prev,
-      calendar: {
-        connected: false,
-        type: 'none',
-        email: '',
-      },
-    }));
+  const handleCalendarDisconnect = async () => {
+    if (!userId) return;
+
+    try {
+      await updateIntegrationStatus(userId, 'calendar', {
+        is_connected: false,
+      });
+
+      setIntegrations(prev => ({
+        ...prev,
+        calendar: {
+          connected: false,
+          type: 'none',
+          email: '',
+        },
+      }));
+    } catch (error) {
+      console.error('Error disconnecting calendar:', error);
+    }
   };
 
-  const handleCRMConnect = (type: 'salesforce' | 'pipedrive' | 'hubspot') => {
-    setIntegrations(prev => ({
-      ...prev,
-      crm: {
-        ...prev.crm,
-        connected: true,
-        type,
-      },
-    }));
+  const handleCRMConnect = async (type: 'salesforce' | 'pipedrive' | 'hubspot') => {
+    if (!userId) return;
+
+    try {
+      await updateIntegrationStatus(userId, 'crm', {
+        is_connected: true,
+        settings: {
+          crm_type: type,
+        },
+        connected_at: new Date().toISOString(),
+      });
+
+      setIntegrations(prev => ({
+        ...prev,
+        crm: {
+          ...prev.crm,
+          connected: true,
+          type,
+        },
+      }));
+    } catch (error) {
+      console.error(`Error connecting ${type} CRM:`, error);
+    }
   };
 
-  const handleCRMDisconnect = () => {
-    setIntegrations(prev => ({
-      ...prev,
-      crm: {
-        connected: false,
-        type: 'none',
-      },
-    }));
+  const handleCRMDisconnect = async () => {
+    if (!userId) return;
+
+    try {
+      await updateIntegrationStatus(userId, 'crm', {
+        is_connected: false,
+      });
+
+      setIntegrations(prev => ({
+        ...prev,
+        crm: {
+          connected: false,
+          type: 'none',
+        },
+      }));
+    } catch (error) {
+      console.error('Error disconnecting CRM:', error);
+    }
   };
 
   const exportData = () => {
