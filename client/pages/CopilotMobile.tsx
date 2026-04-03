@@ -170,24 +170,11 @@ export default function CopilotMobile() {
       `}</style>
 
       {/* Global Wrapper - Fixed to bottom-right */}
-      <div className="fixed bottom-0 right-0 z-50 p-4">
-        
-        {/* Floating Action Button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-2xl font-bold text-xl mb-4 ${
-            isOpen
-              ? 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-              : 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 hover:scale-110 active:scale-95'
-          }`}
-          title={isOpen ? 'Close Clippy' : 'Open Clippy'}
-        >
-          <Mic className="w-8 h-8" />
-        </button>
+      <div className="fixed bottom-0 right-0 z-50 p-4 flex flex-col items-end gap-4">
 
-        {/* Chat Popup Window - Conditionally Rendered */}
+        {/* Chat Popup Window - Conditionally Rendered (Above Button) */}
         {isOpen && (
-          <div className="absolute bottom-20 right-0 w-96 h-[600px] bg-slate-900/95 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-700/50 backdrop-blur-md">
+          <div className="w-96 h-[600px] bg-slate-900/95 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-700/50 backdrop-blur-md">
             
             {/* Chat Header */}
             <div className="bg-gradient-to-b from-slate-800 to-slate-900/50 p-4 border-b border-slate-700/30 flex justify-between items-center">
@@ -327,6 +314,19 @@ export default function CopilotMobile() {
             )}
           </div>
         )}
+
+        {/* Floating Action Button - Always Visible Below Chatbox */}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-2xl font-bold text-xl ${
+            isOpen
+              ? 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+              : 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 hover:scale-110 active:scale-95'
+          }`}
+          title={isOpen ? 'Close Clippy' : 'Open Clippy'}
+        >
+          <Mic className="w-8 h-8" />
+        </button>
       </div>
     </>
   );
