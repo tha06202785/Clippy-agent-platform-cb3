@@ -174,7 +174,7 @@ export default function CopilotMobile() {
 
         {/* Chat Popup Window - Conditionally Rendered (Above Button) */}
         {isOpen && (
-          <div className="w-96 h-[600px] bg-slate-900/95 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-700/50 backdrop-blur-md">
+          <div className="w-full max-w-96 h-96 md:h-[600px] bg-slate-900/95 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-700/50 backdrop-blur-md">
             
             {/* Chat Header */}
             <div className="bg-gradient-to-b from-slate-800 to-slate-900/50 p-4 border-b border-slate-700/30 flex justify-between items-center">
