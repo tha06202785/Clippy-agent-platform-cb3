@@ -7,13 +7,19 @@
   external_node_modules = ["express"]
   node_bundler = "esbuild"
 
-# API routes - redirect to function
+# Webhook endpoint - MUST be first
+[[redirects]]
+  from = "/webhook/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# API routes
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
 
-# SPA fallback - this MUST be last
+# SPA fallback - LAST
 [[redirects]]
   from = "/*"
   to = "/index.html"
