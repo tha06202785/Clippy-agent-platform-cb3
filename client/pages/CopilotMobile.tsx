@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Send, Mic, Loader, Keyboard, X } from 'lucide-react';
 
 interface Message {
