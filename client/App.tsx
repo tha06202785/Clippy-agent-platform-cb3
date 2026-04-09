@@ -1,5 +1,6 @@
 import "./global.css";
 
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -37,7 +38,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         {/* Global Clippy Widget - Renders on all pages */}
-        <CopilotMobile />
+        {/* <CopilotMobile /> */}
 
         <Routes>
           <Route path="/" element={<LandingPage />} />
