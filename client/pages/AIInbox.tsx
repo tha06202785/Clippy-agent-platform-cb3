@@ -30,7 +30,7 @@ export default function AIInbox() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { messages, aiDraft, loading: draftLoading, error: draftError, sending, sendDraft } =
-    useConversationWithDraft(selectedConversation?.id || null, selectedConversation?.leads?.id || null);
+    useConversationWithDraft(selectedConversation?.id || null, selectedConversation?.leads?.[0]?.id || null);
 
   // Auto-select first conversation when conversations load
   useEffect(() => {
@@ -116,7 +116,7 @@ export default function AIInbox() {
                   }`}
                 >
                   <p className="font-semibold text-sm text-foreground truncate">
-                    {conv.leads?.full_name || 'Unknown'}
+                    {conv.leads?.[0]?.full_name || 'Unknown'}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {conv.channel} • {new Date(conv.last_message_at).toLocaleDateString()}
@@ -134,7 +134,7 @@ export default function AIInbox() {
               {/* Header */}
               <div className="border-b border-border p-4 bg-card">
                 <h3 className="font-bold text-foreground">
-                  {selectedConversation.leads?.full_name || 'Unknown'}
+                  {selectedConversation.leads?.[0]?.full_name || 'Unknown'}
                 </h3>
                 <p className="text-xs text-muted-foreground">
                   {selectedConversation.channel} • {new Date(selectedConversation.last_message_at).toLocaleString()}

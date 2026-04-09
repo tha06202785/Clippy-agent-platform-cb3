@@ -1,5 +1,4 @@
-import React, { useState, useMemo } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,22 +7,7 @@ import { ChevronDown, ChevronUp, Download, Filter, Activity, ArrowLeft } from 'l
 import { getAutomationLogs, AutomationLog } from '@/lib/dataService';
 import { supabase } from '@/lib/supabase';
 
-interface LogEntry {
-  id: string;
-  timestamp: Date;
-  source: 'facebook' | 'email' | 'webhook' | 'openai';
-  status: 'success' | 'error' | 'pending';
-  action: string;
-  message: string;
-  details?: {
-    leadName?: string;
-    leadEmail?: string;
-    errorMessage?: string;
-    duration?: number;
-  };
-}
-
-const SAMPLE_LOGS: LogEntry[] = [
+const SAMPLE_LOGS: any[] = [
   {
     id: '1',
     timestamp: new Date(Date.now() - 5 * 60000),
@@ -101,6 +85,12 @@ interface LogEntry {
   status: 'success' | 'error' | 'pending';
   action: string;
   message: string;
+  details?: {
+    leadName?: string;
+    leadEmail?: string;
+    errorMessage?: string;
+    duration?: number;
+  };
 }
 
 export default function IntegrationLogsViewer() {

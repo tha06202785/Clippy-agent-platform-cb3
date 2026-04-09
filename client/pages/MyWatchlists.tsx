@@ -539,8 +539,7 @@ export default function MyWatchlists() {
                       style={{
                         animationDelay: `${idx * 80}ms`,
                         transform: `${searchMode === "preset" && selectedPresetId === preset.id ? "scale(1.03)" : "scale(1)"} translateY(${idx * 20}px)`,
-                        animation: `fadeInSlideUp 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards`,
-                        animationDelay: `${idx * 80}ms`
+                        animation: `fadeInSlideUp 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards`
                       }}
                     >
                       {/* Hover glow background */}

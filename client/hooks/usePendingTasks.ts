@@ -10,7 +10,7 @@ export interface PendingTask {
   leads?: {
     full_name: string;
     phone: string | null;
-  } | null;
+  }[];
 }
 
 interface UsePendingTasksReturn {

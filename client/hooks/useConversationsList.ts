@@ -11,7 +11,7 @@ export interface Conversation {
   id: string;
   channel: string;
   last_message_at: string;
-  leads: ConversationLead | null;
+  leads: ConversationLead[];
 }
 
 interface UseConversationsListReturn {
