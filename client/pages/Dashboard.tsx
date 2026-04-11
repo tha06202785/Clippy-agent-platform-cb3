@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
+import { leadsApi, listingsApi, analyticsApi } from "@/lib/api";
 
 interface Task {
   id: string;
