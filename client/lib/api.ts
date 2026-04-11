@@ -1,243 +1,153 @@
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// ============================================================================
+// API Client - For connecting to Clippy backend
+// ============================================================================
 
-import { createClient } from '@supabase/supabase-js';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Auth helpers
-export const getCurrentUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-};
-
-export const signIn = async (email, password) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
+// Helper for API calls
+async function apiCall(endpoint: string, options: RequestInit = {}) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
-  return { data, error };
-};
 
-export const signUp = async (email, password) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password
-  });
-  return { data, error };
-};
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error.error || `HTTP ${response.status}`);
+  }
 
-export const signOut = async () => {
-  await supabase.auth.signOut();
-};
+  return response.json();
+}
 
-// Lead API
-export const getLeads = async (orgId: string, options: { status?: string; assigned_to?: string } = {}) => {
-  let query = supabase
-    .from('leads')
-    .select('*, lead_events(count), conversations(last_message_at)')
-    .eq('org_id', orgId);
+// Leads API
+export const leadsApi = {
+  getAll: (params?: { org_id?: string; status?: string; limit?: number }) =>
+    apiCall(`/leads?${new URLSearchParams(params as any).toString()}`),
   
-  if (options.status) query = query.eq('status', options.status);
-  if (options.assigned_to) query = query.eq('assigned_to_user_id', options.assigned_to);
+  getById: (id: string) => apiCall(`/leads/${id}`),
   
-  const { data, error } = await query.order('created_at', { ascending: false });
-  return { data, error };
-};
-
-export const getLead = async (leadId) => {
-  const { data, error } = await supabase
-    .from('leads')
-    .select(`
-      *,
-      lead_events(*),
-      conversations(*, messages(*)),
-      linked_listing:listings(*)
-    `)
-    .eq('id', leadId)
-    .single();
+  create: (data: any) =>
+    apiCall("/leads", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   
-  return { data, error };
-};
-
-export const createLead = async (leadData) => {
-  const { data, error } = await supabase
-    .from('leads')
-    .insert([leadData])
-    .select()
-    .single();
+  update: (id: string, data: any) =>
+    apiCall(`/leads/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   
-  return { data, error };
-};
-
-export const updateLead = async (leadId, updates) => {
-  const { data, error } = await supabase
-    .from('leads')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', leadId)
-    .select()
-    .single();
+  delete: (id: string) =>
+    apiCall(`/leads/${id}`, { method: "DELETE" }),
   
-  return { data, error };
-};
-
-// Lead events
-export const addLeadEvent = async (eventData) => {
-  const { data, error } = await supabase
-    .from('lead_events')
-    .insert([eventData])
-    .select()
-    .single();
+  assign: (id: string, user_id: string) =>
+    apiCall(`/leads/${id}/assign`, {
+      method: "POST",
+      body: JSON.stringify({ user_id }),
+    }),
   
-  return { data, error };
-};
-
-// Tasks API
-export const getTasks = async (orgId: string, options: { status?: string; assigned_to?: string } = {}) => {
-  let query = supabase
-    .from('tasks')
-    .select(`
-      *,
-      leads(full_name),
-      listings(address, suburb)
-    `)
-    .eq('org_id', orgId);
-  
-  if (options.status) query = query.eq('status', options.status);
-  if (options.assigned_to) query = query.eq('assigned_to_user_id', options.assigned_to);
-  
-  const { data, error } = await query.order('due_at', { ascending: true });
-  return { data, error };
-};
-
-export const completeTask = async (taskId) => {
-  const { data, error } = await supabase
-    .from('tasks')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString()
-    })
-    .eq('id', taskId)
-    .select()
-    .single();
-  
-  return { data, error };
+  convert: (id: string, conversion_data?: any) =>
+    apiCall(`/leads/${id}/convert`, {
+      method: "POST",
+      body: JSON.stringify({ conversion_data }),
+    }),
 };
 
 // Listings API
-export const getListings = async (orgId: string, options: { status?: string } = {}) => {
-  let query = supabase
-    .from('listings')
-    .select('*')
-    .eq('org_id', orgId);
+export const listingsApi = {
+  getAll: (params?: { org_id?: string; status?: string; limit?: number }) =>
+    apiCall(`/listings?${new URLSearchParams(params as any).toString()}`),
   
-  if (options.status) query = query.eq('status', options.status);
+  getById: (id: string) => apiCall(`/listings/${id}`),
   
-  const { data, error } = await query.order('created_at', { ascending: false });
-  return { data, error };
-};
-
-export const getListing = async (listingId) => {
-  const { data, error } = await supabase
-    .from('listings')
-    .select('*, content_packs(*), leads(count)')
-    .eq('id', listingId)
-    .single();
+  create: (data: any) =>
+    apiCall("/listings", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   
-  return { data, error };
-};
-
-export const createListing = async (listingData) => {
-  const { data, error } = await supabase
-    .from('listings')
-    .insert([{ ...listingData, status: 'draft' }])
-    .select()
-    .single();
+  update: (id: string, data: any) =>
+    apiCall(`/listings/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   
-  return { data, error };
+  delete: (id: string) =>
+    apiCall(`/listings/${id}`, { method: "DELETE" }),
+  
+  generateContent: (id: string, options?: { tone?: string; style?: string }) =>
+    apiCall(`/listings/${id}/generate-content`, {
+      method: "POST",
+      body: JSON.stringify(options),
+    }),
 };
 
 // AI API
-export const generateAIDraft = async (conversationId, tone = 'professional') => {
-  const response = await fetch('/api/ai/draft-reply', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-    },
-    body: JSON.stringify({ conversation_id: conversationId, tone })
-  });
+export const aiApi = {
+  draftReply: (conversation_id: string, options?: { tone?: string }) =>
+    apiCall("/ai/draft-reply", {
+      method: "POST",
+      body: JSON.stringify({ conversation_id, ...options }),
+    }),
   
-  return response.json();
+  transcribe: (audio_base64: string, language?: string) =>
+    apiCall("/ai/transcribe", {
+      method: "POST",
+      body: JSON.stringify({ audio_base64, language }),
+    }),
+  
+  generateListing: (data: {
+    address: string;
+    suburb: string;
+    bedrooms: number;
+    bathrooms: number;
+    features?: string[];
+    tone?: string;
+  }) =>
+    apiCall("/ai/generate-listing", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  
+  qualifyLead: (lead_id: string, conversation_history: string) =>
+    apiCall("/ai/qualify-lead", {
+      method: "POST",
+      body: JSON.stringify({ lead_id, conversation_history }),
+    }),
 };
 
-export const generateContentPack = async (listingId: string, options: { pack_type?: string; tone?: string } = {}) => {
-  const response = await fetch('/api/ai/content-pack', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-    },
-    body: JSON.stringify({
-      listing_id: listingId,
-      pack_type: options.pack_type || 'social',
-      tone: options.tone || 'professional'
-    })
-  });
+// Analytics API
+export const analyticsApi = {
+  getDashboard: (org_id: string) =>
+    apiCall(`/analytics/dashboard?org_id=${org_id}`),
   
-  return response.json();
+  getUsage: (org_id: string, params?: { start_date?: string; end_date?: string }) =>
+    apiCall(`/analytics/usage?org_id=${org_id}&${new URLSearchParams(params as any).toString()}`),
+  
+  getLeadAnalytics: (org_id: string, period?: string) =>
+    apiCall(`/analytics/leads?org_id=${org_id}&period=${period || "30_days"}`),
+  
+  logEvent: (data: {
+    org_id: string;
+    user_id?: string;
+    event_type: string;
+    tokens_used?: number;
+    metadata?: any;
+  }) =>
+    apiCall("/analytics/log", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  
+  getPlans: () => apiCall("/analytics/plans"),
 };
 
-// Content Packs
-export const getContentPacks = async (listingId) => {
-  const { data, error } = await supabase
-    .from('content_packs')
-    .select('*')
-    .eq('listing_id', listingId)
-    .order('created_at', { ascending: false });
-  
-  return { data, error };
-};
-
-export const approveContentPack = async (packId) => {
-  const { data: user } = await supabase.auth.getUser();
-  
-  const { data, error } = await supabase
-    .from('content_packs')
-    .update({
-      status: 'approved',
-      approved_by_user_id: user.user.id,
-      approved_at: new Date().toISOString()
-    })
-    .eq('id', packId)
-    .select()
-    .single();
-  
-  return { data, error };
-};
-
-// Stats
-export const getDashboardStats = async (orgId) => {
-  // Get counts
-  const { data: leads } = await supabase
-    .from('leads')
-    .select('status', { count: 'exact' })
-    .eq('org_id', orgId);
-  
-  const { data: listings } = await supabase
-    .from('listings')
-    .select('status', { count: 'exact' })
-    .eq('org_id', orgId);
-  
-  const { data: tasks } = await supabase
-    .from('tasks')
-    .select('status', { count: 'exact' })
-    .eq('org_id', orgId)
-    .eq('status', 'pending');
-  
-  return {
-    total_leads: leads?.length || 0,
-    active_listings: listings?.length || 0,
-    pending_tasks: tasks?.length || 0
-  };
+// Health check
+export const healthApi = {
+  check: () => apiCall("/health"),
 };
