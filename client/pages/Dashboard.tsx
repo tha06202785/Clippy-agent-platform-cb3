@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
+import AIToolsPanel from "@/components/AIToolsPanel";
 import { leadsApi, listingsApi, analyticsApi } from "@/lib/api";
 
 interface Task {
@@ -774,6 +775,11 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        {/* AI Tools Section */}
+        <div className="mt-8">
+          <AIToolsPanel orgId={userId || ""} />
+        </div>
+
       </div>
     </Layout>
   );
