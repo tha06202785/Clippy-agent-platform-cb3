@@ -2,6 +2,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Zap, MessageSquare, BarChart3, Calendar } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
+
+// Lazy load 3D components to avoid SSR issues
+const Dashboard3D = lazy(() => import('@/components/3d/Dashboard3D'));
+const FeatureShowcase3D = lazy(() => import('@/components/3d/FeatureShowcase3D'));
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -153,11 +158,15 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Hero Image */}
-        <div className="mt-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg p-8 h-96 flex items-center justify-center border border-blue-200">
-          <div className="text-center">
-            <p className="text-gray-600">Dashboard Preview Coming Soon</p>
-          </div>
+        {/* Hero 3D Dashboard */}
+        <div className="mt-12 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl p-4 h-[500px] border border-blue-100 overflow-hidden">
+          <Suspense fallback={
+            <div className="w-full h-full flex items-center justify-center">
+              <p className="text-gray-500">Loading 3D Dashboard...</p>
+            </div>
+          }>
+            <Dashboard3D />
+          </Suspense>
         </div>
       </section>
 
@@ -203,14 +212,32 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg h-80 flex items-center justify-center border border-blue-200">
-              <p className="text-gray-600">Feature Illustration</p>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl h-80 border border-blue-100 overflow-hidden">
+              <Suspense fallback={
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-gray-500">Loading 3D Visualization...</p>
+                </div>
+              }>
+                {(() => {
+                  const { AIFeature3D } = require('@/components/3d/FeatureShowcase3D');
+                  return <AIFeature3D />;
+                })()}
+              </Suspense>
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-12 mt-20">
-            <div className="bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg h-80 flex items-center justify-center border border-purple-200">
-              <p className="text-gray-600">Feature Illustration</p>
+            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl h-80 border border-orange-100 overflow-hidden">
+              <Suspense fallback={
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-gray-500">Loading 3D Visualization...</p>
+                </div>
+              }>
+                {(() => {
+                  const { LeadFeature3D } = require('@/components/3d/FeatureShowcase3D');
+                  return <LeadFeature3D />;
+                })()}
+              </Suspense>
             </div>
 
             <div className="space-y-6">
