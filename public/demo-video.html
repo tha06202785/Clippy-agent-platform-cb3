@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clippy Demo - Interactive Walkthrough</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        
+        .slide {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            position: relative;
+            border-bottom: 1px solid #1e293b;
+        }
+        
+        .slide-number {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        h2 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        h3 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #3b82f6;
+        }
+        
+        p {
+            font-size: 1.3rem;
+            line-height: 1.6;
+            color: #94a3b8;
+            max-width: 800px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .narration {
+            background: #1e293b;
+            border-left: 4px solid #3b82f6;
+            padding: 20px 30px;
+            max-width: 900px;
+            width: 100%;
+            font-style: italic;
+            font-size: 1.1rem;
+            color: #e2e8f0;
+            margin: 20px 0;
+        }
+        
+        .visual {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 40px;
+            width: 100%;
+            max-width: 1000px;
+            margin: 20px 0;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+            margin: 20px 0;
+        }
+        
+        .feature-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #334155;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+        
+        .feature-card h4 {
+            color: #3b82f6;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .feature-card p {
+            font-size: 1rem;
+            text-align: left;
+            margin-bottom: 0;
+        }
+        
+        .checkmark {
+            color: #22c55e;
+            font-weight: bold;
+        }
+        
+        .mockup {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 30px;
+            border: 1px solid #334155;
+        }
+        
+        .mockup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #334155;
+        }
+        
+        .mockup-title {
+            font-weight: 600;
+            color: #fff;
+        }
+        
+        .badge {
+            background: #dc2626;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .badge-hot {
+            background: #dc2626;
+        }
+        
+        .badge-warm {
+            background: #f59e0b;
+        }
+        
+        .badge-cold {
+            background: #6b7280;
+        }
+        
+        .lead-item {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .lead-info h5 {
+            color: #fff;
+            margin-bottom: 5px;
+        }
+        
+        .lead-info span {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        
+        .cta-button {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: #fff;
+            padding: 15px 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.2rem;
+            display: inline-block;
+            margin-top: 30px;
+            transition: transform 0.2s;
+        }
+        
+        .cta-button:hover {
+            transform: scale(1.05);
+        }
+        
+        .logo {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+        
+        .logo span {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            font-size: 1.5rem;
+            color: #64748b;
+            margin-bottom: 40px;
+        }
+        
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            max-width: 800px;
+            width: 100%;
+            margin: 30px 0;
+        }
+        
+        .timeline-step {
+            text-align: center;
+            flex: 1;
+        }
+        
+        .timeline-step .number {
+            background: #3b82f6;
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: 700;
+        }
+        
+        .timeline-step p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+        
+        .chat-bubble {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin: 10px 0;
+            position: relative;
+            max-width: 80%;
+        }
+        
+        .chat-bubble.ai {
+            margin-left: auto;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        }
+        
+        .chat-bubble p {
+            text-align: left;
+            margin: 0;
+            color: #fff;
+        }
+        
+        @media (max-width: 768px) {
+            h1 { font-size: 2rem; }
+            h2 { font-size: 1.5rem; }
+            p { font-size: 1rem; }
+            .slide { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- SLIDE 1: Opening Hook -->
+<div class="slide">
+    <div class="slide-number">1/10</div>
+    <div class="logo"><span>📎</span> CLIPPY</div>
+    <h1>Your AI Real Estate Assistant</h1>
+    <p class="subtitle">Capture, Qualify & Convert Leads on Autopilot</p>
+    
+    <div class="narration">
+        "What if every lead that came to your real estate business was automatically qualified, organized, and responded to by AI—before you even checked your phone?"
+    </div>
+    
+    <div class="visual">
+        <div class="timeline">
+            <div class="timeline-step">
+                <div class="number">1</div>
+                <p>Lead Captures</p>
+            </div>
+            <div class="timeline-step">
+                <div class="number">2</div>
+                <p>AI Qualifies</p>
+            </div>
+            <div class="timeline-step">
+                <div class="number">3</div>
+                <p>Auto-Responds</p>
+            </div>
+            <div class="timeline-step">
+                <div class="number">4</div>
+                <p>You Close</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 2: Dashboard Overview -->
+<div class="slide">
+    <div class="slide-number">2/10</div>
+    <h2>Your Command Center</h2>
+    <p>Everything you need to manage leads, in one beautiful dashboard.</p>
+    
+    <div class="narration">
+        "Clippy is your AI-powered real estate assistant. Everything starts here on your dashboard—your command center for lead management."
+    </div>
+    
+    <div class="visual">
+        <div class="mockup">
+            <div class="mockup-header">
+                <span class="mockup-title">📎 Clippy Dashboard</span>
+                <span style="color: #64748b;">Good afternoon, Agent</span>
+            </div>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🎯 12 New Leads</h4>
+                    <p>This week from Facebook, Website & QR codes</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔥 3 Hot Leads</h4>
+                    <p>Ready to buy within 30 days</p>
+                </div>
+                <div class="feature-card">
+                    <h4>⚡ 2min Avg Response</h4>
+                    <p>Thanks to AI auto-replies</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📈 24% Conversion</h4>
+                    <p>Up from 12% last month</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 3: Lead Capture -->
+<div class="slide">
+    <div class="slide-number">3/10</div>
+    <h2>Capture From Everywhere</h2>
+    <p>Leads come from everywhere. Clippy captures them all.</p>
+    
+    <div class="narration">
+        "Leads come from everywhere—Facebook ads, your website, even QR codes on for-sale signs. Clippy captures them all in one place."
+    </div>
+    
+    <div class="feature-grid">
+        <div class="feature-card">
+            <h4>📱 Facebook Lead Ads</h4>
+            <p>Instant capture when prospects submit forms. No more manual exports.</p>
+        </div>
+        <div class="feature-card">
+            <h4>🌐 Website Widget</h4>
+            <p>Embeddable forms that sync directly to your dashboard.</p>
+        </div>
+        <div class="feature-card">
+            <h4>📍 QR Codes</h4>
+            <p>Scan from signs, flyers, or business cards. Instant property interest.</p>
+        </div>
+        <div class="feature-card">
+            <h4>📧 Email Parsing</h4>
+            <p>Forward lead emails—Clippy extracts and organizes the data.</p>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 4: AI Qualification -->
+<div class="slide">
+    <div class="slide-number">4/10</div>
+    <h2>AI Lead Qualification</h2>
+    <p>Know exactly which leads to prioritize.</p>
+    
+    <div class="narration">
+        "But Clippy doesn't just collect leads—it understands them. Our AI analyzes each lead's information and tells you: Are they ready to buy? What's their budget? How urgent is this?"
+    </div>
+    
+    <div class="visual">
+        <div class="mockup">
+            <div class="mockup-header">
+                <span class="mockup-title">Lead Profile: Sarah Johnson</span>
+                <span class="badge badge-hot">HOT LEAD - 85%</span>
+            </div>
+            
+            <div style="display: grid; gap: 15px;">
+                <div style="display: flex; justify-content: space-between; padding: 15px; background: #0f172a; border-radius: 8px;">
+                    <span>💰 Budget Range</span>
+                    <span style="color: #22c55e; font-weight: 600;">$750K - $850K</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 15px; background: #0f172a; border-radius: 8px;">
+                    <span>⏰ Timeline</span>
+                    <span style="color: #22c55e; font-weight: 600;">Ready to buy in 30 days</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 15px; background: #0f172a; border-radius: 8px;">
+                    <span>🏠 Property Interest</span>
+                    <span style="color: #fff; font-weight: 600;">3-4 bedroom, Family home</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 15px; background: #0f172a; border-radius: 8px;">
+                    <span>📊 Source</span>
+                    <span style="color: #fff; font-weight: 600;">Facebook Lead Ad - 123 Main St</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)); border-radius: 8px; border: 1px solid #3b82f6;">
+                <strong style="color: #3b82f6;">🤖 AI Recommendation:</strong>
+                <p style="margin: 10px 0 0 0; color: #e2e8f0;">"High intent buyer with realistic budget. Recommend scheduling viewing this weekend. Pre-approved financing likely."</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 5: AI Reply Drafting -->
+<div class="slide">
+    <div class="slide-number">5/10</div>
+    <h2>Instant AI Replies</h2>
+    <p>Respond to leads in seconds, not hours.</p>
+    
+    <div class="narration">
+        "Responding to leads instantly is critical. Clippy drafts personalized replies using the lead's specific details—property interests, budget, timeline—in your voice. Just review and send."
+    </div>
+    
+    <div class="visual">
+        <div class="mockup">
+            <div class="mockup-header">
+                <span class="mockup-title">💬 AI Reply Generator</span>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <p style="text-align: left; color: #64748b; margin-bottom: 10px;">Lead: Sarah Johnson | Property: 123 Main Street</p>
+                <button style="background: #3b82f6; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 1rem;">
+                    ✨ Generate Response
+                </button>
+            </div>
+            
+            <div class="chat-bubble ai">
+                <p>Hi Sarah, thanks for your interest in 123 Main Street! I noticed you're looking for a 3-bedroom in the $800K range. This property has 4 bedrooms and just had a price reduction to $795K. 
+
+The open-plan living area and updated kitchen are perfect for families. Would you like to schedule a viewing this Saturday at 2pm?</p>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">
+                <button style="background: #22c55e; color: #fff; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                    ✓ Send Now
+                </button>
+                <button style="background: #1e293b; color: #fff; border: 1px solid #475569; padding: 12px 30px; border-radius: 6px; cursor: pointer;">
+                    ✏️ Edit
+                </button>
+                <button style="background: #1e293b; color: #fff; border: 1px solid #475569; padding: 12px 30px; border-radius: 6px; cursor: pointer;">
+                    🕐 Schedule
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 6: Content Generation -->
+<div class="slide">
+    <div class="slide-number">6/10</div>
+    <h2>Auto-Generate Content</h2>
+    <p>Platform-specific posts, instantly.</p>
+    
+    <div class="narration">
+        "Marketing properties takes time. Clippy generates platform-specific posts—instantly. From detailed Facebook descriptions to punchy X threads, it's all optimized for engagement."
+    </div>
+    
+    <div class="feature-grid">
+        <div class="feature-card">
+            <h4>📘 Facebook</h4>
+            <p style="font-size: 0.9rem; color: #94a3b8;">"🏡 JUST LISTED! Beautiful 4-bedroom family home in Oakville. Open concept living, renovated kitchen, walk to top-rated schools. $795K. Open house this Sat 1-4pm. DM for details! #RealEstate #Oakville #HomeForSale"</p>
+        </div>
+        <div class="feature-card">
+            <h4>📸 Instagram</h4>
+            <p style="font-size: 0.9rem; color: #94a3b8;">✨ Dream home alert! This stunning Oakville property features natural light, modern finishes, and the perfect backyard for summer BBQs. Swipe to see more →<br><br>#DreamHome #OakvilleRealEstate #HouseGoals #HomeInspo</p>
+        </div>
+        <div class="feature-card">
+            <h4>💼 LinkedIn</h4>
+            <p style="font-size: 0.9rem; color: #94a3b8;">"Proud to represent this exceptional Oakville property. In today's market, homes in this school district move fast. Currently listed at $795K—contact me to schedule a private viewing before the open house."</p>
+        </div>
+        <div class="feature-card">
+            <h4>🐦 X (Twitter)</h4>
+            <p style="font-size: 0.9rem; color: #94a3b8;">"🏡 Oakville 4BR, $795K<br>✓ Top school district<br>✓ Renovated kitchen<br>✓ Open Sat 1-4pm<br><br>Properties here: avg 7 days on market.<br><br>Want a private tour? DM me →"</p>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 7: Voice Notes -->
+<div class="slide">
+    <div class="slide-number">7/10</div>
+    <h2>Voice Notes on the Go</h2>
+    <p>Just talk. Clippy handles the rest.</p>
+    
+    <div class="narration">
+        "On the go? Dictate notes to Clippy after open houses or inspections. It transcribes, organizes, and even drafts follow-up messages automatically."
+    </div>
+    
+    <div class="visual">
+        <div class="mockup">
+            <div class="mockup-header">
+                <span class="mockup-title">🎙️ Voice Memo → Lead</span>
+            </div>
+            
+            <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="text-align: left; margin: 0;"><strong>🎤 Recording:</strong></p>
+                <p style="text-align: left; color: #94a3b8; margin-top: 10px; font-style: italic;">"Met the Johnsons at 123 Main Street open house. Loved the kitchen, concerned about the backyard size. Kids are 8 and 10. Pre-approved for 800K. Want to see similar properties with bigger yards."</p>
+            </div>
+            
+            <div style="text-align: center; color: #3b82f6; margin: 20px 0;">⬇️ AI Processing...</div>
+            
+            <div style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)); padding: 20px; border-radius: 8px; border: 1px solid #22c55e;">
+                <p style="text-align: left; margin: 0;"><strong style="color: #22c55e;">✅ Lead Created:</strong></p>
+                <ul style="margin-top: 10px; padding-left: 20px; color: #e2e8f0; text-align: left;">
+                    <li>Name: Johnson Family</li>
+                    <li>Budget: ~$800K</li>
+                    <li>Interest: 123 Main Street</li>
+                    <li>Concern: Backyard size</li>
+                    <li>Next Action: Find similar properties with larger yards</li>
+                    <li>Follow-up drafted and ready to send</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 8: Automation -->
+<div class="slide">
+    <div class="slide-number">8/10</div>
+    <h2>Set It and Forget It</h2>
+    <p>Automation that works 24/7.</p>
+    
+    <div class="narration">
+        "Set up automations once, let them run forever. Hot leads get instant notifications. After-hours inquiries get immediate responses. Follow-ups happen automatically."
+    </div>
+    
+    <div class="feature-grid">
+        <div class="feature-card">
+            <h4>⚡ Instant Routing</h4>
+            <p>Hot leads (85%+) notify you immediately via SMS/email</p>
+        </div>
+        <div class="feature-card">
+            <h4>🌙 After-Hours Reply</h4>
+            <p>Auto-response when you can't reply personally</p>
+        </div>
+        <div class="feature-card">
+            <h4>📅 Follow-Up Reminders</h4>
+            <p>Never lose touch with warm leads</p>
+        </div>
+        <div class="feature-card">
+            <h4>🎯 Smart Assignment</h4>
+            <p>Route leads to agents by area or expertise</p>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 9: Analytics -->
+<div class="slide">
+    <div class="slide-number">9/10</div>
+    <h2>See What Works</h2>
+    <p>Data-driven decisions, not guesses.</p>
+    
+    <div class="narration">
+        "See what's working. Clippy tracks every lead from capture to conversion, showing you which channels deliver the best results and where to focus your marketing budget."
+    </div>
+    
+    <div class="visual">
+        <div class="mockup">
+            <div class="mockup-header">
+                <span class="mockup-title">📊 Performance Dashboard</span>
+            </div>
+            
+            <div class="feature-grid" style="margin: 0;">
+                <div style="text-align: center; padding: 20px; background: #0f172a; border-radius: 8px;">
+                    <div style="font-size: 2rem; color: #22c55e; font-weight: 700;">47</div>
+                    <div style="color: #64748b;">Total Leads</div>
+                </div>
+                <div style="text-align: center; padding: 20px; background: #0f172a; border-radius: 8px;">
+                    <div style="font-size: 2rem; color: #3b82f6; font-weight: 700;">24%</div>
+                    <div style="color: #64748b;">Conversion Rate</div>
+                </div>
+                <div style="text-align: center; padding: 20px; background: #0f172a; border-radius: 8px;">
+                    <div style="font-size: 2rem; color: #8b5cf6; font-weight: 700;">$18.50</div>
+                    <div style="color: #64748b;">Cost Per Lead</div>
+                </div>
+                <div style="text-align: center; padding: 20px; background: #0f172a; border-radius: 8px;">
+                    <div style="font-size: 2rem; color: #f59e0b; font-weight: 700;">2min</div>
+                    <div style="color: #64748b;">Avg Response</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; padding: 15px; background: #0f172a; border-radius: 8px;">
+                <p style="text-align: left; margin: 0;"><strong>🏆 Top Performing Channels:</strong></p>
+                <ol style="text-align: left; margin-top: 10px; padding-left: 20px; color: #94a3b8;">
+                    <li>Facebook Lead Ads - 52% of conversions</li>
+                    <li>QR Codes on Signs - 28% of conversions</li>
+                    <li>Website Widget - 20% of conversions</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 10: CTA -->
+<div class="slide">
+    <div class="slide-number">10/10</div>
+    <h1>Ready to Transform Your Lead Game?</h1>
+    <p style="font-size: 1.5rem;">Join agents who never miss a lead.</p>
+    
+    <div class="narration">
+        "Stop losing leads in your inbox. Stop spending hours on follow-ups. Let Clippy handle the busywork—so you can focus on closing deals."
+    </div>
+    
+    <div style="text-align: center; margin: 40px 0;">
+        <div style="font-size: 5rem; margin-bottom: 20px;">📎</div>
+        <h2 style="margin-bottom: 10px;">Clippy</h2>
+        <p style="color: #64748b;">Your AI Real Estate Assistant</p>
+    </div>
+    
+    <a href="https://useclippy.com" class="cta-button" target="_blank">
+        Get Started Free →
+    </a>
+    
+    <p style="margin-top: 40px; font-size: 1rem; color: #64748b;">
+        🎬 Demo recorded April 2026<br>
+        Questions? Visit useclippy.com
+    </p>
+</div>
+
+</body>
+</html>

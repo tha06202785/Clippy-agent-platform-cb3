@@ -462,6 +462,61 @@ def create_listing():
     return jsonify({"listing": listing}), 201
 
 # ============================================
+# WIDGET CHAT API
+# ============================================
+
+CLIPPY_WIDGET_PROMPT = """You are Clippy, the helpful AI assistant for real estate professionals using the Clippy platform. You help agents with:
+
+- Lead management and follow-ups
+- Content creation for listings
+- General real estate questions
+- Platform usage help
+- Marketing advice
+
+Be friendly, professional, and concise. If you don't know something specific about the user's data, suggest they check their dashboard or ask their admin."""
+
+@app.route("/api/widget/chat", methods=["POST"])
+def widget_chat():
+    """Public widget chat endpoint - no auth required."""
+    data = request.json
+    message = data.get("message", "").strip()
+    session_id = data.get("sessionId", "")
+    org_id = data.get("orgId")
+    
+    if not message:
+        return jsonify({
+            "response": "Hi! I'm Clippy. How can I help you today? 🧷",
+            "sessionId": session_id
+        })
+    
+    try:
+        # Call OpenAI
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": CLIPPY_WIDGET_PROMPT},
+                {"role": "user", "content": message}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        
+        bot_response = response.choices[0].message.content
+        
+        return jsonify({
+            "response": bot_response,
+            "sessionId": session_id,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"Widget chat error: {e}")
+        return jsonify({
+            "response": "I'm having a little trouble right now. Please try again in a moment! 🧷",
+            "sessionId": session_id
+        }), 500
+
+# ============================================
 # HEALTH CHECK
 # ============================================
 

@@ -20,6 +20,7 @@ import Settings from "./pages/Settings";
 import ForgotPassword from "./pages/ForgotPassword";
 import SignUp from "./pages/SignUp";
 import NotFound from "./pages/NotFound";
+import WidgetEmbed from "./pages/WidgetEmbed";
 import Landing from "./pages/Landing";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/widget" element={<WidgetEmbed />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

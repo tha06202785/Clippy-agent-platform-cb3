@@ -2,9 +2,10 @@
 // Hero Component
 // ============================================================================
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
+import DemoVideoModal from "./DemoVideoModal";
 import { 
   ArrowRight, 
   Play, 
@@ -20,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 export default function Hero() {
   const heroRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -86,7 +88,12 @@ export default function Hero() {
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
               
-              <Button variant="outline" size="lg" className="group">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="group"
+                onClick={() => setIsDemoOpen(true)}
+              >
                 <Play className="w-5 h-5 mr-2 fill-current" />
                 Watch Demo
               </Button>
@@ -236,6 +243,12 @@ export default function Hero() {
           </div>
         </div>
       </div>
+
+      {/* Demo Video Modal */}
+      <DemoVideoModal 
+        isOpen={isDemoOpen} 
+        onClose={() => setIsDemoOpen(false)} 
+      />
     </section>
   );
 }

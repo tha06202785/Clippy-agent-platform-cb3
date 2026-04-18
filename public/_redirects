@@ -1,0 +1,5 @@
+/api/* /.netlify/functions/api/:splat 200
+/demo.html /demo.html 200
+/demo-video.html /demo-video.html 200
+/demo-modal.js /demo-modal.js 200
+/* /index.html 200
