@@ -26,3 +26,7 @@ dist-ssr
 .config/
 !.env
 .vercel
+.pyc
+__pycache__/
+.pyc
+__pycache__/

@@ -1,4 +1,3 @@
-const WHITELIST_61431126141 = ["61431126141@c.us"]; const isAllowed = (id) => WHITELIST_61431126141.some(w => id.includes(w));
 // Facebook Webhook Handler for Netlify Functions
 // Deployed at: /.netlify/functions/facebook-webhook
 
