@@ -6,6 +6,15 @@ import leadsRouter from "./routes/leads";
 import listingsRouter from "./routes/listings";
 import aiRouter from "./routes/ai";
 import analyticsRouter from "./routes/analytics";
+import dashboardRouter from "./routes/dashboard";
+import logsRouter from "./routes/logs";
+
+// New integration modules
+const authRoutes = require("./auth/routes");
+const subscriptionRoutes = require("./subscription/routes");
+const facebookRoutes = require("./facebook/routes");
+const calendarRoutes = require("./calendar/routes");
+const crmRoutes = require("./crm/crmRoutes");
 
 export function createServer() {
   const app = express();
@@ -37,6 +46,19 @@ export function createServer() {
   app.use("/api/listings", listingsRouter);
   app.use("/api/ai", aiRouter);
   app.use("/api/analytics", analyticsRouter);
+  app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/logs", logsRouter);
+
+  // New Integration Routes
+  app.use("/api/auth", authRoutes);
+  app.use("/api/subscription", subscriptionRoutes);
+  app.use("/api/facebook", facebookRoutes);
+  app.use("/api/calendar", calendarRoutes);
+  app.use("/api/crm", crmRoutes);
+
+  // Webhooks (no auth required)
+  app.use("/webhooks/stripe", require("./subscription/webhookHandler").handleWebhook);
+  app.use("/webhooks/facebook", require("./facebook/webhookHandler").handleWebhookEvent);
 
   // Error handling
   app.use((err: any, _req: any, res: any, _next: any) => {
