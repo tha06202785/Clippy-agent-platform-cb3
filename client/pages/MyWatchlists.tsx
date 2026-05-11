@@ -21,7 +21,7 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
 
 // Supabase anon key for Edge Function authentication
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xeWRpZXFleWJneHRqcW9ncndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4Mzk4NjQsImV4cCI6MjA4NzQxNTg2NH0.jB8Uq9ClaPF4fQaXOYCZ7uhaGsYEX2qt3C2R-8zn_PE";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 interface AreaPreset {
   id: string;
@@ -153,7 +153,7 @@ export default function MyWatchlists() {
 
       try {
         const response = await fetch(
-          "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/get-area-presets",
+          "https://your-project.supabase.co/functions/v1/get-area-presets",
           {
             method: "GET",
             headers,
@@ -291,7 +291,7 @@ export default function MyWatchlists() {
 
       try {
         const response = await fetch(
-          "https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/save-agent-watchlist",
+          "https://your-project.supabase.co/functions/v1/save-agent-watchlist",
           {
             method: "POST",
             headers: {

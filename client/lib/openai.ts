@@ -1,202 +1,79 @@
-import OpenAI from "openai";
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+export const openai = {
+  apiKey: OPENAI_API_KEY
+};
 
-if (!OPENAI_API_KEY) {
-  console.warn(
-    "OpenAI API key not configured. Content generation features will be unavailable. Set VITE_OPENAI_API_KEY environment variable."
-  );
-}
-
-export const openai = OPENAI_API_KEY
-  ? new OpenAI({
-      apiKey: OPENAI_API_KEY,
-      dangerouslyAllowBrowser: true, // Only for client-side, should use backend in production
-    })
-  : null;
-
-export interface ContentGenerationOptions {
-  tone?: "luxury" | "family" | "investment" | "energetic" | "professional";
-  platform?: "facebook" | "instagram" | "whatsapp" | "email" | "sms";
-  characterLimit?: number;
-}
-
-/**
- * Generate listing description using OpenAI
- */
-export async function generateListingDescription(
-  propertyDetails: {
-    address: string;
-    bedrooms: number;
-    bathrooms: number;
-    sqft: number;
-    price: number;
-    features: string[];
-  },
-  options: ContentGenerationOptions = {}
-): Promise<string> {
-  if (!openai) {
-    throw new Error(
-      "OpenAI is not configured. Please set VITE_OPENAI_API_KEY environment variable."
-    );
-  }
-
-  const toneDescription = {
-    luxury: "elegant, sophisticated, and premium",
-    family: "warm, inviting, and family-friendly",
-    investment: "professional, data-driven, and value-focused",
-    energetic: "exciting, dynamic, and vibrant",
-    professional: "clear, straightforward, and professional",
+export async function generateContent(prompt: string, type: 'listing' | 'social' | 'email') {
+  const systemPrompts = {
+    listing: 'You are a real estate expert. Create compelling property listings.',
+    social: 'You are a social media expert for real estate. Create engaging posts.',
+    email: 'You are a real estate professional. Write professional emails.'
   };
 
-  const prompt = `Generate a compelling real estate listing description for the following property:
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompts[type] },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 500
+      })
+    });
+
+    if (!response.ok) throw new Error('OpenAI API error');
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('OpenAI error:', error);
+    return null;
+  }
+}
+
+export async function generateListingDescription(propertyDetails: {
+  address: string;
+  bedrooms: number;
+  bathrooms: number;
+  price: number;
+  features: string[];
+}) {
+  const prompt = `Create a compelling real estate listing for:
 Address: ${propertyDetails.address}
 Bedrooms: ${propertyDetails.bedrooms}
 Bathrooms: ${propertyDetails.bathrooms}
-Square Feet: ${propertyDetails.sqft}
 Price: $${propertyDetails.price.toLocaleString()}
-Key Features: ${propertyDetails.features.join(", ")}
+Features: ${propertyDetails.features.join(', ')}
 
-Tone: ${toneDescription[options.tone || "professional"]}
+Write an engaging, professional listing description.`;
 
-Keep the description concise but engaging. ${options.characterLimit ? `Limit to ${options.characterLimit} characters.` : ""}`;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 500,
-    });
-
-    return (
-      response.choices[0]?.message?.content ||
-      "Unable to generate description. Please try again."
-    );
-  } catch (error) {
-    console.error("Error generating listing description:", error);
-    throw error;
-  }
+  return generateContent(prompt, 'listing');
 }
 
-/**
- * Generate social media post for a listing
- */
-export async function generateSocialPost(
-  propertyDetails: {
-    address: string;
-    bedrooms: number;
-    bathrooms: number;
-    price: number;
-  },
-  platform: "facebook" | "instagram" | "twitter" = "facebook",
-  tone: ContentGenerationOptions["tone"] = "professional"
-): Promise<string> {
-  if (!openai) {
-    throw new Error(
-      "OpenAI is not configured. Please set VITE_OPENAI_API_KEY environment variable."
-    );
-  }
+export async function generateSocialPost(platform: 'facebook' | 'instagram' | 'twitter', listing: any) {
+  const prompt = `Create an engaging ${platform} post for this property:
+Address: ${listing.address}
+Price: $${listing.price?.toLocaleString()}
 
-  const platformLimits = {
-    facebook: 500,
-    instagram: 150,
-    twitter: 280,
-  };
+Make it catchy and include relevant hashtags.`;
 
-  const toneDescription = {
-    luxury: "elegant and premium",
-    family: "warm and friendly",
-    investment: "professional and data-driven",
-    energetic: "exciting and dynamic",
-    professional: "clear and professional",
-  };
-
-  const prompt = `Generate a compelling ${platform} post for a real estate listing:
-Address: ${propertyDetails.address}
-Bedrooms: ${propertyDetails.bedrooms} | Bathrooms: ${propertyDetails.bathrooms}
-Price: $${propertyDetails.price.toLocaleString()}
-
-Tone: ${toneDescription[tone]}
-Platform-specific guidelines for ${platform}
-Max characters: ${platformLimits[platform]}
-
-Include relevant emojis and hashtags if appropriate for ${platform}.`;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.8,
-      max_tokens: 200,
-    });
-
-    return (
-      response.choices[0]?.message?.content ||
-      "Unable to generate post. Please try again."
-    );
-  } catch (error) {
-    console.error("Error generating social post:", error);
-    throw error;
-  }
+  return generateContent(prompt, 'social');
 }
 
-/**
- * Generate lead follow-up message
- */
-export async function generateFollowUpMessage(
-  leadInfo: {
-    name: string;
-    source: string;
-    interestLevel: "high" | "medium" | "low";
-    propertyAddress?: string;
-  },
-  tone: ContentGenerationOptions["tone"] = "professional"
-): Promise<string> {
-  if (!openai) {
-    throw new Error(
-      "OpenAI is not configured. Please set VITE_OPENAI_API_KEY environment variable."
-    );
-  }
+export async function generateEmailResponse(inquiry: string, tone: string = 'professional') {
+  const prompt = `Respond to this real estate inquiry in a ${tone} tone:
 
-  const prompt = `Generate a professional follow-up message for a real estate lead:
-Lead Name: ${leadInfo.name}
-Interest Level: ${leadInfo.interestLevel}
-Lead Source: ${leadInfo.source}
-${leadInfo.propertyAddress ? `Property of Interest: ${leadInfo.propertyAddress}` : ""}
+Inquiry: ${inquiry}
 
-Tone: ${tone}
-Keep it concise (2-3 sentences) and personalized.`;
+Provide a helpful, professional response.`;
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 150,
-    });
-
-    return (
-      response.choices[0]?.message?.content ||
-      "Unable to generate message. Please try again."
-    );
-  } catch (error) {
-    console.error("Error generating follow-up message:", error);
-    throw error;
-  }
+  return generateContent(prompt, 'email');
 }
