@@ -219,7 +219,7 @@ export default function LandingPage() {
                 </div>
               }>
                 {(() => {
-                  const { AIFeature3D } = require('@/components/3d/FeatureShowcase3D');
+                  const AIFeature3D = lazy(() => import('@/components/3d/FeatureShowcase3D').then(m => ({ default: m.AIFeature3D })));
                   return <AIFeature3D />;
                 })()}
               </Suspense>
@@ -234,7 +234,7 @@ export default function LandingPage() {
                 </div>
               }>
                 {(() => {
-                  const { LeadFeature3D } = require('@/components/3d/FeatureShowcase3D');
+                  const LeadFeature3D = lazy(() => import('@/components/3d/FeatureShowcase3D').then(m => ({ default: m.LeadFeature3D })));
                   return <LeadFeature3D />;
                 })()}
               </Suspense>

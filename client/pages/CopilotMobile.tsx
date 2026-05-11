@@ -104,7 +104,7 @@ export default function CopilotMobile() {
     try {
       // Send to copilot-assistant Edge Function
       const response = await fetch(
-        'https://mqydieqeybgxtjqogrwh.supabase.co/functions/v1/copilot-assistant',
+        'https://your-project.supabase.co/functions/v1/copilot-assistant',
         {
           method: 'POST',
           headers: {

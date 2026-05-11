@@ -47,7 +47,21 @@ export default function Login() {
         return;
       }
 
-      navigate("/dashboard");
+      // Check if onboarding is completed
+      const { data: { session: loginSession } } = await supabase.auth.getSession();
+      if (loginSession?.user) {
+        const { data: progress } = await supabase
+          .from(onboarding_progress)
+          .select(is_complete)
+          .eq(Ser_id, loginSession.user.id)
+          .single();
+
+        if (!progress?.is_complete) {
+          navigate("/onboarding");
+        } else {
+          navigate("/dashboard");
+        }
+      }
     } catch (err: any) {
       setError(err.message || "An error occurred during login");
     } finally {
