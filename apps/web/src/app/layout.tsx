@@ -7,6 +7,8 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Clippy - AI Co-Agent for Real Estate",
   description: "Clippy reads every lead, drafts every reply, and keeps every deal moving. You approve before anything leaves.",
