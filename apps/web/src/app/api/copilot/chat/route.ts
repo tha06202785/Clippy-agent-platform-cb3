@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": ,
+        "Authorization": "Bearer " + OLLAMA_API_KEY,
       },
       body: JSON.stringify({
         model: "llama3.2:3b",
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      return NextResponse.json({ error:  }, { status: 502 });
+      return NextResponse.json({ error: "Ollama error: " + errorText }, { status: 502 });
     }
 
     const data = await response.json();
