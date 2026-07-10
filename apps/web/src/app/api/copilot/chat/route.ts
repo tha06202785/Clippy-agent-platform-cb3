@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
 import { auth } from "@clerk/nextjs/server";
 
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
