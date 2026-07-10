@@ -1,7 +1,5 @@
-"use client";
-export const dynamic = "force-dynamic";
-import { SignIn } from "@clerk/nextjs";
 import Link from "next/link";
+import { SignInClient } from "@/components/sign-in-client";
 
 export default function SignInPage() {
   return (
@@ -13,7 +11,7 @@ export default function SignInPage() {
             <span className="text-foreground font-bold text-lg">Clippy</span>
           </Link>
         </div>
-        <SignIn />
+        <SignInClient />
       </div>
     </div>
   );
