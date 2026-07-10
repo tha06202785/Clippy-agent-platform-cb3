@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { Mail, MessageCircle, Facebook, Calendar, Upload, Check, Sparkles, ChevronRight } from "lucide-react";
 import Link from "next/link";

@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { Users, Search, MoreHorizontal, TrendingUp, TrendingDown, Star, AlertTriangle, Phone, Mail, MessageCircle } from "lucide-react";
 

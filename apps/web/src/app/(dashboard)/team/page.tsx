@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { Users, Search, Plus, UserCheck, UserX, Clock, Phone, MessageCircle, Mail, MoreHorizontal } from "lucide-react";
 

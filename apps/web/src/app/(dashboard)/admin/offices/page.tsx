@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { Building2, Plus, Search, TrendingUp, TrendingDown, MoreHorizontal, Users, DollarSign, Home } from "lucide-react";
 
