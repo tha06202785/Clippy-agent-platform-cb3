@@ -1,37 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { auth } from "@clerk/nextjs/server";
 
 export async function POST(req: NextRequest) {
-  try {
-    const { message, conversation_history } = await req.json();
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const messages = [
-      {
-        role: "system" as const,
-        content: "You are Clippy, an AI co-agent for real estate agents. You help agents manage leads, draft replies, schedule tours, and keep their pipeline moving. Be concise, professional, and helpful. When asked to take actions, explain what you would do. You can draft emails, summarize leads, suggest follow-ups, and provide market insights.",
-      },
-      ...(conversation_history || []),
-      { role: "user" as const, content: message },
-    ];
+  try {
+    const { messages } = await req.json();
+
+    // Lazy-init OpenAI to avoid build-time env check
+    const { default: OpenAI } = await import("openai");
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages,
-      max_tokens: 1000,
+      messages: [
+        {
+          role: "system",
+          content: "You are Clippy, an AI co-agent for real estate agents. You help them manage leads, draft messages, schedule tours, and follow up with clients. Be concise, professional, and helpful. You work in Australian real estate.",
+        },
+        ...messages,
+      ],
+      max_tokens: 500,
     });
 
-    return NextResponse.json({
-      reply: completion.choices[0]?.message?.content || "I am not sure how to help with that.",
-    });
+    return NextResponse.json({ reply: completion.choices[0].message.content });
   } catch (error: any) {
-    console.error("Copilot error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
