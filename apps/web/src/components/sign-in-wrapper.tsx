@@ -2,7 +2,7 @@
 import { SignIn, ClerkProvider } from "@clerk/nextjs";
 import Link from "next/link";
 
-export function SignInPageClient() {
+export function SignInWrapper() {
   return (
     <ClerkProvider>
       <div className="min-h-screen flex items-center justify-center bg-background px-4">

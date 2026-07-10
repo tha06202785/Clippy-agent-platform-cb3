@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
-import { SignInPageClient } from "@/components/sign-in-page-client";
+import { SignInWrapper } from "@/components/sign-in-wrapper";
 
 export default function SignInPage() {
-  return <SignInPageClient />;
+  return <SignInWrapper />;
 }
