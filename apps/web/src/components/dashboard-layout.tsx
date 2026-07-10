@@ -23,6 +23,17 @@ const navItems = [
 ];
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClerkProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <DashboardInner>{children}</DashboardInner>
+        <Toaster richColors />
+      </ThemeProvider>
+    </ClerkProvider>
+  );
+}
+
+function DashboardInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
