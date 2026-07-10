@@ -10,6 +10,9 @@ import {
   Menu, X, Moon, Sun, Search, Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ThemeProvider } from "next-themes";
+import { Toaster } from "sonner";
 import { MobileNav } from "@/components/mobile-nav";
 import { QuickActions } from "@/components/quick-actions";
 import { VoiceCommand } from "@/components/voice-command";
