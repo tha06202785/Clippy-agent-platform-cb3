@@ -1,17 +1,13 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
-import { auth } from "@clerk/nextjs/server";
-
-const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
-const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://api.ollama.cloud/v1/chat/completions";
-
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   try {
     const { messages } = await req.json();
+
+    const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
+    const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://api.ollama.cloud/v1/chat/completions";
 
     const response = await fetch(OLLAMA_ENDPOINT, {
       method: "POST",
