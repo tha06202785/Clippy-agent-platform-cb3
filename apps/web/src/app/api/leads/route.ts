@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-import { auth } from "@clerk/nextjs/server";
 
 // In-memory store for demo - replace with Drizzle DB
 const leads = [
@@ -11,6 +10,7 @@ const leads = [
 ];
 
 export async function GET() {
+  const { auth } = await import("@clerk/nextjs/server");
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -19,6 +19,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const { auth } = await import("@clerk/nextjs/server");
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
