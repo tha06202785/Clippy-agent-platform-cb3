@@ -1,10 +1,23 @@
-import { SignInWrapper } from "@/components/sign-in-wrapper";
+import Link from "next/link";
 
 export default function SignInPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <SignInWrapper />
+      <div className="w-full max-w-sm text-center">
+        <div className="flex justify-center mb-8">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-lg">C</div>
+            <span className="text-foreground font-bold text-lg">Clippy</span>
+          </Link>
+        </div>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Sign in to Clippy</h1>
+        <p className="text-muted-foreground mb-6">Access your dashboard, leads, and deals.</p>
+        <Link
+          href="/dashboard"
+          className="inline-block px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors"
+        >
+          Go to Dashboard
+        </Link>
       </div>
     </div>
   );
