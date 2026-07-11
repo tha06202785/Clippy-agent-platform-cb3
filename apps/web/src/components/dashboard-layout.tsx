@@ -27,7 +27,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { isSignedIn, user } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return (
     <div className="flex h-screen bg-background">
