@@ -200,8 +200,8 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Mobile bottom nav */}
-      <MobileNav />
-      <QuickActions />
+      <MobileNav onAddLead={() => setShowAddLead(true)} />
+      <QuickActions onAddLead={() => setShowAddLead(true)} />
       <VoiceCommand />
     </div>
   );

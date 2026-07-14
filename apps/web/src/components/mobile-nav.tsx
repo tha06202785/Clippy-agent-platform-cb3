@@ -12,8 +12,9 @@ const items = [
   { href: "/copilot", label: "AI", icon: Bot },
 ];
 
-export function MobileNav() {
+export function MobileNav({ onAddLead }: { onAddLead?: () => void }) {
   const pathname = usePathname();
+
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border safe-area-bottom">
       <div className="flex items-center justify-around h-16 px-2">
@@ -22,7 +23,8 @@ export function MobileNav() {
           const active = pathname === item.href;
           if (item.isAction) {
             return (
-              <button key={item.label} className="flex flex-col items-center gap-0.5 -mt-4">
+              <button key={item.label} onClick={() => { if (onAddLead) onAddLead(); }}
+                className="flex flex-col items-center gap-0.5 -mt-4">
                 <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform">
                   <Icon className="w-6 h-6" />
                 </div>

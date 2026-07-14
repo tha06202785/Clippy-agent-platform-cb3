@@ -20,7 +20,22 @@ export function VoiceCommand() {
         setTranscript(result[0].transcript);
         if (result.isFinal) {
           setProcessing(true);
-          setTimeout(() => { setProcessing(false); setListening(false); setTranscript(""); }, 2000);
+          // Send to copilot
+          fetch("/api/copilot/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: [{ role: "user", content: result[0].transcript }] }),
+          }).then(r => r.json()).then(data => {
+            setProcessing(false);
+            setListening(false);
+            setTranscript("");
+            // Navigate to copilot with the result
+            window.location.href = "/copilot";
+          }).catch(() => {
+            setProcessing(false);
+            setListening(false);
+            setTranscript("");
+          });
         }
       };
       recognitionRef.current.onend = () => setListening(false);
@@ -51,7 +66,7 @@ export function VoiceCommand() {
           )}
         </div>
       )}
-      <button onClick={toggleListening}
+      <button data-voice-btn onClick={toggleListening}
         className={"w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-all " + (listening ? "bg-red-500 hover:bg-red-600 scale-110" : "bg-primary hover:bg-primary/90")}
         title="Voice command">
         {listening ? <Square className="w-5 h-5 text-white" /> : <Mic className="w-5 h-5 text-white" />}
