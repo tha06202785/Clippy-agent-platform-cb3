@@ -2,7 +2,16 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Rate limit check
+  const ip = getClientIp(req);
+  const { allowed, remaining, resetAt } = checkRateLimit(ip, "subscription/plans");
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
+      { status: 429, headers: { "X-RateLimit-Remaining": String(remaining), "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)) } }
+    );
+  }
   const plans = [
     {
       id: "free",

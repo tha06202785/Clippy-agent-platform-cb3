@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,22 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit check
+  const ip = getClientIp(req);
+  const { allowed, remaining, resetAt } = checkRateLimit(ip, "listings");
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Remaining": String(remaining),
+          "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
+        },
+      }
+    );
+  }
+
   try {
     const { id } = await params;
     const supabase = await createClient();

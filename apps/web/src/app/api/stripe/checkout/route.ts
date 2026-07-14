@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
+import { checkoutSchema, validate } from "@/lib/validation";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +25,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Rate limit check
+  const ip = getClientIp(req);
+  const { allowed, remaining, resetAt } = checkRateLimit(ip, "stripe");
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Remaining": String(remaining),
+          "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
+        },
+      }
+    );
+  }
+
   try {
-    const { plan, orgId } = await req.json();
+    const body = await req.json();
+    const validation = validate(checkoutSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+    const { plan, orgId } = validation.data;
     const priceId = planPrices[plan];
 
     if (!priceId) {

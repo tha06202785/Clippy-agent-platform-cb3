@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,22 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 export async function POST() {
+  // Rate limit check
+  const ip = getClientIp(req);
+  const { allowed, remaining, resetAt } = checkRateLimit(ip, "subscription");
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Remaining": String(remaining),
+          "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
+        },
+      }
+    );
+  }
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

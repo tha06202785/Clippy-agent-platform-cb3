@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createLeadSchema, validate } from "@/lib/validation";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Rate limit check
+  const ip = getClientIp(req);
+  const { allowed, remaining, resetAt } = checkRateLimit(ip, "leads");
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
+      { status: 429, headers: { "X-RateLimit-Remaining": String(remaining), "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)) } }
+    );
+  }
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -33,6 +44,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit check
+  const ip = getClientIp(req);
+  const { allowed, remaining, resetAt } = checkRateLimit(ip, "leads");
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
+      { status: 429, headers: { "X-RateLimit-Remaining": String(remaining), "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)) } }
+    );
+  }
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -51,7 +71,11 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { data: newLead, error } = await supabase
+    const validation = validate(createLeadSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+    const { data: newLead, error } = await supabase
     .from("leads")
     .insert({ ...body, org_id: orgMember.org_id })
     .select()
