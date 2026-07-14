@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { ThemeProvider, useTheme } from "next-themes";
+import { Toaster } from "sonner";
 import {
   BarChart3, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut,
   Menu, X, Moon, Sun, Search, Plus
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { MobileNav } from "@/components/mobile-nav";
+import { QuickActions } from "@/components/quick-actions";
+import { VoiceCommand } from "@/components/voice-command";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Sparkles },
