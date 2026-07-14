@@ -32,6 +32,9 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showAddLead, setShowAddLead] = useState(false);
+  const [newLead, setNewLead] = useState({ full_name: "", email: "", phone: "" });
+  const [addingLead, setAddingLead] = useState(false);
   const [user, setUser] = useState<any>(null);
   const supabase = createClient();
 
@@ -101,7 +104,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
               className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
               {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <button className="hidden md:flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold text-sm">
+            <button onClick={() => setShowAddLead(true)} className="hidden md:flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold text-sm">
               <Plus className="w-4 h-4" /><span>Add Lead</span>
             </button>
             {user && (
@@ -116,6 +119,52 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 pb-20 lg:pb-8">
           {children}
         </main>
+
+        {showAddLead && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAddLead(false)}>
+            <div className="bg-card rounded-xl border border-border p-6 w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Add New Lead</h2>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-foreground">Full name</label>
+                  <input type="text" value={newLead.full_name} onChange={(e) => setNewLead({...newLead, full_name: e.target.value})}
+                    placeholder="Alex Johnson" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground">Email</label>
+                  <input type="email" value={newLead.email} onChange={(e) => setNewLead({...newLead, email: e.target.value})}
+                    placeholder="alex@email.com" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground">Phone</label>
+                  <input type="tel" value={newLead.phone} onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
+                    placeholder="0400 000 000" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowAddLead(false)} className="flex-1 py-2.5 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors">Cancel</button>
+                <button onClick={async () => {
+                  if (!newLead.full_name.trim()) return;
+                  setAddingLead(true);
+                  try {
+                    await fetch("/api/leads", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ full_name: newLead.full_name, email: newLead.email, phone: newLead.phone }),
+                    });
+                    setShowAddLead(false);
+                    setNewLead({ full_name: "", email: "", phone: "" });
+                    window.location.reload();
+                  } catch {}
+                  setAddingLead(false);
+                }} disabled={addingLead || !newLead.full_name.trim()}
+                  className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                  {addingLead ? "Adding..." : "Add Lead"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <MobileNav />
         <QuickActions />
         <VoiceCommand />
@@ -137,3 +186,4 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     </PostHogProvider>
   );
 }
+/bin/bash: line 7: /c/Users/admin/AppData/Local/hermes/cache/terminal/hermes-cwd-2d747ec56451.txt: No such file or directory

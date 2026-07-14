@@ -32,7 +32,8 @@ export function CopilotPage() {
     const msg = content || input;
     if (!msg.trim() || loading) return;
 
-    setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content: msg }]);
+    const userMsg: Message = { id: Date.now().toString(), role: "user", content: msg };
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
@@ -40,7 +41,7 @@ export function CopilotPage() {
       const res = await fetch("/api/copilot/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages: [{ role: "user", content: msg }] }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, {

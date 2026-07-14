@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, Home, TrendingUp } from "lucide-react";
+import { Home } from "lucide-react";
 
 interface Listing {
   id: string;
@@ -30,8 +30,18 @@ export function DealsPage() {
     fetch("/api/listings")
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setListings(data);
-        else setListings([]);
+        if (Array.isArray(data)) {
+          setListings(data.map((l: any) => ({
+            id: l.id,
+            address: l.address,
+            price: l.price,
+            bedrooms: l.bedrooms,
+            bathrooms: l.bathrooms,
+            status: l.status || "active",
+            property_type: l.property_type || null,
+            created_at: l.created_at || new Date().toISOString(),
+          })));
+        } else setListings([]);
       })
       .catch(() => setListings([]))
       .finally(() => setLoading(false));

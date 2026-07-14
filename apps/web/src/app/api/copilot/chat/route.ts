@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const { messages } = validation.data!;
 
     const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY!;
-    const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://api.ollama.com/v1";
+    const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://ollama.com/v1/chat/completions";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
     const systemPrompt = `You are Clippy, an AI co-agent for real estate agents in Australia. You help them manage leads, draft professional messages, schedule tours, and follow up with clients. Be concise, professional, and helpful. You work in Australian real estate markets. Always include appropriate disclaimers for financial and legal matters. Never provide financial advice.`;

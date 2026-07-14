@@ -2,7 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
-import type { Lead } from "@clippy/shared";
+
+interface Lead {
+  id: string;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  source: string;
+  status: string;
+  stage: string;
+  createdAt: string;
+}
 
 export function InboxPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -14,8 +24,18 @@ export function InboxPage() {
     fetch("/api/leads")
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setLeads(data);
-        else setLeads([]);
+        if (Array.isArray(data)) {
+          setLeads(data.map((l: any) => ({
+            id: l.id,
+            fullName: l.full_name || l.fullName || null,
+            email: l.email || null,
+            phone: l.phone || null,
+            source: l.source || "manual",
+            status: l.status || "new",
+            stage: l.stage || "inquiry",
+            createdAt: l.created_at || l.createdAt || new Date().toISOString(),
+          })));
+        } else setLeads([]);
       })
       .catch(() => setLeads([]))
       .finally(() => setLoading(false));

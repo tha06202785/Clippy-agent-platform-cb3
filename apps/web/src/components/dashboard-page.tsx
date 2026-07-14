@@ -18,6 +18,7 @@ export function DashboardPage() {
       .then((r) => r.json())
       .then((data) => {
         if (data.stats) setStats(data.stats);
+        else if (data.leads || data.listings) setStats(data);
         else setError(data.error || "Failed to load");
       })
       .catch(() => setError("Network error"))
