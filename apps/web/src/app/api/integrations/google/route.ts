@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const { data: orgMember } = await supabase.from("org_members").select("org_id").eq("user_id", user.id).single();
     if (!orgMember) return NextResponse.json({ error: "No org found" }, { status: 400 });
 
-    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com";
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com";
     const clientId = process.env.GOOGLE_CLIENT_ID;
     if (!clientId) return NextResponse.json({ error: "Google OAuth not configured" }, { status: 500 });
 

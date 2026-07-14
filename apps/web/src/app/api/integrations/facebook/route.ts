@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const { data: orgMember } = await supabase.from("org_members").select("org_id").eq("user_id", user.id).single();
     if (!orgMember) return NextResponse.json({ error: "No org found" }, { status: 400 });
 
-    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com";
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com";
     const appId = process.env.FACEBOOK_APP_ID;
     if (!appId) return NextResponse.json({ error: "Facebook OAuth not configured" }, { status: 500 });
 
