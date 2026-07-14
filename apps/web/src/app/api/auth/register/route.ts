@@ -51,14 +51,23 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     if (data.user) {
-      const { error: orgError } = await supabase.from("orgs").insert({
+      const { data: org, error: orgError } = await supabase.from("orgs").insert({
         name: (name || email) + "'s Agency",
         slug: "org-" + data.user.id.slice(0, 8),
-        plan_id: "free",
+        plan: "free",
       }).select().single();
 
       if (orgError) {
         console.error("Failed to create org:", orgError);
+      } else {
+        const { error: memberError } = await supabase.from("org_members").insert({
+          org_id: org.id,
+          user_id: data.user.id,
+          role: "owner",
+        });
+        if (memberError) {
+          console.error("Failed to add org member:", memberError);
+        }
       }
     }
 
@@ -74,3 +83,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+/bin/bash: line 7: /c/Users/admin/AppData/Local/hermes/cache/terminal/hermes-cwd-1391241d87b5.txt: No such file or directory
