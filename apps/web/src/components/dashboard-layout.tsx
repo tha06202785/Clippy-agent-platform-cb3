@@ -173,17 +173,18 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   );
 }
 
+}
+
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <PostHogProvider>
       <QueryProvider>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <DashboardInner>{children}</DashboardInner>
-      <Toaster richColors />
-    </ThemeProvider>
+          <DashboardInner>{children}</DashboardInner>
+          <Toaster richColors />
+        </ThemeProvider>
       </QueryProvider>
       <PostHogPageView />
     </PostHogProvider>
   );
 }
-/bin/bash: line 7: /c/Users/admin/AppData/Local/hermes/cache/terminal/hermes-cwd-2d747ec56451.txt: No such file or directory
