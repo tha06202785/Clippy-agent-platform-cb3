@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-    const { plan, orgId } = validation.data;
+    const { plan, orgId } = validation.data!;
     const priceId = planPrices[plan];
 
     if (!priceId) {

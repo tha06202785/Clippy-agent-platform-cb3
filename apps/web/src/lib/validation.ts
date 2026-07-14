@@ -88,16 +88,17 @@ export const complianceCheckSchema = z.object({
 // Generic validation helper
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): {
   success: boolean;
-  data?: T;
-  error?: string;
+  data: T | null;
+  error: string;
 } {
   const result = schema.safeParse(data);
   if (result.success) {
-    return { success: true, data: result.data };
+    return { success: true, data: result.data, error: "" };
   }
   const firstError = result.error.errors[0];
   return {
     success: false,
+    data: null,
     error: firstError?.message || "Validation failed",
   };
 }

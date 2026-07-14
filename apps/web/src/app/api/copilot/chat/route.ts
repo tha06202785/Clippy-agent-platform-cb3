@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-    const { messages } = validation.data;
+    const { messages } = validation.data!;
 
     const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY!;
     const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://ollama.com/v1";

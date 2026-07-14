@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-    const { email, password, name } = validation.data;
+    const { email, password, name } = validation.data!;
 
     if (!email || !password) {
       return NextResponse.json(
