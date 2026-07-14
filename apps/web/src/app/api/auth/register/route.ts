@@ -83,4 +83,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-/bin/bash: line 7: /c/Users/admin/AppData/Local/hermes/cache/terminal/hermes-cwd-1391241d87b5.txt: No such file or directory
