@@ -25,6 +25,9 @@ const navItems = [
   { href: "/copilot", label: "AI Copilot", icon: Bot },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/team", label: "Team", icon: Users },
+  { href: "/integrations", label: "Integrations", icon: Settings },
+  { href: "/import", label: "Import CRM", icon: Settings },
+  { href: "/admin", label: "Admin", icon: Settings },
 ];
 
 function DashboardInner({ children }: { children: React.ReactNode }) {
