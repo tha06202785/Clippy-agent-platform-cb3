@@ -11,43 +11,45 @@ export async function updateSession(request: NextRequest) {
       cookies: {
         getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value, options }) =>
+            request.cookies.set(name, value)
+          );
           supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options));
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const pathname = request.nextUrl.pathname;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const protectedPaths = ["/dashboard", "/inbox", "/deals", "/copilot", "/team", "/onboarding", "/import", "/integrations"];
-  const isProtected = protectedPaths.some(p => pathname.startsWith(p));
-  const adminPaths = ["/admin"];
-  const isAdminRoute = adminPaths.some(p => pathname.startsWith(p));
+  const { pathname } = request.nextUrl;
 
-  if (!user && isProtected) {
+  // Protected routes - require auth
+  const protectedPaths = [
+    "/dashboard", "/inbox", "/deals", "/copilot", "/team",
+    "/integrations", "/import", "/analytics", "/admin",
+    "/onboarding",
+  ];
+
+  const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
+
+  if (isProtected && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
+    url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (user && isAdminRoute) {
-    const { data: orgMember } = await supabase
-      .from("org_members")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
-    const role = orgMember?.role || "member";
-    if (role !== "admin" && role !== "owner") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
-    }
-  }
+  // Auth pages - redirect to dashboard if already logged in
+  const authPaths = ["/sign-in", "/signup"];
+  const isAuthPage = authPaths.some((p) => pathname.startsWith(p));
 
-  if (user && (pathname === "/sign-in" || pathname === "/signup")) {
+  if (isAuthPage && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
