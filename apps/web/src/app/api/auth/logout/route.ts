@@ -4,7 +4,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   // Rate limit check
   const ip = getClientIp(req);
   const { allowed, remaining, resetAt } = checkRateLimit(ip, "auth");

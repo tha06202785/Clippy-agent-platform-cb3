@@ -9,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-04-10",
 });
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   // Rate limit check
   const ip = getClientIp(req);
   const { allowed, remaining, resetAt } = checkRateLimit(ip, "subscription");
