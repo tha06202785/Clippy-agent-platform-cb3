@@ -1,25 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { ThemeProvider, useTheme } from "next-themes";
-import { Toaster } from "sonner";
-import {
+import { BarChart3, usePathname, useRouter } from "next/navigation";
+import { BarChart3, useEffect, useState } from "react";
+import { BarChart3, createClient } from "@/lib/supabase/client";
+import { BarChart3, ThemeProvider, useTheme } from "next-themes";
+import { BarChart3, Toaster } from "sonner";
+import { BarChart3,
   Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut,
   Menu, X, Moon, Sun, Search, Plus
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { MobileNav } from "@/components/mobile-nav";
-import { QuickActions } from "@/components/quick-actions";
-import { VoiceCommand } from "@/components/voice-command";
+import { BarChart3, cn } from "@/lib/utils";
+import { BarChart3, MobileNav } from "@/components/mobile-nav";
+import { BarChart3, QuickActions } from "@/components/quick-actions";
+import { BarChart3, VoiceCommand } from "@/components/voice-command";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Sparkles },
   { href: "/inbox", label: "Inbox", icon: Inbox, badge: "3" },
   { href: "/deals", label: "Deals", icon: FileText },
   { href: "/copilot", label: "AI Copilot", icon: Bot },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/team", label: "Team", icon: Users },
 ];
 
