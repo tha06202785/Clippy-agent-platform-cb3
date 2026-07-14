@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const { leadName, leadMessage, context } = await req.json();
 
     const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
-    const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://ollama.com/v1";
+    const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://api.ollama.com/v1";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
     const systemPrompt = "You are Clippy, an AI co-agent for real estate agents. Draft a professional reply to a lead. Be concise, warm, and helpful.";

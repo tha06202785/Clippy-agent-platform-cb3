@@ -2,7 +2,6 @@ import { pgTable, uuid, text, integer, timestamp, boolean, numeric, jsonb } from
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  clerkId: text("clerk_id").notNull().unique(),
   email: text("email").notNull(),
   name: text("name"),
   avatarUrl: text("avatar_url"),

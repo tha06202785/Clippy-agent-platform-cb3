@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const { leadId, leadData } = await req.json();
 
     const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
-    const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://ollama.com/v1";
+    const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://api.ollama.com/v1";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
     const prompt = "Qualify this real estate lead. Score from 0-100 and provide reasoning.\n\nLead info:\n" + JSON.stringify(leadData || {}) + "\n\nRespond with JSON: { score: number, reasoning: string, suggested_action: string }";
