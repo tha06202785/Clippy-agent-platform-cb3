@@ -1,160 +1,147 @@
 "use client";
-export const dynamic = "force-dynamic";
+
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Building2, User, ChevronRight, Sparkles, Check, ArrowLeft } from "lucide-react";
 
-export default function SignupPage() {
-  const [step, setStep] = useState<"choose" | "individual" | "enterprise">("choose");
+export default function SignUpPage() {
+  const router = useRouter();
+  const supabase = createClient();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [officeName, setOfficeName] = useState("");
-  const [agentCount, setAgentCount] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  if (step === "choose") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="max-w-2xl w-full">
-          <div className="text-center mb-10">
-            <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-xl">C</div>
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">Welcome to Clippy</h1>
-            <p className="text-muted-foreground mt-2">Tell us about yourself so we can set up the right experience.</p>
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name },
+        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    } else {
+      router.push("/onboarding");
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/api/auth/callback`,
+      },
+    });
+    if (error) setError(error.message);
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-lg">C</span>
           </div>
-          <div className="grid gap-4">
-            <button onClick={() => setStep("individual")}
-              className="group text-left p-6 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-md transition-all">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <User className="w-6 h-6 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="font-semibold text-foreground text-lg">I am an individual agent</h2>
-                  <p className="text-sm text-muted-foreground mt-1">Solo agent working on my own. I need a co-agent to help me manage leads, follow-ups, and deals.</p>
-                  <div className="flex items-center gap-4 mt-3">
-                    <span className="text-xs text-muted-foreground">Starts at 9/month</span>
-                    <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">14-day free trial</span>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-2" />
-              </div>
-            </button>
-            <button onClick={() => setStep("enterprise")}
-              className="group text-left p-6 rounded-xl border-2 border-primary/20 bg-primary/[0.02] hover:border-primary/50 hover:shadow-md transition-all">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Building2 className="w-6 h-6 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-foreground text-lg">I represent a brokerage or team</h2>
-                    <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Enterprise</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">Multi-agent office or brokerage. I need compliance monitoring, team management, and executive reporting.</p>
-                  <div className="flex items-center gap-4 mt-3">
-                    <span className="text-xs text-muted-foreground">Starts at 49/month</span>
-                    <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">14-day free trial</span>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-2" />
-              </div>
-            </button>
-          </div>
-          <p className="text-center text-xs text-muted-foreground mt-8">
-            Already have an account? <Link href="/sign-in" className="text-primary hover:underline">Sign in</Link>
-          </p>
+          <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
+          <p className="text-sm text-muted-foreground mt-1">Start your 14-day free trial. No card required.</p>
         </div>
-      </div>
-    );
-  }
 
-  if (step === "individual") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="max-w-md w-full">
-          <button onClick={() => setStep("choose")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8">
-            <ArrowLeft className="w-4 h-4" /> Back
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-500">
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={handleGoogleSignUp}
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted transition-colors text-sm font-medium text-foreground mb-6"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">or</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSignUp} className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-foreground">Full name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Alex Johnson"
+              required
+              className="w-full mt-1.5 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+              className="w-full mt-1.5 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min. 8 characters"
+              required
+              minLength={8}
+              className="w-full mt-1.5 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {loading ? "Creating account..." : "Create account"}
           </button>
-          <div className="text-center mb-8">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <User className="w-6 h-6 text-primary" />
-            </div>
-            <h1 className="text-xl font-bold text-foreground">Create your individual account</h1>
-            <p className="text-sm text-muted-foreground mt-2">Start your 14-day free trial. No credit card required.</p>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-foreground">Full name</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Sarah Johnson" className="w-full mt-1 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Email address</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="sarah@example.com" className="w-full mt-1 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Password</label>
-              <input type="password" placeholder="At least 8 characters" className="w-full mt-1 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-            </div>
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-              <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
-              <p className="text-xs text-muted-foreground">Free for 14 days, then 9/month. Cancel anytime.</p>
-            </div>
-            <button className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors">Create account</button>
-            <p className="text-xs text-center text-muted-foreground">By signing up, you agree to our Terms and Privacy Policy.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+        </form>
 
-  if (step === "enterprise") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="max-w-md w-full">
-          <button onClick={() => setStep("choose")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </button>
-          <div className="text-center mb-8">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <Building2 className="w-6 h-6 text-primary" />
-            </div>
-            <h1 className="text-xl font-bold text-foreground">Set up your brokerage</h1>
-            <p className="text-sm text-muted-foreground mt-2">Start your 14-day free trial. No credit card required.</p>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-foreground">Your name</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" className="w-full mt-1 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Work email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@brokerage.com" className="w-full mt-1 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Brokerage / office name</label>
-              <input type="text" value={officeName} onChange={e => setOfficeName(e.target.value)} placeholder="Premier Realty Group" className="w-full mt-1 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Number of agents</label>
-              <select value={agentCount} onChange={e => setAgentCount(e.target.value)} className="w-full mt-1 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                <option value="">Select...</option>
-                <option value="2-5">2-5 agents</option>
-                <option value="6-10">6-10 agents</option>
-                <option value="11-25">11-25 agents</option>
-                <option value="26-50">26-50 agents</option>
-                <option value="51-100">51-100 agents</option>
-                <option value="100+">100+ agents</option>
-              </select>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground">Free for 14 days, then from 49/month. Includes compliance monitoring, team management, and executive reporting.</p>
-            </div>
-            <button className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors">Create account</button>
-            <p className="text-xs text-center text-muted-foreground">By signing up, you agree to our Terms and Privacy Policy.</p>
-          </div>
-        </div>
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          By creating an account you agree to our{" "}
+          <Link href="/terms" className="underline">Terms of Service</Link> and{" "}
+          <Link href="/privacy" className="underline">Privacy Policy</Link>.
+        </p>
+
+        <p className="text-center text-sm text-muted-foreground mt-6">
+          Already have an account?{" "}
+          <Link href="/sign-in" className="text-primary font-medium hover:underline">
+            Sign in
+          </Link>
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
 }

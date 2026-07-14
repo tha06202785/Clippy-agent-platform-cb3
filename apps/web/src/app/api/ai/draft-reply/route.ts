@@ -4,21 +4,20 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const { messages } = await req.json();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY!;
+    const { leadName, leadMessage, context } = await req.json();
+
+    const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
     const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://ollama.com/v1";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
-    const systemPrompt = `You are Clippy, an AI co-agent for real estate agents in Australia. You help them manage leads, draft professional messages, schedule tours, and follow up with clients. Be concise, professional, and helpful. You work in Australian real estate markets. Always include appropriate disclaimers for financial and legal matters. Never provide financial advice.`;
+    const systemPrompt = "You are Clippy, an AI co-agent for real estate agents. Draft a professional reply to a lead. Be concise, warm, and helpful.";
 
     const response = await fetch(OLLAMA_ENDPOINT, {
       method: "POST",
@@ -30,15 +29,19 @@ export async function POST(req: NextRequest) {
         model: OLLAMA_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
-          ...messages,
+          { role: "user", content: "Lead: " + leadName + "
+Message: " + leadMessage + "
+Context: " + (context || "No additional context") + "
+
+Draft a reply:" },
         ],
-        max_tokens: 800,
+        max_tokens: 400,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      return NextResponse.json({ error: "AI error: " + errorText }, { status: 502 });
+      return NextResponse.json({ error: "AI error" }, { status: 502 });
     }
 
     const data = await response.json();

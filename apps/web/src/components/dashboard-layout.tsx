@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ClerkProvider, useAuth, UserButton } from "@clerk/nextjs";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "sonner";
-import { useState } from "react";
 import {
   Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut,
   Menu, X, Moon, Sun, Search, Plus
@@ -25,9 +25,25 @@ const navItems = [
 
 function DashboardInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { isSignedIn } = useAuth();
+  const [user, setUser] = useState<any>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -59,7 +75,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
             <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
               <Settings className="w-4 h-4" /> Admin
             </Link>
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+            <button onClick={handleSignOut} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
               <LogOut className="w-4 h-4" /> Sign out
             </button>
           </div>
@@ -84,7 +100,13 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
             <button className="hidden md:flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold text-sm">
               <Plus className="w-4 h-4" /><span>Add Lead</span>
             </button>
-            <UserButton afterSignOutUrl="/" />
+            {user && (
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-semibold">
+                  {user.email?.[0]?.toUpperCase()}
+                </div>
+              </div>
+            )}
           </div>
         </header>
         <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 pb-20 lg:pb-8">
@@ -100,11 +122,9 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <DashboardInner>{children}</DashboardInner>
-        <Toaster richColors />
-      </ThemeProvider>
-    </ClerkProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <DashboardInner>{children}</DashboardInner>
+      <Toaster richColors />
+    </ThemeProvider>
   );
 }

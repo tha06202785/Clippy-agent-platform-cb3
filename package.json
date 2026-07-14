@@ -18,5 +18,9 @@
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.1",
+    "@supabase/supabase-js": "^2.110.3"
   }
 }

@@ -16,7 +16,7 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-4">
             <Link href="/sign-in" className="text-white/70 hover:text-white text-sm transition-colors">Sign in</Link>
-            <Link href="/sign-up" className="bg-white text-black px-5 py-2 rounded-full text-sm font-semibold hover:bg-white/90 transition-all">Get started free</Link>
+            <Link href="/signup" className="bg-white text-black px-5 py-2 rounded-full text-sm font-semibold hover:bg-white/90 transition-all">Get started free</Link>
           </div>
         </nav>
         <section className="px-6 pt-24 pb-20 text-center sm:pt-32 sm:pb-28">
@@ -36,7 +36,7 @@ export default function LandingPage() {
               Your pipeline working 24/7.
             </p>
             <div className="mt-10 flex flex-wrap justify-center gap-4">
-              <Link href="/sign-up" className="inline-flex h-12 items-center gap-2 rounded-full bg-emerald-500 px-8 text-[15px] font-semibold text-white hover:bg-emerald-400 transition-all active:scale-[0.98]">
+              <Link href="/signup" className="inline-flex h-12 items-center gap-2 rounded-full bg-emerald-500 px-8 text-[15px] font-semibold text-white hover:bg-emerald-400 transition-all active:scale-[0.98]">
                 Start your free trial
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
               </Link>
@@ -95,7 +95,7 @@ export default function LandingPage() {
         <section className="px-6 py-20 text-center">
           <h2 className="text-[clamp(1.5rem,3vw,2.5rem)] font-light text-white">Ready to close more deals?</h2>
           <p className="mx-auto mt-4 max-w-md text-[14px] text-white/55">Clippy goes live on your book in a day. No setup fees. Cancel anytime.</p>
-          <Link href="/sign-up" className="mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-emerald-500 px-8 text-[15px] font-semibold text-white hover:bg-emerald-400 transition-all active:scale-[0.98]">
+          <Link href="/signup" className="mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-emerald-500 px-8 text-[15px] font-semibold text-white hover:bg-emerald-400 transition-all active:scale-[0.98]">
             Start your free trial
           </Link>
         </section>

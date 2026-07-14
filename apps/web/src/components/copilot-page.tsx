@@ -40,7 +40,7 @@ export function CopilotPage() {
       const res = await fetch("/api/copilot/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ messages }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, {

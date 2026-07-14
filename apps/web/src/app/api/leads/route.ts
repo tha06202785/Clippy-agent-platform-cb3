@@ -1,31 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-// In-memory store for demo - replace with Drizzle DB
-const leads = [
-  { id: "1", name: "Sarah Johnson", email: "sarah@email.com", phone: "0401 234 567", status: "hot", source: "Website", lastContact: "2m ago", preview: "Looking for a 3-bed house in Paddington" },
-  { id: "2", name: "James Wilson", email: "james@email.com", phone: "0402 345 678", status: "warm", source: "Facebook", lastContact: "1h ago", preview: "Interested in investment properties" },
-  { id: "3", name: "Emma Chen", email: "emma@email.com", phone: "0403 456 789", status: "new", source: "Referral", lastContact: "3h ago", preview: "First home buyer, pre-approved" },
-];
-
 export async function GET() {
-  const { auth } = await import("@clerk/nextjs/server");
-  const { userId } = await auth();
-  if (!userId) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json(leads);
+
+  // Fetch leads for this user's org
+  const { data: orgMember } = await supabase
+    .from("org_members")
+    .select("org_id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!orgMember) {
+    return NextResponse.json([]);
+  }
+
+  const { data: leads } = await supabase
+    .from("leads")
+    .select("*")
+    .eq("org_id", orgMember.org_id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  return NextResponse.json(leads || []);
 }
 
 export async function POST(req: NextRequest) {
-  const { auth } = await import("@clerk/nextjs/server");
-  const { userId } = await auth();
-  if (!userId) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { data: orgMember } = await supabase
+    .from("org_members")
+    .select("org_id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!orgMember) {
+    return NextResponse.json({ error: "No org found" }, { status: 400 });
+  }
+
   const body = await req.json();
-  const newLead = { id: String(leads.length + 1), ...body, lastContact: "just now" };
-  leads.push(newLead);
+  const { data: newLead, error } = await supabase
+    .from("leads")
+    .insert({ ...body, org_id: orgMember.org_id })
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
   return NextResponse.json(newLead, { status: 201 });
 }
