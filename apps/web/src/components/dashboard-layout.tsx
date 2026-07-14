@@ -173,7 +173,6 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   );
 }
 
-
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <PostHogProvider>
