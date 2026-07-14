@@ -1,26 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Mail, Phone, MessageSquare, MoreHorizontal, Star } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-interface Lead {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  phone: string | null;
-  source: string;
-  status: string;
-  stage: string;
-  created_at: string;
-}
-
-const statusColors: Record<string, string> = {
-  hot: "bg-red-500",
-  warm: "bg-amber-500",
-  new: "bg-blue-500",
-  cold: "bg-slate-400",
-};
+import { Search } from "lucide-react";
+import type { Lead } from "@clippy/shared";
 
 export function InboxPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -40,7 +22,7 @@ export function InboxPage() {
   }, []);
 
   const filtered = leads.filter((l) =>
-    (l.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
+    (l.fullName || "").toLowerCase().includes(search.toLowerCase()) ||
     (l.email || "").toLowerCase().includes(search.toLowerCase())
   );
 
@@ -83,14 +65,14 @@ export function InboxPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                      {(lead.full_name || "?")[0]}
+                      {(lead.fullName || "?")[0]}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">{lead.full_name || "Unknown"}</p>
-                      <p className="text-xs text-muted-foreground">{lead.email || lead.phone || "No contact info"}</p>
+                      <p className="text-sm font-medium text-foreground">{lead.fullName || "Unknown"}</p>
+                      <p className="text-xs text-muted-foreground">{lead.email || "No contact info"}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">{new Date(lead.created_at).toLocaleDateString()}</span>
+                  <span className="text-[10px] text-muted-foreground">{new Date(lead.createdAt).toLocaleDateString()}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 line-clamp-1">Source: {lead.source} | Stage: {lead.stage}</p>
               </div>

@@ -11,7 +11,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: NextRequest) {
   // Rate limit check
-  const ip = getClientIp(req);
+  const ip = await getClientIp();
   const { allowed, remaining, resetAt } = checkRateLimit(ip, "subscription");
   if (!allowed) {
     return NextResponse.json(

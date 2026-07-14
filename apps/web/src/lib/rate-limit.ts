@@ -1,6 +1,8 @@
 // Simple in-memory rate limiter for Vercel serverless
 // Uses a Map with IP-based tracking and sliding window
 
+import { headers } from "next/headers";
+
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 
 export interface RateLimitConfig {
@@ -66,8 +68,11 @@ export function checkRateLimit(ip: string, path: string): {
   };
 }
 
-export function getClientIp(req: Request): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || req.headers.get("x-real-ip")
+// Gets IP using Next.js headers() — idiomatic App Router approach.
+// Must be called inside an async route handler (headers() is a dynamic API).
+export async function getClientIp(): Promise<string> {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || h.get("x-real-ip")
     || "127.0.0.1";
 }
