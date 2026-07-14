@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile-nav";
 import { QuickActions } from "@/components/quick-actions";
 import { VoiceCommand } from "@/components/voice-command";
+import { PostHogProvider } from "@/components/posthog-provider";
+import { PostHogPageView } from "@/components/posthog-pageview";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Sparkles },
@@ -123,9 +125,12 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <PostHogProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <DashboardInner>{children}</DashboardInner>
       <Toaster richColors />
     </ThemeProvider>
+      <PostHogPageView />
+    </PostHogProvider>
   );
 }
