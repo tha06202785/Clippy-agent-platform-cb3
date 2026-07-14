@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const { address, bedrooms, bathrooms, price, features } = await req.json();
 
     const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
-    const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://ollama.com/v1/chat/completions";
+    const OLLAMA_ENDPOINT = "https://ollama.com/v1/chat/completions";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
     const prompt = "Write a professional real estate listing description for:\nAddress: " + address + "\nBedrooms: " + (bedrooms || "N/A") + "\nBathrooms: " + (bathrooms || "N/A") + "\nPrice: " + (price || "N/A") + "\nFeatures: " + (features || "N/A") + "\n\nWrite 2-3 paragraphs that are compelling and accurate.";

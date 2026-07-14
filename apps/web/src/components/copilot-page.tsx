@@ -44,16 +44,31 @@ export function CopilotPage() {
         body: JSON.stringify({ messages: [{ role: "user", content: msg }] }),
       });
       const data = await res.json();
+
+      if (data.error) {
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "Error: " + data.error,
+        }]);
+      } else if (data.reply) {
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: data.reply,
+        }]);
+      } else {
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "I received your message but could not generate a response. The AI service may be temporarily unavailable. Please try again.",
+        }]);
+      }
+    } catch (err) {
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.reply || "I processed your request. What else can I help with?",
-      }]);
-    } catch {
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Sorry, I encountered an error. Please try again.",
+        content: "Network error: Could not reach the AI service. Please check your connection and try again.",
       }]);
     } finally {
       setLoading(false);
