@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "k6": "k6 run k6/smoke-test.js",
+    "k6:staged": "k6 run --stage 30s:10,1m:20,30s:0 k6/smoke-test.js"
   },
   "dependencies": {
     "@clerk/nextjs": "^5.0.0",

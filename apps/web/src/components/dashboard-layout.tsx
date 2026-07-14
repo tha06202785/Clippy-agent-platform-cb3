@@ -15,6 +15,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { QuickActions } from "@/components/quick-actions";
 import { VoiceCommand } from "@/components/voice-command";
 import { PostHogProvider } from "@/components/posthog-provider";
+import { QueryProvider } from "@/components/query-provider";
 import { PostHogPageView } from "@/components/posthog-pageview";
 
 const navItems = [
@@ -126,10 +127,12 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <PostHogProvider>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <QueryProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <DashboardInner>{children}</DashboardInner>
       <Toaster richColors />
     </ThemeProvider>
+      </QueryProvider>
       <PostHogPageView />
     </PostHogProvider>
   );
