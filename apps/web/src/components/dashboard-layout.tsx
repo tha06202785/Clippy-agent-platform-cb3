@@ -1,19 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, usePathname, useRouter } from "next/navigation";
-import { BarChart3, useEffect, useState } from "react";
-import { BarChart3, createClient } from "@/lib/supabase/client";
-import { BarChart3, ThemeProvider, useTheme } from "next-themes";
-import { BarChart3, Toaster } from "sonner";
-import { BarChart3,
-  Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut,
+import {
+  BarChart3, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut,
   Menu, X, Moon, Sun, Search, Plus
 } from "lucide-react";
-import { BarChart3, cn } from "@/lib/utils";
-import { BarChart3, MobileNav } from "@/components/mobile-nav";
-import { BarChart3, QuickActions } from "@/components/quick-actions";
-import { BarChart3, VoiceCommand } from "@/components/voice-command";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Sparkles },
