@@ -17,14 +17,7 @@ export async function POST(req: NextRequest) {
     const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://ollama.com/v1";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
-    const prompt = "Write a professional real estate listing description for:
-Address: " + address + "
-Bedrooms: " + (bedrooms || "N/A") + "
-Bathrooms: " + (bathrooms || "N/A") + "
-Price: " + (price || "N/A") + "
-Features: " + (features || "N/A") + "
-
-Write 2-3 paragraphs that are compelling and accurate.";
+    const prompt = "Write a professional real estate listing description for:\nAddress: " + address + "\nBedrooms: " + (bedrooms || "N/A") + "\nBathrooms: " + (bathrooms || "N/A") + "\nPrice: " + (price || "N/A") + "\nFeatures: " + (features || "N/A") + "\n\nWrite 2-3 paragraphs that are compelling and accurate.";
 
     const response = await fetch(OLLAMA_ENDPOINT, {
       method: "POST",

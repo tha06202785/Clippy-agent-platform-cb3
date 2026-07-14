@@ -17,12 +17,7 @@ export async function POST(req: NextRequest) {
     const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "https://ollama.com/v1";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
-    const prompt = "Qualify this real estate lead. Score from 0-100 and provide reasoning.
-
-Lead info:
-" + JSON.stringify(leadData || {}) + "
-
-Respond with JSON: { score: number, reasoning: string, suggested_action: string }";
+    const prompt = "Qualify this real estate lead. Score from 0-100 and provide reasoning.\n\nLead info:\n" + JSON.stringify(leadData || {}) + "\n\nRespond with JSON: { score: number, reasoning: string, suggested_action: string }";
 
     const response = await fetch(OLLAMA_ENDPOINT, {
       method: "POST",

@@ -29,11 +29,7 @@ export async function POST(req: NextRequest) {
         model: OLLAMA_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: "Lead: " + leadName + "
-Message: " + leadMessage + "
-Context: " + (context || "No additional context") + "
-
-Draft a reply:" },
+          { role: "user", content: "Lead: " + leadName + "\nMessage: " + leadMessage + "\nContext: " + (context || "No additional context") + "\n\nDraft a reply:" },
         ],
         max_tokens: 400,
       }),
