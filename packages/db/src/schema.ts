@@ -283,3 +283,20 @@ export const compliance_logs = pgTable("compliance_logs", {
   details: text("details"),
   created_at: timestamp("created_at").defaultNow(),
 });
+
+// Lead identities - cross-channel identity resolution
+export const lead_identities = pgTable("lead_identities", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  channel: text("channel").notNull(),
+  external_id: text("external_id"),
+  email_normalized: text("email_normalized"),
+  phone_e164: text("phone_e164"),
+  facebook_psid: text("facebook_psid"),
+  instagram_id: text("instagram_id"),
+  whatsapp_id: text("whatsapp_id"),
+  domain_enquiry_id: text("domain_enquiry_id"),
+  verified_at: timestamp("verified_at"),
+  created_at: timestamp("created_at").defaultNow(),
+});
