@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     const OLLAMA_ENDPOINT = "https://ollama.com/v1/chat/completions";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
-    const prompt = "Qualify this real estate lead. Score from 0-100 and provide reasoning.\n\nLead info:\n" + JSON.stringify(leadData || {}) + "\n\nRespond with JSON: { score: number, reasoning: string, suggested_action: string }";
+    const prompt = "Qualify this real estate lead. Score from 0-100 and provide reasoning.\n\nLead info:\n" + JSON.stringify(leadData || {}) + "\n\nYou MUST respond with ONLY valid JSON in this exact format, no markdown, no explanation:\n{\"score\": number, \"reasoning\": \"string\", \"suggested_action\": \"string\"}";
 
     const response = await fetch(OLLAMA_ENDPOINT, {
       method: "POST",
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: OLLAMA_MODEL,
         messages: [
-          { role: "system", content: "You are a lead qualification AI for real estate." },
+          { role: "system", content: "You are a lead qualification AI for real estate. Respond ONLY with valid JSON matching the exact schema provided." },
           { role: "user", content: prompt },
         ],
         max_tokens: 300,
@@ -57,14 +57,32 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    const result = data.choices?.[0]?.message?.content || data.message?.content || "{}";
+    const raw = data.choices?.[0]?.message?.content || data.message?.content || "{}";
 
-    let qualification;
+    // Robust JSON extraction: try direct parse first, then regex fallback
+    let qualification: { score: number; reasoning: string; suggested_action: string };
     try {
-      qualification = JSON.parse(result);
+      qualification = JSON.parse(raw);
     } catch {
-      qualification = { score: 50, reasoning: result, suggested_action: "Follow up" };
+      // Try to extract JSON object from prose/markdown
+      const jsonMatch = raw.match(/\{[^{}]*\}/s);
+      if (jsonMatch) {
+        try {
+          qualification = JSON.parse(jsonMatch[0]);
+        } catch {
+          qualification = { score: 50, reasoning: raw.slice(0, 200), suggested_action: "Follow up" };
+        }
+      } else {
+        qualification = { score: 50, reasoning: raw.slice(0, 200), suggested_action: "Follow up" };
+      }
     }
+
+    // Validate required fields
+    if (typeof qualification.score !== "number" || isNaN(qualification.score)) {
+      qualification.score = 50;
+    }
+    if (!qualification.reasoning) qualification.reasoning = "Score assigned by fallback parser";
+    if (!qualification.suggested_action) qualification.suggested_action = "Follow up";
 
     if (leadId) {
       await supabase.from("leads").update({ ai_score: qualification.score }).eq("id", leadId);
