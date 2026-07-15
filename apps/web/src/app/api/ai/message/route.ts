@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
         stage: output.leadStage,
         last_contact_at: new Date().toISOString(),
         ai_score: Math.round((output.scores?.buyingReadiness || 0) * 100),
-        priority: output.scores?.buyingReadiness > 0.7 ? "high" : output.scores?.buyingReadiness > 0.4 ? "medium" : "low",
+        priority: (output.scores?.buyingReadiness || 0) > 0.7 ? "high" : (output.scores?.buyingReadiness || 0) > 0.4 ? "medium" : "low",
       }).eq("id", body.leadId);
 
       // Update lead memory
