@@ -44,7 +44,7 @@ export async function updateSession(request: NextRequest) {
 
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'nonce-" + nonce + "' 'strict-dynamic' https://clerk.accounts.dev https://js.stripe.com https://*.posthog.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.accounts.dev https://js.stripe.com https://*.posthog.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://img.clerk.com https://images.unsplash.com https://*.supabase.co",
     "font-src 'self' https://fonts.gstatic.com",
