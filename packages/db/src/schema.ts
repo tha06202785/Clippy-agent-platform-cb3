@@ -1,10 +1,18 @@
-import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, doublePrecision, pgEnum } from "drizzle-orm/pg-core";
 
+// ─── Existing enums ───
 export const planEnum = pgEnum("plan", ["free", "starter", "professional", "agency", "enterprise"]);
 export const roleEnum = pgEnum("role", ["owner", "admin", "manager", "agent"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "contacted", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"]);
 export const listingStatusEnum = pgEnum("listing_status", ["draft", "active", "pending", "sold", "expired", "withdrawn"]);
 
+// ─── New enums for AI brain ───
+export const leadStageEnum = pgEnum("lead_stage", ["unknown", "new", "warm", "hot", "inspection_booked", "offer", "negotiation", "contract", "won", "lost", "nurture"]);
+export const channelEnum = pgEnum("channel", ["website", "facebook", "facebook_comment", "whatsapp", "email", "sms", "instagram", "realestate", "domain", "phone", "manual"]);
+export const sentimentEnum = pgEnum("sentiment", ["positive", "neutral", "negative", "angry"]);
+export const aiActionTypeEnum = pgEnum("ai_action_type", ["reply", "escalate", "follow_up", "book_inspection", "schedule_call", "collect_info", "nurture", "stop"]);
+
+// ─── Existing tables ───
 export const orgs = pgTable("orgs", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
@@ -88,22 +96,190 @@ export const integrations = pgTable("integrations", {
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").defaultRandom().primaryKey(),
   org_id: uuid("org_id").references(() => orgs.id).notNull(),
-  plan: text("plan").default("free"),
+  plan: text("plan").notNull(),
   status: text("status").default("active"),
-  start_at: timestamp("start_at").defaultNow(),
-  renewal_at: timestamp("renewal_at"),
-  stripe_customer_id: text("stripe_customer_id"),
-  stripe_sub_id: text("stripe_sub_id"),
+  stripe_subscription_id: text("stripe_subscription_id"),
+  current_period_start: timestamp("current_period_start"),
+  current_period_end: timestamp("current_period_end"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
 export const profiles = pgTable("profiles", {
-  user_id: uuid("user_id").primaryKey(),
-  full_name: text("full_name"),
-  phone: text("phone"),
+  id: uuid("id").defaultRandom().primaryKey(),
+  user_id: uuid("user_id").unique().notNull(),
+  display_name: text("display_name"),
   avatar_url: text("avatar_url"),
-  is_onboarded: boolean("is_onboarded").default(false),
+  phone: text("phone"),
+  role: text("role").default("agent"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// ─── NEW: AI Brain Tables ───
+
+// Conversations - one per lead per channel
+export const conversations = pgTable("conversations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id),
+  channel: text("channel").notNull(),
+  external_conversation_id: text("external_conversation_id"),
+  status: text("status").default("active"),
+  lead_stage: text("lead_stage").default("unknown"),
+  message_count: integer("message_count").default(0),
+  last_message_at: timestamp("last_message_at"),
+  summary: text("summary"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// Individual messages in a conversation
+export const conversation_messages = pgTable("conversation_messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  conversation_id: uuid("conversation_id").references(() => conversations.id).notNull(),
+  role: text("role").notNull(), // "lead", "ai", "agent"
+  content: text("content").notNull(),
+  channel: text("channel"),
+  external_message_id: text("external_message_id"),
+  attachments: jsonb("attachments"),
+  metadata: jsonb("metadata"),
+  sentiment: text("sentiment"),
+  ai_confidence: doublePrecision("ai_confidence"),
+  ai_action: text("ai_action"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Lead memory - enriched CRM data extracted by AI
+export const lead_memory = pgTable("lead_memory", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  lead_id: uuid("lead_id").references(() => leads.id).notNull().unique(),
+  budget_min: doublePrecision("budget_min"),
+  budget_max: doublePrecision("budget_max"),
+  bedrooms_min: integer("bedrooms_min"),
+  bathrooms_min: integer("bathrooms_min"),
+  parking_min: integer("parking_min"),
+  preferred_suburbs: jsonb("preferred_suburbs"),
+  school_needs: text("school_needs"),
+  has_pets: boolean("has_pets"),
+  is_investment: boolean("is_investment"),
+  finance_approved: boolean("finance_approved"),
+  finance_status: text("finance_status"),
+  timeline: text("timeline"),
+  reason_for_moving: text("reason_for_moving"),
+  partner_name: text("partner_name"),
+  children_info: text("children_info"),
+  preferred_contact: text("preferred_contact"),
+  inspection_times: text("inspection_times"),
+  previous_objections: jsonb("previous_objections"),
+  buying_motivation: text("buying_motivation"),
+  notes: text("notes"),
+  last_updated: timestamp("last_updated").defaultNow(),
+});
+
+// Lead stage history
+export const lead_stage_history = pgTable("lead_stage_history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  from_stage: text("from_stage"),
+  to_stage: text("to_stage").notNull(),
+  reason: text("reason"),
+  triggered_by: text("triggered_by").default("ai"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Lead scores computed by AI
+export const lead_scores = pgTable("lead_scores", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  lead_id: uuid("lead_id").references(() => leads.id).notNull().unique(),
+  buying_readiness: doublePrecision("buying_readiness"),
+  likelihood_to_inspect: doublePrecision("likelihood_to_inspect"),
+  probability_of_purchase: doublePrecision("probability_of_purchase"),
+  urgency: doublePrecision("urgency"),
+  sentiment_score: doublePrecision("sentiment_score"),
+  engagement_score: doublePrecision("engagement_score"),
+  last_computed: timestamp("last_computed").defaultNow(),
+});
+
+// Follow-up queue
+export const followup_queue = pgTable("followup_queue", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  conversation_id: uuid("conversation_id").references(() => conversations.id),
+  action_type: text("action_type").notNull(),
+  scheduled_for: timestamp("scheduled_for").notNull(),
+  context: jsonb("context"),
+  status: text("status").default("pending"),
+  completed_at: timestamp("completed_at"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// AI actions log
+export const ai_actions = pgTable("ai_actions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id),
+  conversation_id: uuid("conversation_id").references(() => conversations.id),
+  action_type: text("action_type").notNull(),
+  input_summary: text("input_summary"),
+  output_summary: text("output_summary"),
+  confidence: doublePrecision("confidence"),
+  latency_ms: integer("latency_ms"),
+  tokens_used: integer("tokens_used"),
+  escalated: boolean("escalated").default(false),
+  escalation_reason: text("escalation_reason"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Escalations to human agents
+export const escalations = pgTable("escalations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id),
+  conversation_id: uuid("conversation_id").references(() => conversations.id),
+  reason: text("reason").notNull(),
+  severity: text("severity").default("medium"),
+  status: text("status").default("pending"),
+  assigned_to_user_id: uuid("assigned_to_user_id"),
+  resolved_at: timestamp("resolved_at"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Agent voice profiles
+export const agent_voice = pgTable("agent_voice", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull().unique(),
+  name: text("name").default("Professional"),
+  tone: text("tone").default("warm"),
+  style_guide: text("style_guide"),
+  greeting_template: text("greeting_template"),
+  signature: text("signature"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// Daily AI summaries for agents
+export const ai_summaries = pgTable("ai_summaries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  date: timestamp("date").notNull(),
+  conversations_handled: integer("conversations_handled").default(0),
+  inspections_booked: integer("inspections_booked").default(0),
+  hot_leads_identified: integer("hot_leads_identified").default(0),
+  escalations_count: integer("escalations_count").default(0),
+  pipeline_value: doublePrecision("pipeline_value"),
+  summary_text: text("summary_text"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Compliance logs
+export const compliance_logs = pgTable("compliance_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  message_id: uuid("message_id").references(() => conversation_messages.id),
+  check_type: text("check_type").notNull(),
+  passed: boolean("passed").notNull(),
+  details: text("details"),
+  created_at: timestamp("created_at").defaultNow(),
 });
