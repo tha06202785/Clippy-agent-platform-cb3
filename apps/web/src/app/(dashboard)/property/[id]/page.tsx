@@ -1,3 +1,7 @@
+// Property Room Page
 import { useParams } from "next/navigation";
-// Property room page - placeholder
-export default function PropertyRoomPage() { return <div>Property Room</div>; }
+export default function PropertyRoomPage() {
+  const params = useParams();
+  const id = params?.id as string;
+  return <div className="p-6"><h1 className="text-2xl font-bold">Property Room</h1><p>Property ID: {id}</p></div>;
+}
