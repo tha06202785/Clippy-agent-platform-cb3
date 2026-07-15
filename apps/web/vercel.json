@@ -5,11 +5,7 @@
   "outputDirectory": ".next",
   "crons": [
     {
-      "path": "/api/cron/followups",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/briefing/daily",
+      "path": "/api/cron/daily",
       "schedule": "0 6 * * *"
     }
   ]
