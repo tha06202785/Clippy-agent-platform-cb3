@@ -49,7 +49,7 @@ export function ChatWidget() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orgId: "default",
+          orgId: "7f91a043-805b-4e67-83ab-36b14bf85898",
           channel: "website",
           leadId,
           conversationId: convId,
