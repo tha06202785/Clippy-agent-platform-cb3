@@ -1,4 +1,5 @@
-// Property Room Page
+"use client";
+export const dynamic = "force-dynamic";
 import { useParams } from "next/navigation";
 export default function PropertyRoomPage() {
   const params = useParams();
