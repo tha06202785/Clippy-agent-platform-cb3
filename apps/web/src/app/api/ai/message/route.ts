@@ -139,13 +139,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Resolve orgId - allow "default" to map to real org
-    let resolvedOrgId = body.orgId;
     if (body.orgId === "default") {
       const { data: orgs } = await supabase.from("orgs").select("id").limit(1);
-      if (orgs && orgs.length > 0) resolvedOrgId = orgs[0].id;
-    }
-    body.orgId = resolvedOrgId;
-      return NextResponse.json({ error: "orgId and message required" }, { status: 400 });
+      if (orgs && orgs.length > 0) body.orgId = orgs[0].id;
     }
 
     // Identity resolution
