@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import * as Sentry from "@sentry/nextjs";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ChatWidgetWrapper } from "@/components/chat-widget-wrapper";
 
 
 const inter = Inter({ subsets: ["latin"] });
