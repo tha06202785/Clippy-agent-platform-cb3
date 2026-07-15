@@ -101,8 +101,8 @@ RESPONSE RULES:
           { role: "system", content: systemPrompt },
           ...messages,
         ],
-        max_tokens: 2000,
-        temperature: 0.7,
+        max_tokens: 4096,
+        temperature: 0.8,
       }),
     });
 
