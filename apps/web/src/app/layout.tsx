@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import * as Sentry from "@sentry/nextjs";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ChatWidgetWrapper } from "@/components/chat-widget-wrapper";
 
 
 const inter = Inter({ subsets: ["latin"] });
@@ -23,7 +22,6 @@ export default function RootLayout({
         <Sentry.ErrorBoundary fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="text-center"><h1 className="text-xl font-bold text-foreground mb-2">Something went wrong</h1><p className="text-muted-foreground">We have been notified. Please try again.</p></div></div>}>
           {children}
         </Sentry.ErrorBoundary>
-        <ChatWidgetWrapper />
       </body>
     </html>
   );
