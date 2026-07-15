@@ -23,27 +23,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // org_members table may not exist — fall back to filtering by user_id on leads table
-  let orgId: string | null = null;
-  try {
-    const { data: orgMember } = await supabase
-      .from("org_members")
-      .select("org_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    orgId = orgMember?.org_id ?? null;
-  } catch {
-    // table may not exist
+  const { data: orgMember } = await supabase
+    .from("org_members")
+    .select("org_id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!orgMember) {
+    return NextResponse.json([]);
   }
 
-  let query = supabase.from("leads").select("*").order("created_at", { ascending: false }).limit(50);
-  if (orgId) {
-    query = query.eq("org_id", orgId);
-  } else {
-    // Fallback: show leads where user_id matches OR org_id matches the seed org
-    query = query.or(`user_id.eq.${user.id},org_id.eq.7f91a043-805b-4e67-83ab-36b14bf85898`);
-  }
-  const { data: leads } = await query;
+  const { data: leads } = await supabase
+    .from("leads")
+    .select("*")
+    .eq("org_id", orgMember.org_id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
   return NextResponse.json(leads || []);
 }
 

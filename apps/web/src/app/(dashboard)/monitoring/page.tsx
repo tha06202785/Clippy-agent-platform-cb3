@@ -8,7 +8,7 @@ interface HealthCheck {
 }
 
 export default function MonitoringPage() {
-  const [checks, setChecks] = useState<HealthCheck[]>([[
+  const [checks, setChecks] = useState<HealthCheck[]>([
     { name: "Website", url: "https://useclippy.com", status: "checking", lastCheck: "", latency: 0 },
     { name: "API Health", url: "https://useclippy.com/api/health", status: "checking", lastCheck: "", latency: 0 },
     { name: "Subscription Plans", url: "https://useclippy.com/api/subscription/plans", status: "checking", lastCheck: "", latency: 0 },
