@@ -1,146 +1,239 @@
 "use client";
-import { useState } from "react";
-import { Phone, MessageCircle, Calendar, TrendingUp, AlertTriangle, Clock, Sparkles } from "lucide-react";
-import Link from "next/link";
+
+import { useEffect, useState } from "react";
+import {
+  TrendingUp, Clock, Star, Home, Calendar, ChevronRight,
+  Phone, MessageCircle, Sparkles, Sun, Moon, CloudSun
+} from "lucide-react";
+
+interface BriefingStats {
+  totalLeads: number;
+  newLeads: number;
+  hotLeads: number;
+  activeListings: number;
+  pipelineValue: string;
+  daysOnMarket: number;
+  closedThisMonth: number;
+  closedValue: string;
+}
+
+interface BriefingLead {
+  id: string;
+  full_name: string;
+  ai_score: number;
+  stage: string;
+  source: string;
+  created_at: string;
+}
+
+interface BriefingListing {
+  id: string;
+  address: string;
+  price: string;
+  status: string;
+  daysOnMarket: number;
+  created_at: string;
+}
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 5) return { text: "Good evening", icon: Moon, color: "text-indigo-500" };
+  if (h < 12) return { text: "Good morning", icon: Sun, color: "text-amber-500" };
+  if (h < 18) return { text: "Good afternoon", icon: CloudSun, color: "text-orange-500" };
+  return { text: "Good evening", icon: Moon, color: "text-indigo-500" };
+}
+
+function formatCurrency(val: string | number) {
+  const n = typeof val === "string" ? parseFloat(val.replace(/[^0-9.]/g, "")) : val;
+  if (isNaN(n)) return "$0";
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n}`;
+}
+
+function daysAgo(date: string) {
+  return Math.floor((Date.now() - new Date(date).getTime()) / 86400000);
+}
+
+function urgencyLabel(score: number, daysSince: number) {
+  if (score >= 75 && daysSince > 2) return { label: "Call today", color: "text-red-600 bg-red-50" };
+  if (score >= 50 && daysSince > 5) return { label: "Follow up", color: "text-amber-600 bg-amber-50" };
+  return null;
+}
 
 export function MorningBriefing() {
-  const [dismissed, setDismissed] = useState<string[]>([]);
-  const briefing = {
-    greeting: "Good morning, Sarah",
-    date: "Thursday, July 9",
-    summary: "You have 8 things needing attention today. 3 are urgent.",
-    nonNegotiables: [
-      { id: "1", type: "call", time: "10:00 AM", label: "Call James Wilson re: 45 Smith St offer", priority: "high" },
-      { id: "2", type: "showing", time: "2:00 PM", label: "Show 22 Harbour Road to the Chen family", priority: "high" },
-      { id: "3", type: "contract", time: "5:00 PM", label: "Deadline: counter-offer on 8 Ocean View", priority: "urgent" },
-    ],
-    coldLeads: [
-      { name: "Michael Brown", lastContact: "5 days ago", value: ".2M", reason: "Stopped answering calls" },
-      { name: "Lisa Taylor", lastContact: "3 days ago", value: ".8M", reason: "Said thinking about it" },
-    ],
-    suggestions: [
-      { icon: MessageCircle, text: "Draft a follow-up for the Paddington open home (12 people)", action: "Draft now" },
-      { icon: TrendingUp, text: "Price reduced on 15 Park St - notify 3 interested buyers", action: "Notify them" },
-      { icon: Calendar, text: "Schedule inspection for 8 Ocean View - buyer requested Saturday", action: "Check calendar" },
-    ],
-    numbers: "3 showings · 7 messages unread · 2 offers pending · .2M in play",
-  };
+  const [stats, setStats] = useState<BriefingStats | null>(null);
+  const [hotLeads, setHotLeads] = useState<BriefingLead[]>([]);
+  const [listings, setListings] = useState<BriefingListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { text: greeting, icon: GreetingIcon, color } = getGreeting();
+  const today = new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/dashboard/stats").then(r => r.json()).catch(() => null),
+      fetch("/api/leads").then(r => r.json()).catch(() => []),
+      fetch("/api/listings").then(r => r.json()).catch(() => []),
+    ]).then(([statsData, leadsData, listingsData]) => {
+      const leads: BriefingLead[] = Array.isArray(leadsData) ? leadsData : [];
+      const listings: BriefingListing[] = Array.isArray(listingsData) ? listingsData : [];
+
+      const hot = leads
+        .filter(l => (l.ai_score || 0) >= 60)
+        .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0))
+        .slice(0, 5);
+
+      const closedValue = listings
+        .filter(l => l.status === "sold")
+        .reduce((sum, l) => sum + parseFloat((l.price || "0").replace(/[^0-9.]/g, "")), 0);
+
+      setStats({
+        totalLeads: leads.length,
+        newLeads: leads.filter(l => l.stage === "inquiry" || l.stage === "new").length,
+        hotLeads: hot.length,
+        activeListings: listings.filter(l => l.status === "active").length,
+        pipelineValue: "$0",
+        daysOnMarket: 0,
+        closedThisMonth: listings.filter(l => l.status === "sold").length,
+        closedValue: formatCurrency(closedValue),
+      });
+      setHotLeads(hot);
+      setListings(listings.map(l => ({
+        ...l,
+        daysOnMarket: daysAgo(l.created_at),
+      })).slice(0, 3));
+    }).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-6 animate-pulse">
+        <div className="h-6 w-48 bg-muted rounded mb-4" />
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="rounded-2xl border border-border bg-card p-6 space-y-5">
+      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{briefing.greeting}</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">{briefing.date}</p>
-          <p className="text-sm text-foreground/80 mt-2">{briefing.summary}</p>
-          <p className="text-xs text-muted-foreground mt-1">{briefing.numbers}</p>
-        </div>
-        <button className="px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-semibold hover:bg-primary/90 flex items-center gap-2">
-          <Sparkles className="w-4 h-4" /> Brief me
-        </button>
-      </div>
-
-      {briefing.nonNegotiables.filter(n => n.priority === "urgent" && !dismissed.includes(n.id)).length > 0 && (
-        <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4">
-          <div className="flex items-center gap-2 text-red-700 font-semibold text-sm mb-3">
-            <AlertTriangle className="w-4 h-4" /> Urgent - needs action today
+          <div className={"flex items-center gap-2 mb-1 " + color}>
+            <GreetingIcon className="w-5 h-5" />
+            <span className="text-sm font-semibold">{greeting}</span>
           </div>
-          <div className="space-y-2">
-            {briefing.nonNegotiables.filter(n => n.priority === "urgent").map((item) => (
-              <div key={item.id} className="flex items-center justify-between bg-white rounded-lg p-3 border border-red-100">
-                <div className="flex items-center gap-3">
-                  <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{item.label}</p>
-                    <p className="text-xs text-muted-foreground">{item.time}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600">Handle now</button>
-                  <button onClick={() => setDismissed([...dismissed, item.id])} className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">Dismiss</button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="text-lg font-bold text-foreground">{today}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {stats?.totalLeads || 0} total leads · {stats?.hotLeads || 0} hot
+          </p>
         </div>
-      )}
-
-      <div className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-foreground text-sm flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" /> Today's schedule
-          </h2>
-          <Link href="/calendar" className="text-xs text-primary hover:underline">Full day</Link>
-        </div>
-        <div className="space-y-3">
-          {briefing.nonNegotiables.map((item) => (
-            <div key={item.id} className="flex items-center gap-4 pb-3 border-b border-border last:border-0 last:pb-0">
-              <div className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{item.time}</div>
-              <div className={"w-1.5 h-1.5 rounded-full flex-shrink-0 " + (item.priority === "urgent" ? "bg-red-500" : "bg-amber-500")} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground truncate">{item.label}</p>
-              </div>
-              <button className="text-xs text-primary hover:underline flex-shrink-0">View</button>
-            </div>
-          ))}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <span className="text-xs font-semibold text-primary">AI Brief</span>
         </div>
       </div>
 
-      {briefing.coldLeads.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-5">
-          <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm mb-3">
-            <Clock className="w-4 h-4" /> Leads going cold - reach out today
-          </div>
-          <div className="space-y-2">
-            {briefing.coldLeads.map((lead) => (
-              <div key={lead.name} className="flex items-center justify-between bg-white rounded-lg p-3 border border-amber-100">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{lead.name}</p>
-                  <p className="text-xs text-muted-foreground">{lead.value} - {lead.reason} - Last contact {lead.lastContact}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100"><Phone className="w-4 h-4" /></button>
-                  <button className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"><MessageCircle className="w-4 h-4" /></button>
-                  <button className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90">AI draft</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <h2 className="font-semibold text-foreground text-sm">Clippy noticed</h2>
-        </div>
-        <div className="space-y-3">
-          {briefing.suggestions.map((s, i) => {
-            const Icon = s.icon;
-            return (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
-                <Icon className="w-5 h-5 text-primary flex-shrink-0" />
-                <p className="text-sm text-foreground flex-1">{s.text}</p>
-                <button className="text-xs text-primary font-semibold hover:underline flex-shrink-0">{s.action}</button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-3">
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 gap-3">
         {[
-          { label: "New lead", icon: "+", color: "bg-primary text-white" },
-          { label: "Quick text", icon: "✉", color: "bg-blue-500 text-white" },
-          { label: "Log call", icon: "📞", color: "bg-emerald-500 text-white" },
-          { label: "Add note", icon: "📝", color: "bg-amber-500 text-white" },
-        ].map((action) => (
-          <button key={action.label} className={"flex flex-col items-center gap-1.5 p-4 rounded-xl " + action.color + " hover:opacity-90 transition-opacity"}>
-            <span className="text-lg">{action.icon}</span>
-            <span className="text-[10px] font-semibold">{action.label}</span>
-          </button>
+          { icon: Star, label: "Hot leads", value: stats?.hotLeads || 0, sub: "Need action today", color: "text-red-500 bg-red-50" },
+          { icon: TrendingUp, label: "New leads", value: stats?.newLeads || 0, sub: "This week", color: "text-blue-500 bg-blue-50" },
+          { icon: Home, label: "Active listings", value: stats?.activeListings || 0, sub: "On market", color: "text-emerald-500 bg-emerald-50" },
+          { icon: Calendar, label: "Closed this month", value: stats?.closedThisMonth || 0, sub: stats?.closedValue || "$0", color: "text-purple-500 bg-purple-50" },
+        ].map(({ icon: Icon, label, value, sub, color }) => (
+          <div key={label} className="rounded-xl border border-border p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className={"w-8 h-8 rounded-lg flex items-center justify-center " + color.split(" ")[1]}>
+                <Icon className={"w-4 h-4 " + color.split(" ")[0]} />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{value}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+            <p className="text-[10px] text-muted-foreground">{sub}</p>
+          </div>
         ))}
       </div>
+
+      {/* Hot leads requiring action */}
+      {hotLeads.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">⚡ Needs attention</p>
+          <div className="space-y-2">
+            {hotLeads.map((lead) => {
+              const urg = urgencyLabel(lead.ai_score || 0, daysAgo(lead.created_at));
+              return (
+                <div key={lead.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold text-xs flex-shrink-0">
+                      {(lead.full_name || "?")[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{lead.full_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Score {lead.ai_score} · {daysAgo(lead.created_at)}d since inquiry · {lead.source}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {urg && (
+                      <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + urg.color}>
+                        {urg.label}
+                      </span>
+                    )}
+                    <a href={`tel:`}
+                      className="p-1.5 rounded-lg bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors">
+                      <Phone className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Listings snapshot */}
+      {listings.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Properties on market</p>
+          <div className="space-y-2">
+            {listings.map((listing) => (
+              <div key={listing.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                <div>
+                  <p className="text-sm font-medium text-foreground line-clamp-1">{listing.address}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {listing.price || "Price TBC"} · {listing.daysOnMarket}d on market
+                  </p>
+                </div>
+                <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " +
+                  (listing.daysOnMarket > 60 ? "bg-red-100 text-red-700" :
+                   listing.daysOnMarket > 30 ? "bg-amber-100 text-amber-700" :
+                   "bg-emerald-100 text-emerald-700")
+                }>
+                  {listing.daysOnMarket > 60 ? "Stale" : listing.daysOnMarket > 30 ? "Aging" : "Fresh"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {stats?.totalLeads === 0 && (
+        <div className="text-center py-6">
+          <Sparkles className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No data yet. Add your first lead to get your briefing.</p>
+        </div>
+      )}
+
+      {/* Footer CTA */}
+      <a href="/inbox"
+        className="flex items-center justify-center gap-2 w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
+        Open inbox <ChevronRight className="w-4 h-4" />
+      </a>
     </div>
   );
 }

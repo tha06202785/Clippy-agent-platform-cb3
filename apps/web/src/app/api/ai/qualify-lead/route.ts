@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       qualification = JSON.parse(raw);
     } catch {
       // Try to extract JSON object from prose/markdown
-      const jsonMatch = raw.match(/\{[^{}]*\}/s);
+      const jsonMatch = raw.match(/\{[\s\S]*?\}/);
       if (jsonMatch) {
         try {
           qualification = JSON.parse(jsonMatch[0]);
