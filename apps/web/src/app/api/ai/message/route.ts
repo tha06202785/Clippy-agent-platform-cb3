@@ -134,7 +134,11 @@ async function callLlm(systemPrompt: string, userMessage: string, context: any):
   const OLLAMA_ENDPOINT = "https://ollama.com/v1/chat/completions";
   const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
-  const contextBlock = ;
+  const contextBlock = "ORG: " + (context.org?.name || "Unknown") + "
+LEAD: " + (context.lead?.full_name || "Unknown") + "
+LEAD STAGE: " + (context.lead?.stage || "unknown");
+LEAD: ` + (context.lead?.full_name || "Unknown") + `
+LEAD STAGE: ` + (context.lead?.stage || "unknown") + `;
 
   const response = await fetch(OLLAMA_ENDPOINT, {
     method: "POST",
