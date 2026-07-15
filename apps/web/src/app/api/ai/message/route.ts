@@ -75,8 +75,6 @@ async function callLlm(systemPrompt: string, userMessage: string, context: any):
         { role: "system", content: systemPrompt },
         { role: "user", content: "CONTEXT: " + ctxStr + "
 
-        { role: "user", content: "CONTEXT: " + ctxStr + "
-
 LEAD MESSAGE: " + userMessage },
       ],
       max_tokens: 2000,
