@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles } from "lucide-react";
+import { Send, Bot, User, Sparkles, Copy, Check } from "lucide-react";
 
 interface Message {
   id: string;
@@ -11,14 +11,71 @@ interface Message {
 
 const quickActions = [
   { label: "Draft a follow-up", prompt: "Draft a follow-up email for my hot leads" },
-  { label: "Summarize my day", prompt: "Give me a summary of my pipeline and what needs attention today" },
-  { label: "Find best leads", prompt: "Find my top 3 hottest leads right now" },
+  { label: "Generate captions", prompt: "Generate 3 caption options for a 4-bedroom, 2-bathroom house in Paddington, NSW with a renovated kitchen and north-facing backyard. Open home this Saturday 2-3pm" },
+  { label: "Compliance check", prompt: "What do I need to disclose when selling a strata unit in NSW?" },
   { label: "Schedule a tour", prompt: "Schedule a property tour for tomorrow at 2pm" },
 ];
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  return (
+    <button onClick={handleCopy}
+      className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-border transition-colors">
+      {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
+
+function MessageContent({ content }: { content: string }) {
+  // Split on copy-box separators (--- or ==== lines)
+  const sections = content.split(/\n[-=]{10,}\n/);
+
+  if (sections.length <= 1) {
+    return (
+      <div className="relative group">
+        <div className="whitespace-pre-wrap text-sm leading-relaxed">{content}</div>
+        <div className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <CopyButton text={content} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {sections.map((section, i) => {
+        const trimmed = section.trim();
+        if (!trimmed) return null;
+        const isHeading = trimmed.startsWith("#") || trimmed.startsWith("**");
+        return (
+          <div key={i} className="relative group rounded-lg border border-border/50 bg-card/50 p-3">
+            <div className="whitespace-pre-wrap text-sm leading-relaxed">{trimmed}</div>
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <CopyButton text={trimmed} />
+            </div>
+          </div>
+        );
+      })}
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+        <CopyButton text={content} />
+      </div>
+    </div>
+  );
+}
+
 export function CopilotPage() {
   const [messages, setMessages] = useState<Message[]>([
-    { id: "0", role: "assistant", content: "Hi! I am Clippy, your AI co-agent. I can draft replies, schedule tours, update your pipeline, and more. What do you need?" },
+    { id: "0", role: "assistant", content: "G'day! I'm Clippy, your real estate co-agent. Ready to help you with:\n\n• Drafting lead replies & follow-ups\n• Property captions for socials/listings\n• Compliance checks (all states)\n• Email/SMS/WhatsApp messages\n\nWhat are you working on today?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -90,7 +147,7 @@ export function CopilotPage() {
                 ? "bg-primary text-primary-foreground rounded-br-none"
                 : "bg-card border border-border text-foreground rounded-bl-none"
               )}>
-              {msg.content}
+              <MessageContent content={msg.content} />
             </div>
             {msg.role === "user" && (
               <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-1">
