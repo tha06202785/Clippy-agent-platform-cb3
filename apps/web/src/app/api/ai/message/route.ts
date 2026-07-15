@@ -19,6 +19,48 @@ interface AiOutput {
     probabilityOfPurchase: number; urgency: number; };
 }
 
+// Identity resolution: find or create lead by email/phone
+async function resolveIdentity(supabase: any, orgId: string, metadata: any) {
+  if (!metadata?.email && !metadata?.phone) return null;
+  const email = metadata.email?.toLowerCase().trim();
+  const phone = metadata.phone?.replace(/[^0-9]/g, "");
+
+  // Try to find existing lead by email or phone
+  if (email) {
+    const { data: existing } = await supabase
+      .from("leads").select("id, full_name, email, phone")
+      .eq("org_id", orgId).eq("email", email).maybeSingle();
+    if (existing) return existing;
+  }
+  if (phone) {
+    const { data: existing } = await supabase
+      .from("leads").select("id, full_name, email, phone")
+      .eq("org_id", orgId).eq("phone", phone).maybeSingle();
+    if (existing) return existing;
+  }
+
+  // Create new lead
+  const { data: lead } = await supabase.from("leads").insert({
+    org_id: orgId,
+    full_name: metadata.name || null,
+    email: email || null,
+    phone: phone || null,
+    source: "website",
+    stage: "unknown",
+  }).select().single();
+
+  // Create identity record
+  if (lead) {
+    await supabase.from("lead_identities").insert({
+      org_id: orgId, lead_id: lead.id,
+      channel: "website",
+      email_normalized: email || null,
+      phone_e164: phone || null,
+    });
+  }
+  return lead;
+}
+
 async function buildContext(supabase: any, orgId: string, leadId?: string, conversationId?: string) {
   const context: any = { orgId };
   const { data: org } = await supabase.from("orgs").select("*").eq("id", orgId).single();
@@ -31,19 +73,14 @@ async function buildContext(supabase: any, orgId: string, leadId?: string, conve
   }
   if (conversationId) {
     const { data: messages } = await supabase
-      .from("conversation_messages")
-      .select("*")
+      .from("conversation_messages").select("*")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true })
-      .limit(50);
+      .order("created_at", { ascending: true }).limit(50);
     context.conversationHistory = messages || [];
   }
   const { data: listings } = await supabase
-    .from("listings")
-    .select("id, address, price, bedrooms, bathrooms, property_type, status, features")
-    .eq("org_id", orgId)
-    .eq("status", "active")
-    .limit(10);
+    .from("listings").select("id, address, price, bedrooms, bathrooms, property_type, status, features")
+    .eq("org_id", orgId).eq("status", "active").limit(10);
   context.listings = listings || [];
   return context;
 }
@@ -52,7 +89,6 @@ async function callLlm(systemPrompt: string, userMessage: string, context: any):
   const key = process.env.OLLAMA_API_KEY!;
   const url = "https://ollama.com/v1/chat/completions";
   const model = process.env.OLLAMA_MODEL || "kimi-k2.6";
-
   const ctxStr = JSON.stringify({
     org: context.org?.name || null,
     lead: context.lead?.full_name || null,
@@ -61,26 +97,16 @@ async function callLlm(systemPrompt: string, userMessage: string, context: any):
     history: (context.conversationHistory || []).slice(-5).map((m: any) => ({
       role: m.role, content: (m.content || "").substring(0, 200)
     })),
-    listings: (context.listings || []).slice(0, 3).map((l: any) => ({
-      address: l.address, price: l.price
-    }))
+    listings: (context.listings || []).slice(0, 3).map((l: any) => ({ address: l.address, price: l.price }))
   });
-
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: "CONTEXT: " + ctxStr + " LEAD MESSAGE: " + userMessage },
-      ],
-      max_tokens: 2000,
-      temperature: 0.7,
-      response_format: { type: "json_object" },
-    }),
+    body: JSON.stringify({ model, messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "CONTEXT: " + ctxStr + " LEAD MESSAGE: " + userMessage },
+    ], max_tokens: 2000, temperature: 0.7, response_format: { type: "json_object" } }),
   });
-
   if (!response.ok) {
     const errorText = await response.text();
     console.error("LLM error:", response.status, errorText);
@@ -94,23 +120,16 @@ async function callLlm(systemPrompt: string, userMessage: string, context: any):
 }
 
 const INTENT_AGENT = "You are an intent detection specialist for real estate. Analyze the lead message and determine their primary intent. Return JSON: { intent: buying|selling|rental|investment|question|complaint|inspection|negotiation|spam|other, confidence: 0.0-1.0 }";
-
 const QUALIFICATION_AGENT = "You are a lead qualification specialist. Extract buyer information from the message. Only include fields the lead mentioned. Return JSON with ONLY mentioned fields: { budget_min, budget_max, bedrooms, bathrooms, parking, preferred_suburbs, school_needs, has_pets, is_investment, finance_approved, timeline, reason_for_moving, partner_name, children_info, preferred_contact }";
-
 const STAGE_AGENT = "You are a lead stage classifier. Given the current stage and message, determine the new stage. Return JSON: { stage: unknown|new|warm|hot|inspection_booked|offer|negotiation|contract|won|lost|nurture, reason: string, confidence: 0.0-1.0 }";
-
 const RESPONSE_AGENT = "You are Clippy AI, a 24/7 Real Estate Lead Communication Copilot for Australian agents. Communicate like a top-performing real estate sales consultant. Build trust, answer questions, qualify the lead, book inspections. Never sound like AI. Be warm, professional, confident, human. Never use emojis excessively. Keep messages short. Never use phrases like discover, nestled, or perfect opportunity. Never make up information. Never pressure. Always personalise. Use Australian English. Return JSON: { reply: string, tone: professional|warm|casual, call_to_action: string }";
-
 const COMPLIANCE_AGENT = "You are a compliance checker for Australian real estate. Review the proposed reply. Return JSON: { passed: boolean, issues: string[], suggested_fix: string|null }. Check for: financial advice, legal advice, price guarantees, discrimination, privacy violations, pressure tactics, false information.";
-
 const CRM_AGENT = "You are a CRM enrichment specialist. Extract new/changed lead info from the message. Return JSON with ONLY new fields: { full_name, email, phone, notes, buyer_type, priority: low|medium|high|null }";
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const ip = await getClientIp();
     const { allowed } = checkRateLimit(ip, "ai-message");
     if (!allowed) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
@@ -119,14 +138,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "orgId and message required" }, { status: 400 });
     }
 
+    // Identity resolution
+    let leadId = body.leadId;
+    if (!leadId && body.metadata) {
+      const resolved = await resolveIdentity(supabase, body.orgId, body.metadata);
+      if (resolved) leadId = resolved.id;
+    }
+
     // Create or get conversation
     let conversationId = body.conversationId;
     if (!conversationId) {
       const { data: conv } = await supabase.from("conversations").insert({
-        org_id: body.orgId, lead_id: body.leadId || null,
-        channel: body.channel || "website", status: "active", lead_stage: "unknown",
+        org_id: body.orgId, lead_id: leadId || null,
+        channel: body.channel || "website", status: "active",
+        lead_stage: "unknown", automation_mode: "autonomous",
       }).select().single();
       conversationId = conv?.id;
+    }
+
+    // Check automation mode
+    const { data: conv } = await supabase.from("conversations")
+      .select("automation_mode").eq("id", conversationId).single();
+    if (conv?.automation_mode === "paused") {
+      return NextResponse.json({
+        success: true, reply: null, paused: true,
+        message: "A human agent is handling this conversation."
+      });
     }
 
     // Save incoming message
@@ -136,7 +173,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Build context
-    const context = await buildContext(supabase, body.orgId, body.leadId, conversationId);
+    const context = await buildContext(supabase, body.orgId, leadId, conversationId);
 
     // Run AI agents
     const intent = await callLlm(INTENT_AGENT, body.message, context);
@@ -145,7 +182,6 @@ export async function POST(req: NextRequest) {
     const responseResult = await callLlm(RESPONSE_AGENT, body.message, context);
     const compliance = await callLlm(COMPLIANCE_AGENT, responseResult.reply || "", context);
 
-    // Build output
     const currentStage = context.lead?.stage || "unknown";
     const output: AiOutput = {
       reply: responseResult.reply || "Thanks for your message! I will look into that and get back to you.",
@@ -171,8 +207,7 @@ export async function POST(req: NextRequest) {
       conversation_id: conversationId, role: "ai",
       content: output.reply, channel: body.channel || "website",
       sentiment: output.sentiment || "neutral",
-      ai_confidence: output.confidence,
-      ai_action: output.nextAction,
+      ai_confidence: output.confidence, ai_action: output.nextAction,
     });
 
     // Update conversation
@@ -182,17 +217,16 @@ export async function POST(req: NextRequest) {
     }).eq("id", conversationId);
 
     // Update lead if exists
-    if (body.leadId) {
+    if (leadId) {
       await supabase.from("leads").update({
         stage: output.leadStage,
         last_contact_at: new Date().toISOString(),
         ai_score: Math.round((output.scores?.buyingReadiness || 0) * 100),
         priority: (output.scores?.buyingReadiness || 0) > 0.7 ? "high" : (output.scores?.buyingReadiness || 0) > 0.4 ? "medium" : "low",
-      }).eq("id", body.leadId);
+      }).eq("id", leadId);
 
-      // Update lead memory
       if (qualification && Object.keys(qualification).length > 0) {
-        const mem: any = { lead_id: body.leadId, last_updated: new Date().toISOString() };
+        const mem: any = { lead_id: leadId, last_updated: new Date().toISOString() };
         if (qualification.budget_min) mem.budget_min = qualification.budget_min;
         if (qualification.bedrooms) mem.bedrooms_min = qualification.bedrooms;
         if (qualification.preferred_suburbs) mem.preferred_suburbs = qualification.preferred_suburbs;
@@ -203,10 +237,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Record stage change
       if (currentStage !== output.leadStage) {
         await supabase.from("lead_stage_history").insert({
-          lead_id: body.leadId, from_stage: currentStage,
+          lead_id: leadId, from_stage: currentStage,
           to_stage: output.leadStage, reason: stageResult.reason || "AI classification",
           triggered_by: "ai",
         });
@@ -215,7 +248,7 @@ export async function POST(req: NextRequest) {
 
     // Log AI action
     await supabase.from("ai_actions").insert({
-      org_id: body.orgId, lead_id: body.leadId || null,
+      org_id: body.orgId, lead_id: leadId || null,
       conversation_id: conversationId, action_type: output.nextAction,
       input_summary: body.message.substring(0, 200),
       output_summary: output.reply.substring(0, 200),
@@ -224,7 +257,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
-      success: true, conversationId, reply: output.reply,
+      success: true, conversationId, leadId, reply: output.reply,
       leadStage: output.leadStage, nextAction: output.nextAction,
       escalation: output.escalation, escalationReason: output.escalationReason,
       scores: output.scores, confidence: output.confidence,

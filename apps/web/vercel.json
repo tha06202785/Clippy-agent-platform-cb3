@@ -2,5 +2,15 @@
   "framework": "nextjs",
   "buildCommand": "pnpm --filter @clippy/web build",
   "installCommand": "pnpm install --frozen-lockfile",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/cron/followups",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/briefing/daily",
+      "schedule": "0 6 * * *"
+    }
+  ]
 }
