@@ -145,8 +145,8 @@ async function callLlm(systemPrompt: string, userMessage: string, context: any):
   const content = data.choices?.[0]?.message?.content || "";
   if (!content) throw new Error("Empty LLM response");
   // Strip markdown code blocks if present
-  const cleaned = content.replace(/
-?/g, "").trim();
+  const cleaned = content.replace("```json", "").replace("```", "").trim();
+
   try { return JSON.parse(cleaned); }
   catch { return { reply: cleaned, confidence: 0.5, leadStage: "unknown", nextAction: "reply", escalation: false }; }
 }
