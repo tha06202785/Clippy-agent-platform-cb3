@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sendMessage, trackDelivery } from "@/lib/channels/router";
+import { registerFacebookChannel } from "@/lib/channels/facebook";
 
 export const dynamic = "force-dynamic";
+
+// Register Facebook channel on module load
+registerFacebookChannel();
 
 // Facebook webhook verification
 export async function GET(req: NextRequest) {
@@ -29,13 +34,6 @@ export async function POST(req: NextRequest) {
       raw_payload: body,
       headers: Object.fromEntries(req.headers.entries()),
       processed: false,
-    });
-
-    await supabase.from("ai_actions").insert({
-      org_id: "default",
-      action_type: "webhook_received",
-      input_summary: JSON.stringify(body).substring(0, 500),
-      output_summary: "Facebook webhook received",
     });
 
     // Handle messaging events
@@ -76,7 +74,7 @@ export async function POST(req: NextRequest) {
 
         // Send to AI brain
         if (leadId) {
-          await fetch("https://useclippy.com/api/ai/message", {
+          const aiRes = await fetch("https://useclippy.com/api/ai/message", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -86,6 +84,21 @@ export async function POST(req: NextRequest) {
               externalConversationId: senderId,
             }),
           });
+          const aiData = await aiRes.json();
+
+          // Deliver reply back via Facebook
+          if (aiData.reply && !aiData.paused && !aiData.optedOut) {
+            const deliveryResult = await sendMessage("facebook", senderId, aiData.reply, {
+              externalConversationId: senderId,
+              leadId, conversationId: aiData.conversationId,
+              orgId: "default",
+            });
+
+            // Track delivery
+            if (aiData.conversationId) {
+              await trackDelivery(supabase, deliveryResult, "facebook", aiData.conversationId, "default");
+            }
+          }
         }
       }
     }
