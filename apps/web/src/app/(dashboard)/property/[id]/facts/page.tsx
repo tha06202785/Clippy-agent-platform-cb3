@@ -5,16 +5,16 @@ import { useParams } from "next/navigation";
 import { CheckCircle, Edit3, Save, X } from "lucide-react";
 
 interface ListingFacts {
-  verified_price: string | null;
-  verified_bedrooms: number | null;
-  verified_bathrooms: number | null;
-  verified_land_size: string | null;
-  verified_building_size: string | null;
-  verified_inspection_times: string[] | null;
-  verified_availability: string | null;
-  school_zones: string[] | null;
-  nearby_amenities: string[] | null;
-  last_verified_at: string | null;
+  verified_price?: string | null;
+  verified_bedrooms?: number | null;
+  verified_bathrooms?: number | null;
+  verified_land_size?: string | null;
+  verified_building_size?: string | null;
+  verified_inspection_times?: string[] | null;
+  verified_availability?: string | null;
+  school_zones?: string[] | null;
+  nearby_amenities?: string[] | null;
+  last_verified_at?: string | null;
 }
 
 export default function ListingFactsPage() {
