@@ -13,7 +13,7 @@ export async function sendMessage(
   channel: string,
   to: string,
   message: string,
-  metadata?: { externalConversationId?: string; leadId?: string; conversationId?: string; orgId?: string }
+  metadata?: { externalConversationId?: string; leadId?: string; conversationId?: string; orgId?: string; subject?: string; email?: string }
 ): Promise<{ success: boolean; externalId?: string; error?: string }> {
   const handler = CHANNEL_CONFIGS[channel];
   if (!handler) {
