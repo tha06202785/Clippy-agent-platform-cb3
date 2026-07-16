@@ -1,31 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
+// Zod schema for AI output validation
+const aiOutputSchema = z.object({
+  reply: z.string().min(1).max(5000),
+  confidence: z.number().min(0).max(1).default(0.5),
+  leadStage: z.enum(["unknown","new","warm","hot","inspection_booked","offer","negotiation","contract","won","lost","nurture"]).default("unknown"),
+  nextAction: z.enum(["reply","escalate","book_inspection","schedule_call","collect_info","nurture","stop"]).default("reply"),
+  escalation: z.boolean().default(false),
+  escalationReason: z.string().optional(),
+  sentiment: z.enum(["positive","neutral","negative","angry"]).default("neutral"),
+  scores: z.object({
+    buyingReadiness: z.number().min(0).max(1).default(0.3),
+    likelihoodToInspect: z.number().min(0).max(1).default(0.4),
+    probabilityOfPurchase: z.number().min(0).max(1).default(0.1),
+    urgency: z.number().min(0).max(1).default(0.3),
+  }).optional(),
+  extractedMemory: z.array(z.object({
+    key: z.string(), value: z.any(), confidence: z.number().min(0).max(1)
+  })).optional(),
+  nextBestAction: z.object({
+    type: z.string(), dueAt: z.string().nullable()
+  }).optional(),
+  compliance: z.object({
+    status: z.enum(["passed","failed","flagged"]),
+    flags: z.array(z.string())
+  }).optional(),
+}).strict();
+
 interface IncomingMessage {
-  orgId: string; channel: string; leadId?: string;
+  channel: string; leadId?: string;
   conversationId?: string; message: string;
   attachments?: any[]; metadata?: Record<string, any>;
   externalId?: string; externalConversationId?: string;
 }
 
-interface AiOutput {
-  reply: string; confidence: number; leadStage: string;
-  nextAction: string; escalation: boolean;
-  escalationReason?: string; sentiment?: string;
-  scores?: { buyingReadiness: number; likelihoodToInspect: number;
-    probabilityOfPurchase: number; urgency: number; };
-}
-
-// Identity resolution: find or create lead by email/phone
+// Identity resolution
 async function resolveIdentity(supabase: any, orgId: string, metadata: any) {
   if (!metadata?.email && !metadata?.phone) return null;
   const email = metadata.email?.toLowerCase().trim();
   const phone = metadata.phone?.replace(/[^0-9]/g, "");
-
-  // Try to find existing lead by email or phone
   if (email) {
     const { data: existing } = await supabase
       .from("leads").select("id, full_name, email, phone")
@@ -38,27 +56,38 @@ async function resolveIdentity(supabase: any, orgId: string, metadata: any) {
       .eq("org_id", orgId).eq("phone", phone).maybeSingle();
     if (existing) return existing;
   }
-
-  // Create new lead
   const { data: lead } = await supabase.from("leads").insert({
-    org_id: orgId,
-    full_name: metadata.name || null,
-    email: email || null,
-    phone: phone || null,
-    source: "website",
-    stage: "unknown",
+    org_id: orgId, full_name: metadata.name || null,
+    email: email || null, phone: phone || null,
+    source: "website", stage: "unknown",
   }).select().single();
-
-  // Create identity record
   if (lead) {
     await supabase.from("lead_identities").insert({
-      org_id: orgId, lead_id: lead.id,
-      channel: "website",
-      email_normalized: email || null,
-      phone_e164: phone || null,
+      org_id: orgId, lead_id: lead.id, channel: "website",
+      email_normalized: email || null, phone_e164: phone || null,
     });
   }
   return lead;
+}
+
+// Check opt-out
+async function checkOptOut(supabase: any, orgId: string, leadId?: string, email?: string, phone?: string) {
+  if (leadId) {
+    const { data: opt } = await supabase
+      .from("opt_outs").select("id").eq("org_id", orgId).eq("lead_id", leadId).maybeSingle();
+    if (opt) return true;
+  }
+  if (email) {
+    const { data: opt } = await supabase
+      .from("opt_outs").select("id").eq("org_id", orgId).eq("email", email).maybeSingle();
+    if (opt) return true;
+  }
+  if (phone) {
+    const { data: opt } = await supabase
+      .from("opt_outs").select("id").eq("org_id", orgId).eq("phone", phone).maybeSingle();
+    if (opt) return true;
+  }
+  return false;
 }
 
 async function buildContext(supabase: any, orgId: string, leadId?: string, conversationId?: string) {
@@ -115,8 +144,11 @@ async function callLlm(systemPrompt: string, userMessage: string, context: any):
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content || "";
   if (!content) throw new Error("Empty LLM response");
-  try { return JSON.parse(content); }
-  catch { return { reply: content, confidence: 0.5, leadStage: "unknown", nextAction: "reply", escalation: false }; }
+  // Strip markdown code blocks if present
+  const cleaned = content.replace(/
+?/g, "").trim();
+  try { return JSON.parse(cleaned); }
+  catch { return { reply: cleaned, confidence: 0.5, leadStage: "unknown", nextAction: "reply", escalation: false }; }
 }
 
 const INTENT_AGENT = "You are an intent detection specialist for real estate. Analyze the lead message and determine their primary intent. Return JSON: { intent: buying|selling|rental|investment|question|complaint|inspection|negotiation|spam|other, confidence: 0.0-1.0 }";
@@ -130,24 +162,44 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   try {
     const supabase = await createClient();
+
+    // Derive org from authenticated session - NOT from request body
+    const { data: { user } } = await supabase.auth.getUser();
+    let orgId: string | null = null;
+    if (user) {
+      const { data: orgMember } = await supabase
+        .from("org_members").select("org_id").eq("user_id", user.id).maybeSingle();
+      if (orgMember) orgId = orgMember.org_id;
+    }
+
     const ip = await getClientIp();
     const { allowed } = checkRateLimit(ip, "ai-message");
     if (!allowed) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+
     const body: IncomingMessage = await req.json();
-    if (!body.orgId || !body.message) {
-      return NextResponse.json({ error: "orgId and message required" }, { status: 400 });
+    if (!body.message) {
+      return NextResponse.json({ error: "message required" }, { status: 400 });
     }
 
-    // Resolve orgId - allow "default" to map to real org
-    if (body.orgId === "default") {
+    // If no authenticated user, use default org (for webhooks)
+    if (!orgId) {
       const { data: orgs } = await supabase.from("orgs").select("id").limit(1);
-      if (orgs && orgs.length > 0) body.orgId = orgs[0].id;
+      if (orgs && orgs.length > 0) orgId = orgs[0].id;
+      else return NextResponse.json({ error: "No org found" }, { status: 500 });
+    }
+
+    // Check opt-out before processing
+    const isOptedOut = await checkOptOut(supabase, orgId, body.leadId,
+      body.metadata?.email, body.metadata?.phone);
+    if (isOptedOut) {
+      return NextResponse.json({ success: true, optedOut: true,
+        message: "Lead has opted out of communications." });
     }
 
     // Identity resolution
     let leadId = body.leadId;
     if (!leadId && body.metadata) {
-      const resolved = await resolveIdentity(supabase, body.orgId, body.metadata);
+      const resolved = await resolveIdentity(supabase, orgId, body.metadata);
       if (resolved) leadId = resolved.id;
     }
 
@@ -155,7 +207,7 @@ export async function POST(req: NextRequest) {
     let conversationId = body.conversationId;
     if (!conversationId) {
       const { data: conv } = await supabase.from("conversations").insert({
-        org_id: body.orgId, lead_id: leadId || null,
+        org_id: orgId, lead_id: leadId || null,
         channel: body.channel || "website", status: "active",
         lead_stage: "unknown", automation_mode: "autonomous",
       }).select().single();
@@ -166,20 +218,17 @@ export async function POST(req: NextRequest) {
     const { data: conv } = await supabase.from("conversations")
       .select("automation_mode").eq("id", conversationId).single();
     if (conv?.automation_mode === "paused") {
-      return NextResponse.json({
-        success: true, reply: null, paused: true,
-        message: "A human agent is handling this conversation."
-      });
+      return NextResponse.json({ success: true, reply: null, paused: true });
     }
 
     // Save incoming message
-    await supabase.from("conversation_messages").insert({
+    const { data: savedMsg } = await supabase.from("conversation_messages").insert({
       conversation_id: conversationId, role: "lead",
       content: body.message, channel: body.channel || "website",
-    });
+    }).select().single();
 
     // Build context
-    const context = await buildContext(supabase, body.orgId, leadId, conversationId);
+    const context = await buildContext(supabase, orgId, leadId, conversationId);
 
     // Run AI agents
     const intent = await callLlm(INTENT_AGENT, body.message, context);
@@ -188,8 +237,9 @@ export async function POST(req: NextRequest) {
     const responseResult = await callLlm(RESPONSE_AGENT, body.message, context);
     const compliance = await callLlm(COMPLIANCE_AGENT, responseResult.reply || "", context);
 
+    // Validate AI output with Zod
     const currentStage = context.lead?.stage || "unknown";
-    const output: AiOutput = {
+    const rawOutput = {
       reply: responseResult.reply || "Thanks for your message! I will look into that and get back to you.",
       confidence: intent.confidence || 0.5,
       leadStage: stageResult.stage || currentStage,
@@ -206,7 +256,14 @@ export async function POST(req: NextRequest) {
         probabilityOfPurchase: stageResult.stage === "hot" ? 0.7 : stageResult.stage === "warm" ? 0.4 : 0.1,
         urgency: stageResult.stage === "hot" ? 0.8 : 0.3,
       },
+      compliance: { status: compliance.passed ? "passed" : "failed", flags: compliance.issues || [] },
     };
+
+    const validation = aiOutputSchema.safeParse(rawOutput);
+    if (!validation.success) {
+      console.error("AI output validation failed:", validation.error.format());
+    }
+    const output = validation.success ? validation.data : rawOutput;
 
     // Save AI response
     await supabase.from("conversation_messages").insert({
@@ -254,13 +311,23 @@ export async function POST(req: NextRequest) {
 
     // Log AI action
     await supabase.from("ai_actions").insert({
-      org_id: body.orgId, lead_id: leadId || null,
+      org_id: orgId, lead_id: leadId || null,
       conversation_id: conversationId, action_type: output.nextAction,
       input_summary: body.message.substring(0, 200),
       output_summary: output.reply.substring(0, 200),
       confidence: output.confidence, latency_ms: Date.now() - startTime,
       escalated: output.escalation, escalation_reason: output.escalationReason || null,
     });
+
+    // Create delivery attempt
+    if (output.reply) {
+      await supabase.from("message_delivery_attempts").insert({
+        org_id: orgId, channel: body.channel || "website",
+        status: "sent", attempt_count: 1,
+        idempotency_key: "msg_" + conversationId + "_" + Date.now(),
+        delivered_at: new Date().toISOString(),
+      });
+    }
 
     return NextResponse.json({
       success: true, conversationId, leadId, reply: output.reply,

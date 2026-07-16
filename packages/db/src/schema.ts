@@ -304,3 +304,97 @@ export const lead_identities = pgTable("lead_identities", {
   verified_at: timestamp("verified_at"),
   created_at: timestamp("created_at").defaultNow(),
 });
+
+// ─── NEW: Security & Operations Tables ───
+
+// Raw webhook events - preserve for replay
+export const webhook_events = pgTable("webhook_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id),
+  channel: text("channel").notNull(),
+  event_type: text("event_type").notNull(),
+  raw_payload: jsonb("raw_payload").notNull(),
+  headers: jsonb("headers"),
+  processed: boolean("processed").default(false),
+  processing_result: text("processing_result"),
+  error_message: text("error_message"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Authoritative listing facts - AI source of truth
+export const listing_facts = pgTable("listing_facts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  listing_id: uuid("listing_id").references(() => listings.id).notNull().unique(),
+  verified_price: text("verified_price"),
+  verified_bedrooms: integer("verified_bedrooms"),
+  verified_bathrooms: integer("verified_bathrooms"),
+  verified_land_size: text("verified_land_size"),
+  verified_building_size: text("verified_building_size"),
+  verified_inspection_times: jsonb("verified_inspection_times"),
+  verified_availability: text("verified_availability"),
+  school_zones: jsonb("school_zones"),
+  nearby_amenities: jsonb("nearby_amenities"),
+  source: text("source").default("agent"),
+  last_verified_at: timestamp("last_verified_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// Opt-outs - prevent messaging unsubscribed leads
+export const opt_outs = pgTable("opt_outs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id),
+  channel: text("channel"),
+  email: text("email"),
+  phone: text("phone"),
+  reason: text("reason"),
+  opted_out_at: timestamp("opted_out_at").defaultNow(),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Consent events - track when/how consent was given
+export const consent_events = pgTable("consent_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id),
+  channel: text("channel").notNull(),
+  consent_type: text("consent_type").notNull(),
+  granted: boolean("granted").notNull(),
+  ip_address: text("ip_address"),
+  user_agent: text("user_agent"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Message delivery attempts - retry tracking
+export const message_delivery_attempts = pgTable("message_delivery_attempts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  message_id: uuid("message_id").references(() => conversation_messages.id),
+  channel: text("channel").notNull(),
+  status: text("status").default("pending"),
+  attempt_count: integer("attempt_count").default(0),
+  max_attempts: integer("max_attempts").default(3),
+  last_error: text("last_error"),
+  idempotency_key: text("idempotency_key").unique(),
+  next_retry_at: timestamp("next_retry_at"),
+  delivered_at: timestamp("delivered_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// Inspection bookings
+export const inspection_bookings = pgTable("inspection_bookings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  listing_id: uuid("listing_id").references(() => listings.id).notNull(),
+  scheduled_at: timestamp("scheduled_at").notNull(),
+  status: text("status").default("pending"),
+  attendees: integer("attendees").default(1),
+  notes: text("notes"),
+  confirmed_by_lead: boolean("confirmed_by_lead").default(false),
+  confirmed_at: timestamp("confirmed_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});

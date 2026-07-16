@@ -22,7 +22,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const supabase = await createClient();
 
-    // Save raw webhook event
+    // Save raw webhook event for replay
+    await supabase.from("webhook_events").insert({
+      channel: "facebook",
+      event_type: "messaging",
+      raw_payload: body,
+      headers: Object.fromEntries(req.headers.entries()),
+      processed: false,
+    });
+
     await supabase.from("ai_actions").insert({
       org_id: "default",
       action_type: "webhook_received",
