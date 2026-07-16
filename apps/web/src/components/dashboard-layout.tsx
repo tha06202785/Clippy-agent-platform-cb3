@@ -10,13 +10,13 @@ import {
   BarChart3, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut, Calendar,
   Menu, X, Moon, Sun, Search, Plus, Home, ChevronDown
 } from "lucide-react";
-import { Calendar, cn } from "@/lib/utils";
-import { Calendar, MobileNav } from "@/components/mobile-nav";
-import { Calendar, QuickActions } from "@/components/quick-actions";
-import { Calendar, VoiceCommand } from "@/components/voice-command";
-import { Calendar, PostHogProvider } from "@/components/posthog-provider";
-import { Calendar, PostHogPageView } from "@/components/posthog-pageview";
-import { Calendar, QueryProvider } from "@/components/query-provider";
+import { cn } from "@/lib/utils";
+import { MobileNav } from "@/components/mobile-nav";
+import { QuickActions } from "@/components/quick-actions";
+import { VoiceCommand } from "@/components/voice-command";
+import { PostHogProvider } from "@/components/posthog-provider";
+import { PostHogPageView } from "@/components/posthog-pageview";
+import { QueryProvider } from "@/components/query-provider";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Sparkles },
