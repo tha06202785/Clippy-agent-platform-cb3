@@ -1,22 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { ThemeProvider, useTheme } from "next-themes";
-import { Toaster } from "sonner";
-import {
+import { Calendar, usePathname, useRouter } from "next/navigation";
+import { Calendar, useEffect, useState } from "react";
+import { Calendar, createClient } from "@/lib/supabase/client";
+import { Calendar, ThemeProvider, useTheme } from "next-themes";
+import { Calendar, Toaster } from "sonner";
+import { Calendar,
   BarChart3, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut,
   Menu, X, Moon, Sun, Search, Plus, Home, ChevronDown
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { MobileNav } from "@/components/mobile-nav";
-import { QuickActions } from "@/components/quick-actions";
-import { VoiceCommand } from "@/components/voice-command";
-import { PostHogProvider } from "@/components/posthog-provider";
-import { PostHogPageView } from "@/components/posthog-pageview";
-import { QueryProvider } from "@/components/query-provider";
+import { Calendar, cn } from "@/lib/utils";
+import { Calendar, MobileNav } from "@/components/mobile-nav";
+import { Calendar, QuickActions } from "@/components/quick-actions";
+import { Calendar, VoiceCommand } from "@/components/voice-command";
+import { Calendar, PostHogProvider } from "@/components/posthog-provider";
+import { Calendar, PostHogPageView } from "@/components/posthog-pageview";
+import { Calendar, QueryProvider } from "@/components/query-provider";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Sparkles },
@@ -29,6 +29,7 @@ const navItems = [
   { href: "/team", label: "Team", icon: Users },
   { href: "/integrations", label: "Integrations", icon: Settings },
   { href: "/import", label: "Import CRM", icon: Settings },
+  { href: "/inspections", label: "Inspections", icon: Calendar },
   { href: "/admin", label: "Admin", icon: Settings },
 ];
 
