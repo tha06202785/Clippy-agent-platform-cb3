@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "sonner";
 import {
-  BarChart3, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut, Calendar,
+  BarChart3, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut, Calendar, Clock,
   Menu, X, Moon, Sun, Search, Plus, Home, ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,8 @@ const navItems = [
   { href: "/integrations", label: "Integrations", icon: Settings },
   { href: "/import", label: "Import CRM", icon: Settings },
   { href: "/inspections", label: "Inspections", icon: Calendar },
+  { href: "/inspections/slots", label: "Time Slots", icon: Clock },
+  { href: "/inspections/applications", label: "Applications", icon: FileText },
   { href: "/admin", label: "Admin", icon: Settings },
 ];
 

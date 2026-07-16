@@ -86,6 +86,39 @@ export async function GET(req: NextRequest) {
       summary_text: "Good morning! Yesterday: " + total + " conversations, " + hotCount + " hot buyers, " + escCount + " escalations. Follow-ups processed: " + processed + ".",
     });
 
+    // 3. Process scheduled communications (reminders, follow-ups)
+    const { data: comms } = await supabase
+      .from("scheduled_communications")
+      .select("*, leads!inner(full_name, email, phone), inspection_bookings!inner(booking_status, attendance_status)")
+      .eq("status", "scheduled")
+      .lte("scheduled_for", now)
+      .limit(20);
+
+    let commsProcessed = 0;
+    if (comms) {
+      for (const comm of comms) {
+        try {
+          const booking = comm.inspection_bookings;
+          if (!booking || booking.booking_status === "cancelled") {
+            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
+            continue;
+          }
+          const { data: prefs } = await supabase.from("lead_channel_preferences").select("*").eq("lead_id", comm.lead_id).maybeSingle();
+          if (prefs?.opted_out_at) {
+            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
+            continue;
+          }
+          await supabase.from("scheduled_communications").update({ status: "sent", sent_at: now, attempt_count: comm.attempt_count + 1 }).eq("id", comm.id);
+          commsProcessed++;
+        } catch {
+          await supabase.from("scheduled_communications").update({
+            status: comm.attempt_count + 1 >= comm.max_attempts ? "dead_letter" : "scheduled",
+            attempt_count: comm.attempt_count + 1,
+          }).eq("id", comm.id);
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       followups_processed: processed,
@@ -97,6 +130,39 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("Daily cron error:", error);
+    // 3. Process scheduled communications (reminders, follow-ups)
+    const { data: comms } = await supabase
+      .from("scheduled_communications")
+      .select("*, leads!inner(full_name, email, phone), inspection_bookings!inner(booking_status, attendance_status)")
+      .eq("status", "scheduled")
+      .lte("scheduled_for", now)
+      .limit(20);
+
+    let commsProcessed = 0;
+    if (comms) {
+      for (const comm of comms) {
+        try {
+          const booking = comm.inspection_bookings;
+          if (!booking || booking.booking_status === "cancelled") {
+            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
+            continue;
+          }
+          const { data: prefs } = await supabase.from("lead_channel_preferences").select("*").eq("lead_id", comm.lead_id).maybeSingle();
+          if (prefs?.opted_out_at) {
+            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
+            continue;
+          }
+          await supabase.from("scheduled_communications").update({ status: "sent", sent_at: now, attempt_count: comm.attempt_count + 1 }).eq("id", comm.id);
+          commsProcessed++;
+        } catch {
+          await supabase.from("scheduled_communications").update({
+            status: comm.attempt_count + 1 >= comm.max_attempts ? "dead_letter" : "scheduled",
+            attempt_count: comm.attempt_count + 1,
+          }).eq("id", comm.id);
+        }
+      }
+    }
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

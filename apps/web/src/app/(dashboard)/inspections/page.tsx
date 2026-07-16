@@ -1,17 +1,13 @@
 "use client";
 export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
-import { Calendar, Clock, CheckCircle, XCircle, User, Home } from "lucide-react";
+import { Calendar, Clock, CheckCircle, XCircle, User, Home, Filter, Plus } from "lucide-react";
 
 interface Booking {
-  id: string;
-  lead_id: string;
-  listing_id: string;
-  scheduled_at: string;
-  status: string;
-  attendees: number;
-  notes: string | null;
-  confirmed_by_lead: boolean;
+  id: string; slot_id: string; listing_id: string; lead_id: string;
+  booking_status: string; attendance_status: string; attendee_count: number;
+  source_channel: string; created_at: string;
+  inspection_time_slots: { starts_at: string; ends_at: string; capacity: number; inspection_type: string; address: string } | null;
   leads: { full_name: string | null; email: string | null; phone: string | null };
   listings: { address: string | null; price: string | null };
 }
@@ -19,6 +15,7 @@ interface Booking {
 export default function InspectionsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     fetch("/api/inspection-bookings")
@@ -28,78 +25,137 @@ export default function InspectionsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateAttendance = async (id: string, status: string) => {
     await fetch("/api/inspection-bookings?id=" + id, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ attendance_status: status }),
     });
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, attendance_status: status } : b));
   };
+
+  const cancelBooking = async (id: string) => {
+    await fetch("/api/inspection-bookings/" + id + "/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "cancelled_by_agent" }),
+    });
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, booking_status: "cancelled" } : b));
+  };
+
+  const filtered = filter === "all" ? bookings : bookings.filter(b => b.booking_status === filter);
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-40 bg-muted rounded animate-pulse" />
-        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />)}</div>
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-28 bg-muted rounded-xl animate-pulse" />)}</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Inspections</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage property inspection bookings</p>
+    <div className="space-y-6 max-w-5xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Inspections</h1>
+          <p className="text-muted-foreground text-sm mt-1">Manage inspection bookings, attendance, and follow-ups</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select value={filter} onChange={e => setFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-input bg-background text-sm">
+            <option value="all">All</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="reserved">Reserved</option>
+          </select>
+        </div>
       </div>
 
       {bookings.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-12 text-center">
           <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No inspections booked</h3>
-          <p className="text-sm text-muted-foreground">Inspections will appear here when leads book through the AI or agents schedule them.</p>
+          <p className="text-sm text-muted-foreground">Inspections will appear here when tenants book through the AI or agents schedule them.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {bookings.map(b => (
-            <div key={b.id} className="rounded-xl border border-border bg-card p-5">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className={"w-10 h-10 rounded-lg flex items-center justify-center " +
-                    (b.status === "confirmed" ? "bg-emerald-100" : b.status === "completed" ? "bg-blue-100" : b.status === "cancelled" ? "bg-red-100" : "bg-amber-100")}>
-                    {b.status === "confirmed" ? <CheckCircle className="w-5 h-5 text-emerald-600" /> :
-                     b.status === "completed" ? <CheckCircle className="w-5 h-5 text-blue-600" /> :
-                     b.status === "cancelled" ? <XCircle className="w-5 h-5 text-red-600" /> :
-                     <Clock className="w-5 h-5 text-amber-600" />}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">{b.leads?.full_name || "Unknown"}</h3>
-                    <p className="text-sm text-muted-foreground">{b.listings?.address || "Unknown property"}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(b.scheduled_at).toLocaleDateString()}</span>
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(b.scheduled_at).toLocaleTimeString()}</span>
-                      <span className="flex items-center gap-1"><User className="w-3 h-3" /> {b.attendees}</span>
+          {filtered.map(b => {
+            const slot = b.inspection_time_slots;
+            const lead = b.leads;
+            const listing = b.listings;
+            const isUpcoming = b.booking_status === "confirmed" && new Date(slot?.starts_at || "") > new Date();
+            const isPast = b.booking_status === "confirmed" && new Date(slot?.starts_at || "") < new Date();
+
+            return (
+              <div key={b.id} className={"rounded-xl border p-5 " + (
+                b.booking_status === "cancelled" ? "border-red-200 bg-red-50" :
+                b.attendance_status === "attended" ? "border-emerald-200 bg-emerald-50" :
+                b.attendance_status === "did_not_attend" ? "border-amber-200 bg-amber-50" :
+                "border-border bg-card"
+              )}>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className={"w-10 h-10 rounded-lg flex items-center justify-center " + (
+                      b.booking_status === "cancelled" ? "bg-red-100" :
+                      b.attendance_status === "attended" ? "bg-emerald-100" :
+                      b.attendance_status === "did_not_attend" ? "bg-amber-100" :
+                      "bg-blue-100"
+                    )}>
+                      {b.booking_status === "cancelled" ? <XCircle className="w-5 h-5 text-red-600" /> :
+                       b.attendance_status === "attended" ? <CheckCircle className="w-5 h-5 text-emerald-600" /> :
+                       b.attendance_status === "did_not_attend" ? <XCircle className="w-5 h-5 text-amber-600" /> :
+                       <Calendar className="w-5 h-5 text-blue-600" />}
                     </div>
-                    {b.notes && <p className="text-xs text-muted-foreground mt-1">{b.notes}</p>}
+                    <div>
+                      <h3 className="font-semibold text-foreground">{lead?.full_name || "Unknown"}</h3>
+                      <p className="text-sm text-muted-foreground">{listing?.address || "Unknown property"}</p>
+                      {slot && (
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(slot.starts_at).toLocaleDateString()}</span>
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(slot.starts_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          <span className="flex items-center gap-1"><User className="w-3 h-3" /> {b.attendee_count}</span>
+                          <span className="capitalize text-[10px] px-1.5 py-0.5 rounded bg-muted">{slot.inspection_type}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={"text-[10px] px-1.5 py-0.5 rounded " + (
+                          b.booking_status === "confirmed" ? "bg-blue-100 text-blue-700" :
+                          b.booking_status === "cancelled" ? "bg-red-100 text-red-700" :
+                          "bg-amber-100 text-amber-700"
+                        )}>{b.booking_status}</span>
+                        <span className={"text-[10px] px-1.5 py-0.5 rounded " + (
+                          b.attendance_status === "attended" ? "bg-emerald-100 text-emerald-700" :
+                          b.attendance_status === "did_not_attend" ? "bg-amber-100 text-amber-700" :
+                          "bg-muted text-muted-foreground"
+                        )}>{b.attendance_status === "unknown" ? "pending" : b.attendance_status}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-1">
-                  {b.status === "pending" && (
-                    <>
-                      <button onClick={() => updateStatus(b.id, "confirmed")}
-                        className="px-2 py-1 text-xs bg-emerald-100 text-emerald-700 rounded-md hover:bg-emerald-200">Confirm</button>
-                      <button onClick={() => updateStatus(b.id, "cancelled")}
-                        className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200">Cancel</button>
-                    </>
-                  )}
-                  {b.status === "confirmed" && (
-                    <button onClick={() => updateStatus(b.id, "completed")}
-                      className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200">Complete</button>
-                  )}
+                  <div className="flex gap-1">
+                    {isUpcoming && (
+                      <>
+                        <button onClick={() => updateAttendance(b.id, "attended")}
+                          className="px-2 py-1 text-xs bg-emerald-100 text-emerald-700 rounded-md hover:bg-emerald-200">Attended</button>
+                        <button onClick={() => updateAttendance(b.id, "did_not_attend")}
+                          className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded-md hover:bg-amber-200">No Show</button>
+                        <button onClick={() => cancelBooking(b.id)}
+                          className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200">Cancel</button>
+                      </>
+                    )}
+                    {isPast && b.attendance_status === "unknown" && (
+                      <>
+                        <button onClick={() => updateAttendance(b.id, "attended")}
+                          className="px-2 py-1 text-xs bg-emerald-100 text-emerald-700 rounded-md hover:bg-emerald-200">Mark Attended</button>
+                        <button onClick={() => updateAttendance(b.id, "did_not_attend")}
+                          className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded-md hover:bg-amber-200">Mark No Show</button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

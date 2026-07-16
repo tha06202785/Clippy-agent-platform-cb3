@@ -109,7 +109,7 @@ async function buildContext(supabase: any, orgId: string, leadId?: string, conve
   }
   const { data: listings } = await supabase
     .from("listings").select("id, address, price, bedrooms, bathrooms, property_type, status, features")
-    .eq("org_id", orgId!).eq("status", "active").limit(10);
+    .eq("org_id", orgId!).in("status", ["active", "available"]).limit(20);
   context.listings = listings || [];
   return context;
 }
@@ -151,10 +151,12 @@ async function callLlm(systemPrompt: string, userMessage: string, context: any):
   catch { return { reply: cleaned, confidence: 0.5, leadStage: "unknown", nextAction: "reply", escalation: false }; }
 }
 
-const INTENT_AGENT = "You are an intent detection specialist for real estate. Analyze the lead message and determine their primary intent. Return JSON: { intent: buying|selling|rental|investment|question|complaint|inspection|negotiation|spam|other, confidence: 0.0-1.0 }";
+const INTENT_AGENT = "You are an intent detection specialist for real estate. Analyze the lead message and determine their primary intent. Return JSON: { intent: buying|selling|rental|investment|question|complaint|inspection|negotiation|spam|other, confidence: 0.0-1.0, isRental: boolean }";
 const QUALIFICATION_AGENT = "You are a lead qualification specialist. Extract buyer information from the message. Only include fields the lead mentioned. Return JSON with ONLY mentioned fields: { budget_min, budget_max, bedrooms, bathrooms, parking, preferred_suburbs, school_needs, has_pets, is_investment, finance_approved, timeline, reason_for_moving, partner_name, children_info, preferred_contact }";
 const STAGE_AGENT = "You are a lead stage classifier. Given the current stage and message, determine the new stage. Return JSON: { stage: unknown|new|warm|hot|inspection_booked|offer|negotiation|contract|won|lost|nurture, reason: string, confidence: 0.0-1.0 }";
 const RESPONSE_AGENT = "You are Clippy AI, a 24/7 Real Estate Lead Communication Copilot for Australian agents. Communicate like a top-performing real estate sales consultant. Build trust, answer questions, qualify the lead, book inspections. Never sound like AI. Be warm, professional, confident, human. Never use emojis excessively. Keep messages short. Never use phrases like discover, nestled, or perfect opportunity. Never make up information. Never pressure. Always personalise. Use Australian English. Return JSON: { reply: string, tone: professional|warm|casual, call_to_action: string }";
+
+const RENTAL_AGENT = "You are Clippy AI Rental Specialist. You handle rental property enquiries, inspection bookings, and application conversion. Rules: 1) Always offer verified inspection times immediately - do NOT gate behind qualification. 2) Collect preferences conversationally: move-in date, occupants, pets, lease length. 3) Never discriminate or reject based on personal characteristics. 4) After inspection, ask how it went and offer application link. 5) Escalate: rent negotiation, bond disputes, legal questions, application decisions. 6) Never make up property details - use only verified listing facts. 7) Suggest alternative properties if this one is not suitable. 8) Honour opt-out requests immediately. Return JSON: { reply: string, tone: professional|warm|casual, call_to_action: string, offerSlots: boolean, suggestedSlotIds: string[], offerApplication: boolean, suggestAlternatives: boolean }";
 const COMPLIANCE_AGENT = "You are a compliance checker for Australian real estate. Review the proposed reply. Return JSON: { passed: boolean, issues: string[], suggested_fix: string|null }. Check for: financial advice, legal advice, price guarantees, discrimination, privacy violations, pressure tactics, false information.";
 const CRM_AGENT = "You are a CRM enrichment specialist. Extract new/changed lead info from the message. Return JSON with ONLY new fields: { full_name, email, phone, notes, buyer_type, priority: low|medium|high|null }";
 
@@ -188,7 +190,7 @@ export async function POST(req: NextRequest) {
       else return NextResponse.json({ error: "No org found" }, { status: 500 });
     }
 
-    // Check opt-out before processing
+    // Check opt-out and channel preferences before processing
     const isOptedOut = await checkOptOut(supabase, orgId!, body.leadId,
       body.metadata?.email, body.metadata?.phone);
     if (isOptedOut) {
@@ -234,7 +236,10 @@ export async function POST(req: NextRequest) {
     const intent = await callLlm(INTENT_AGENT, body.message, context);
     const qualification = await callLlm(QUALIFICATION_AGENT, body.message, context);
     const stageResult = await callLlm(STAGE_AGENT, body.message, context);
-    const responseResult = await callLlm(RESPONSE_AGENT, body.message, context);
+    // Route to rental or sales agent based on intent
+    const isRental = intent.isRental === true || intent.intent === "rental";
+    const responseAgent = isRental ? RENTAL_AGENT : RESPONSE_AGENT;
+    const responseResult = await callLlm(responseAgent, body.message, context);
     const compliance = await callLlm(COMPLIANCE_AGENT, responseResult.reply || "", context);
 
     // Validate AI output with Zod

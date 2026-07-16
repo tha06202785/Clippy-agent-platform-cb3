@@ -398,3 +398,102 @@ export const inspection_bookings = pgTable("inspection_bookings", {
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
+
+
+// ─── RENTAL INSPECTION PIPELINE ───
+
+// Inspection time slots - agent-defined available times
+export const inspection_time_slots = pgTable("inspection_time_slots", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  listing_id: uuid("listing_id").references(() => listings.id).notNull(),
+  starts_at: timestamp("starts_at").notNull(),
+  ends_at: timestamp("ends_at").notNull(),
+  timezone: text("timezone").default("Australia/Sydney"),
+  inspection_type: text("inspection_type").default("open_home"),
+  capacity: integer("capacity").default(10),
+  booking_count: integer("booking_count").default(0),
+  status: text("status").default("published"),
+  location_notes: text("location_notes"),
+  host_user_id: uuid("host_user_id"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// Inspection bookings - one per lead per slot
+export const inspection_bookings = pgTable("inspection_bookings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  slot_id: uuid("slot_id").references(() => inspection_time_slots.id),
+  listing_id: uuid("listing_id").references(() => listings.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  conversation_id: uuid("conversation_id").references(() => conversations.id),
+  booking_status: text("booking_status").default("reserved"),
+  attendance_status: text("attendance_status").default("unknown"),
+  attendee_count: integer("attendee_count").default(1),
+  confirmation_sent_at: timestamp("confirmation_sent_at"),
+  cancelled_at: timestamp("cancelled_at"),
+  cancellation_reason: text("cancellation_reason"),
+  checked_in_at: timestamp("checked_in_at"),
+  source_channel: text("source_channel").default("website"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// Rental applications - separate from inspection_bookings
+export const rental_applications = pgTable("rental_applications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  listing_id: uuid("listing_id").references(() => listings.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  inspection_booking_id: uuid("inspection_booking_id").references(() => inspection_bookings.id),
+  external_provider: text("external_provider"),
+  external_application_id: text("external_application_id"),
+  application_url: text("application_url"),
+  status: text("status").default("not_started"),
+  submitted_at: timestamp("submitted_at"),
+  reviewed_at: timestamp("reviewed_at"),
+  decision_recorded_by: uuid("decision_recorded_by"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// Scheduled communications - durable job queue for reminders
+export const scheduled_communications = pgTable("scheduled_communications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id),
+  conversation_id: uuid("conversation_id").references(() => conversations.id),
+  inspection_booking_id: uuid("inspection_booking_id").references(() => inspection_bookings.id),
+  type: text("type").notNull(),
+  channel: text("channel").default("email"),
+  scheduled_for: timestamp("scheduled_for").notNull(),
+  status: text("status").default("scheduled"),
+  attempt_count: integer("attempt_count").default(0),
+  max_attempts: integer("max_attempts").default(3),
+  idempotency_key: text("idempotency_key").unique(),
+  sent_at: timestamp("sent_at"),
+  cancelled_at: timestamp("cancelled_at"),
+  last_error: text("last_error"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// Lead channel preferences - opt-out, quiet hours, consent
+export const lead_channel_preferences = pgTable("lead_channel_preferences", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  lead_id: uuid("lead_id").references(() => leads.id).notNull().unique(),
+  email_consent: boolean("email_consent").default(true),
+  sms_consent: boolean("sms_consent").default(true),
+  whatsapp_consent: boolean("whatsapp_consent").default(true),
+  phone_consent: boolean("phone_consent").default(true),
+  transactional_allowed: boolean("transactional_allowed").default(true),
+  marketing_allowed: boolean("marketing_allowed").default(false),
+  preferred_channel: text("preferred_channel").default("email"),
+  quiet_hours_start: text("quiet_hours_start"),
+  quiet_hours_end: text("quiet_hours_end"),
+  opted_out_at: timestamp("opted_out_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
