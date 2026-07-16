@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, usePathname, useRouter } from "next/navigation";
-import { Calendar, useEffect, useState } from "react";
-import { Calendar, createClient } from "@/lib/supabase/client";
-import { Calendar, ThemeProvider, useTheme } from "next-themes";
-import { Calendar, Toaster } from "sonner";
-import { Calendar,
-  BarChart3, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut,
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { ThemeProvider, useTheme } from "next-themes";
+import { Toaster } from "sonner";
+import {
+  BarChart3, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut, Calendar,
   Menu, X, Moon, Sun, Search, Plus, Home, ChevronDown
 } from "lucide-react";
 import { Calendar, cn } from "@/lib/utils";
