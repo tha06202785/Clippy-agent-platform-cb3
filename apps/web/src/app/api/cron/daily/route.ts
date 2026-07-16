@@ -75,6 +75,40 @@ export async function GET(req: NextRequest) {
     const hotCount = hotLeads?.length || 0;
     const escCount = escalations?.length || 0;
 
+    // 3. Process scheduled communications (reminders, follow-ups)
+    const { data: comms } = await supabase
+      .from("scheduled_communications")
+      .select("*, leads!inner(full_name, email, phone), inspection_bookings!inner(booking_status, attendance_status)")
+      .eq("status", "scheduled")
+      .lte("scheduled_for", now)
+      .limit(20);
+
+    let commsProcessed = 0;
+    if (comms) {
+      for (const comm of comms) {
+        try {
+          const booking = comm.inspection_bookings;
+          if (!booking || booking.booking_status === "cancelled") {
+            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
+            continue;
+          }
+          const { data: prefs } = await supabase.from("lead_channel_preferences").select("*").eq("lead_id", comm.lead_id).maybeSingle();
+          if (prefs?.opted_out_at) {
+            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
+            continue;
+          }
+          await supabase.from("scheduled_communications").update({ status: "sent", sent_at: now, attempt_count: comm.attempt_count + 1 }).eq("id", comm.id);
+          commsProcessed++;
+        } catch {
+          await supabase.from("scheduled_communications").update({
+            status: comm.attempt_count + 1 >= comm.max_attempts ? "dead_letter" : "scheduled",
+            attempt_count: comm.attempt_count + 1,
+          }).eq("id", comm.id);
+        }
+      }
+    }
+
+    // Save summary
     await supabase.from("ai_summaries").insert({
       org_id: "default",
       date: today.toISOString(),
@@ -83,83 +117,8 @@ export async function GET(req: NextRequest) {
       hot_leads_identified: hotCount,
       escalations_count: escCount,
       pipeline_value: hotCount * 1000000,
-      summary_text: "Good morning! Yesterday: " + total + " conversations, " + hotCount + " hot buyers, " + escCount + " escalations. Follow-ups processed: " + processed + ".",
+      summary_text: "Good morning! Yesterday: " + total + " conversations, " + hotCount + " hot buyers, " + escCount + " escalations. Follow-ups: " + processed + ". Comms sent: " + commsProcessed + ".",
     });
-
-    // 3. Process scheduled communications (reminders, follow-ups)
-    const { data: comms } = await supabase
-      .from("scheduled_communications")
-      .select("*, leads!inner(full_name, email, phone), inspection_bookings!inner(booking_status, attendance_status)")
-      .eq("status", "scheduled")
-      .lte("scheduled_for", now)
-      .limit(20);
-
-    let commsProcessed = 0;
-    if (comms) {
-      for (const comm of comms) {
-        try {
-          const booking = comm.inspection_bookings;
-          if (!booking || booking.booking_status === "cancelled") {
-            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
-            continue;
-          }
-          const { data: prefs } = await supabase.from("lead_channel_preferences").select("*").eq("lead_id", comm.lead_id).maybeSingle();
-          if (prefs?.opted_out_at) {
-            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
-            continue;
-          }
-          await supabase.from("scheduled_communications").update({ status: "sent", sent_at: now, attempt_count: comm.attempt_count + 1 }).eq("id", comm.id);
-          commsProcessed++;
-        } catch {
-          await supabase.from("scheduled_communications").update({
-            status: comm.attempt_count + 1 >= comm.max_attempts ? "dead_letter" : "scheduled",
-            attempt_count: comm.attempt_count + 1,
-          }).eq("id", comm.id);
-        }
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      followups_processed: processed,
-      briefing: {
-        conversations_handled: total,
-        hot_leads_identified: hotCount,
-        escalations_count: escCount,
-      },
-    });
-    // 3. Process scheduled communications (reminders, follow-ups)
-    const { data: comms } = await supabase
-      .from("scheduled_communications")
-      .select("*, leads!inner(full_name, email, phone), inspection_bookings!inner(booking_status, attendance_status)")
-      .eq("status", "scheduled")
-      .lte("scheduled_for", now)
-      .limit(20);
-
-    let commsProcessed = 0;
-    if (comms) {
-      for (const comm of comms) {
-        try {
-          const booking = comm.inspection_bookings;
-          if (!booking || booking.booking_status === "cancelled") {
-            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
-            continue;
-          }
-          const { data: prefs } = await supabase.from("lead_channel_preferences").select("*").eq("lead_id", comm.lead_id).maybeSingle();
-          if (prefs?.opted_out_at) {
-            await supabase.from("scheduled_communications").update({ status: "cancelled", cancelled_at: now }).eq("id", comm.id);
-            continue;
-          }
-          await supabase.from("scheduled_communications").update({ status: "sent", sent_at: now, attempt_count: comm.attempt_count + 1 }).eq("id", comm.id);
-          commsProcessed++;
-        } catch {
-          await supabase.from("scheduled_communications").update({
-            status: comm.attempt_count + 1 >= comm.max_attempts ? "dead_letter" : "scheduled",
-            attempt_count: comm.attempt_count + 1,
-          }).eq("id", comm.id);
-        }
-      }
-    }
 
     return NextResponse.json({
       success: true,
