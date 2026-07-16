@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check opt-out before processing
-    const isOptedOut = await checkOptOut(supabase, orgId, body.leadId,
+    const isOptedOut = await checkOptOut(supabase, orgId!, body.leadId,
       body.metadata?.email, body.metadata?.phone);
     if (isOptedOut) {
       return NextResponse.json({ success: true, optedOut: true,
