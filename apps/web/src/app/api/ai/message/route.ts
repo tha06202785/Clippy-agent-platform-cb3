@@ -47,23 +47,23 @@ async function resolveIdentity(supabase: any, orgId: string, metadata: any) {
   if (email) {
     const { data: existing } = await supabase
       .from("leads").select("id, full_name, email, phone")
-      .eq("org_id", orgId).eq("email", email).maybeSingle();
+      .eq("org_id", orgId!).eq("email", email).maybeSingle();
     if (existing) return existing;
   }
   if (phone) {
     const { data: existing } = await supabase
       .from("leads").select("id, full_name, email, phone")
-      .eq("org_id", orgId).eq("phone", phone).maybeSingle();
+      .eq("org_id", orgId!).eq("phone", phone).maybeSingle();
     if (existing) return existing;
   }
   const { data: lead } = await supabase.from("leads").insert({
-    org_id: orgId, full_name: metadata.name || null,
+    org_id: orgId!, full_name: metadata.name || null,
     email: email || null, phone: phone || null,
     source: "website", stage: "unknown",
   }).select().single();
   if (lead) {
     await supabase.from("lead_identities").insert({
-      org_id: orgId, lead_id: lead.id, channel: "website",
+      org_id: orgId!, lead_id: lead.id, channel: "website",
       email_normalized: email || null, phone_e164: phone || null,
     });
   }
@@ -74,17 +74,17 @@ async function resolveIdentity(supabase: any, orgId: string, metadata: any) {
 async function checkOptOut(supabase: any, orgId: string, leadId?: string, email?: string, phone?: string) {
   if (leadId) {
     const { data: opt } = await supabase
-      .from("opt_outs").select("id").eq("org_id", orgId).eq("lead_id", leadId).maybeSingle();
+      .from("opt_outs").select("id").eq("org_id", orgId!).eq("lead_id", leadId).maybeSingle();
     if (opt) return true;
   }
   if (email) {
     const { data: opt } = await supabase
-      .from("opt_outs").select("id").eq("org_id", orgId).eq("email", email).maybeSingle();
+      .from("opt_outs").select("id").eq("org_id", orgId!).eq("email", email).maybeSingle();
     if (opt) return true;
   }
   if (phone) {
     const { data: opt } = await supabase
-      .from("opt_outs").select("id").eq("org_id", orgId).eq("phone", phone).maybeSingle();
+      .from("opt_outs").select("id").eq("org_id", orgId!).eq("phone", phone).maybeSingle();
     if (opt) return true;
   }
   return false;
@@ -109,7 +109,7 @@ async function buildContext(supabase: any, orgId: string, leadId?: string, conve
   }
   const { data: listings } = await supabase
     .from("listings").select("id, address, price, bedrooms, bathrooms, property_type, status, features")
-    .eq("org_id", orgId).eq("status", "active").limit(10);
+    .eq("org_id", orgId!).eq("status", "active").limit(10);
   context.listings = listings || [];
   return context;
 }
@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
     // Identity resolution
     let leadId = body.leadId;
     if (!leadId && body.metadata) {
-      const resolved = await resolveIdentity(supabase, orgId, body.metadata);
+      const resolved = await resolveIdentity(supabase, orgId!, body.metadata);
       if (resolved) leadId = resolved.id;
     }
 
@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
     let conversationId = body.conversationId;
     if (!conversationId) {
       const { data: conv } = await supabase.from("conversations").insert({
-        org_id: orgId, lead_id: leadId || null,
+        org_id: orgId!, lead_id: leadId || null,
         channel: body.channel || "website", status: "active",
         lead_stage: "unknown", automation_mode: "autonomous",
       }).select().single();
@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
     }).select().single();
 
     // Build context
-    const context = await buildContext(supabase, orgId, leadId, conversationId);
+    const context = await buildContext(supabase, orgId!, leadId, conversationId);
 
     // Run AI agents
     const intent = await callLlm(INTENT_AGENT, body.message, context);
@@ -311,7 +311,7 @@ export async function POST(req: NextRequest) {
 
     // Log AI action
     await supabase.from("ai_actions").insert({
-      org_id: orgId, lead_id: leadId || null,
+      org_id: orgId!, lead_id: leadId || null,
       conversation_id: conversationId, action_type: output.nextAction,
       input_summary: body.message.substring(0, 200),
       output_summary: output.reply.substring(0, 200),
@@ -322,7 +322,7 @@ export async function POST(req: NextRequest) {
     // Create delivery attempt
     if (output.reply) {
       await supabase.from("message_delivery_attempts").insert({
-        org_id: orgId, channel: body.channel || "website",
+        org_id: orgId!, channel: body.channel || "website",
         status: "sent", attempt_count: 1,
         idempotency_key: "msg_" + conversationId + "_" + Date.now(),
         delivered_at: new Date().toISOString(),
