@@ -128,8 +128,6 @@ export async function GET(req: NextRequest) {
         escalations_count: escCount,
       },
     });
-  } catch (error: any) {
-    console.error("Daily cron error:", error);
     // 3. Process scheduled communications (reminders, follow-ups)
     const { data: comms } = await supabase
       .from("scheduled_communications")
@@ -163,6 +161,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    return NextResponse.json({
+      success: true,
+      followups_processed: processed,
+      comms_processed: commsProcessed,
+      briefing: {
+        conversations_handled: total,
+        hot_leads_identified: hotCount,
+        escalations_count: escCount,
+      },
+    });
+  } catch (error: any) {
+    console.error("Daily cron error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
