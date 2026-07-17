@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
                 externalConversationId: pageScopedSenderId,
                 leadId,
                 conversationId: aiData.conversationId,
-                orgId,
+                orgId: orgId || undefined,
               }
             );
 
