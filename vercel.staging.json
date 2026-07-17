@@ -1,0 +1,19 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "staging": true,
+      "main": false
+    },
+    "productionBranch": "main",
+    "previewBranches": ["staging", "develop"]
+  },
+  "crons": [],
+  "build": {
+    "env": {
+      "NODE_ENV": "staging"
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "https://clippy-staging.vercel.app"
+  }
+}
