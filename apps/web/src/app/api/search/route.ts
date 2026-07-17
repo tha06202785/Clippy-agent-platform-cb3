@@ -21,11 +21,11 @@ export async function GET(req: NextRequest) {
     const [leadsRes, listingsRes] = await Promise.all([
       supabase.from("leads").select("id, full_name, email, phone, stage")
         .eq("org_id", orgId)
-        .or()
+        .or("full_name.ilike." + searchPattern + ",email.ilike." + searchPattern + ",phone.ilike." + searchPattern)
         .limit(10),
       supabase.from("listings").select("id, address, price, status, property_type")
         .eq("org_id", orgId)
-        .or()
+        .or("address.ilike." + searchPattern + ",property_type.ilike." + searchPattern)
         .limit(10),
     ]);
 
