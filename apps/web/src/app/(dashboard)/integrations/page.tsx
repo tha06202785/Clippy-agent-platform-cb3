@@ -15,7 +15,7 @@ export default function IntegrationsPage() {
   const [connected, setConnected] = useState<string[]>([]);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError]
-  const [success, setSuccess] = useState<string | null>(null); = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Check URL params for OAuth callback results
   useEffect(() => {

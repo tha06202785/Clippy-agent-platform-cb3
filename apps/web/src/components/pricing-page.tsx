@@ -8,57 +8,57 @@ const plans = [
   { id: "free", name: "Free", price: 0, desc: "Try before you buy", badge: null,
     features: [
       { text: "30 AI replies / month", included: true },
-      { text: "3 listings", included: true },
+      { text: "5 listings", included: true },
       { text: "Basic inbox", included: true },
       { text: "Morning Briefing", included: true },
-      { text: "Unlimited AI replies", included: false },
-      { text: "WhatsApp / Gmail", included: false },
+      { text: "WhatsApp / Gmail / Calendar", included: false },
+      { text: "AI Copilot", included: false },
       { text: "Team features", included: false },
       { text: "Compliance monitoring", included: false },
     ], cta: "Get started", popular: false, audience: "individual" },
-  { id: "solo", name: "Solo", price: 79, desc: "For individual agents", badge: "Most popular",
+  { id: "starter", name: "Starter", price: 29, desc: "For agents getting started", badge: null,
+    features: [
+      { text: "500 AI replies / month", included: true },
+      { text: "50 listings", included: true },
+      { text: "WhatsApp / Gmail / Calendar", included: true },
+      { text: "AI Copilot", included: true },
+      { text: "Morning Briefing", included: true },
+      { text: "Email support", included: true },
+      { text: "Team features", included: false },
+      { text: "Compliance monitoring", included: false },
+    ], cta: "Start free trial", popular: false, audience: "individual" },
+  { id: "team", name: "Team", price: 79, desc: "For teams of 2–5 agents", badge: "Most popular", isPerAgent: true,
     features: [
       { text: "Unlimited AI replies", included: true },
       { text: "Unlimited listings", included: true },
-      { text: "Full inbox + deals", included: true },
-      { text: "Morning Briefing", included: true },
-      { text: "Quick Actions + Voice", included: true },
-      { text: "WhatsApp / Gmail / Calendar", included: true },
-      { text: "AI Copilot", included: true },
-      { text: "Priority support", included: true },
-    ], cta: "Start free trial", popular: true, audience: "individual" },
-  { id: "pro", name: "Pro", price: 149, desc: "For high-volume agents", badge: null,
-    features: [
-      { text: "Everything in Solo", included: true },
-      { text: "Advanced automations", included: true },
-      { text: "API access", included: true },
-      { text: "Custom AI training", included: true },
-      { text: "Facebook / Domain integrations", included: true },
-      { text: "Bulk messaging", included: true },
-      { text: "Advanced reporting", included: true },
-      { text: "Phone support", included: true },
-    ], cta: "Start free trial", popular: false, audience: "individual" },
-  { id: "team", name: "Team", price: 149, desc: "For 2-10 agents", badge: null, isPerAgent: true,
-    features: [
-      { text: "Everything in Pro", included: true },
       { text: "Shared lead pool", included: true },
       { text: "Team inbox", included: true },
       { text: "Lead routing", included: true },
       { text: "Role-based access", included: true },
-      { text: "Team reporting", included: true },
-      { text: "Office management", included: true },
-      { text: "Centralized billing", included: true },
-    ], cta: "Start free trial", popular: false, audience: "enterprise" },
-  { id: "enterprise", name: "Enterprise", price: 999, desc: "For brokerages 10+ agents", badge: "For offices",
+      { text: "Compliance monitoring", included: true },
+      { text: "Priority support", included: true },
+    ], cta: "Start free trial", popular: true, audience: "enterprise" },
+  { id: "office", name: "Office", price: 149, desc: "For offices of 5–15 agents", badge: null, isPerAgent: true,
     features: [
       { text: "Everything in Team", included: true },
-      { text: "Compliance monitoring", included: true },
-      { text: "Executive dashboard", included: true },
-      { text: "White-label branding", included: true },
+      { text: "AI Copilot per agent", included: true },
+      { text: "API access", included: true },
+      { text: "Advanced automations", included: true },
+      { text: "Custom AI training", included: true },
+      { text: "Bulk messaging", included: true },
       { text: "Board report PDF", included: true },
+      { text: "Priority support", included: true },
+    ], cta: "Start free trial", popular: false, audience: "enterprise" },
+  { id: "agency", name: "Agency", price: 199, desc: "For brokerages 15+ agents", badge: null, isPerAgent: true,
+    features: [
+      { text: "Everything in Office", included: true },
+      { text: "White-label branding", included: true },
+      { text: "Executive dashboard", included: true },
       { text: "Dedicated support", included: true },
-      { text: "SLA guarantee", included: true },
       { text: "Custom integrations", included: true },
+      { text: "SLA guarantee", included: true },
+      { text: "Board report PDF", included: true },
+      { text: "Custom AI training", included: true },
     ], cta: "Contact sales", popular: false, audience: "enterprise" },
 ];
 
@@ -114,10 +114,10 @@ export function PricingPage() {
                   <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{plan.desc}</p>
                   <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold text-foreground"></span>
+                    <span className="text-3xl font-bold text-foreground">{plan.price > 0 ? "$" + price : "$" + plan.price}</span>
                     <span className="text-sm text-muted-foreground">{plan.isPerAgent ? "/agent/mo" : "/month"}</span>
                   </div>
-                  {plan.isPerAgent && <p className="text-[10px] text-muted-foreground mt-1">+ 9 per additional agent</p>}
+                  {plan.isPerAgent && <p className="text-[10px] text-muted-foreground mt-1">+ agents billed per seat</p>}
                 </div>
                 <Link href={plan.id === "enterprise" ? "/demo" : "/signup"}
                   className={cn("mt-auto flex h-10 w-full items-center justify-center rounded-lg text-sm font-semibold transition-all",
