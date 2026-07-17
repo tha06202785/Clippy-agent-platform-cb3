@@ -293,6 +293,56 @@ export default function DealsPage() {
           </table>
         </div>
       )}
+      {/* Add Deal Modal */}
+      {showAddDeal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAddDeal(false)}>
+          <div className="bg-card rounded-xl border border-border p-6 w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Add New Deal</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Property Address</label>
+                <input type="text" placeholder="123 Example St" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Price</label>
+                  <input type="text" placeholder="50,000" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Stage</label>
+                  <select className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm">
+                    <option value="inquiry">New Inquiry</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="qualified">Qualified</option>
+                    <option value="proposal">Proposal</option>
+                    <option value="negotiation">Negotiating</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Bedrooms</label>
+                  <input type="number" placeholder="3" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Bathrooms</label>
+                  <input type="number" placeholder="2" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setShowAddDeal(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-input text-sm font-semibold text-foreground hover:bg-muted transition-colors">
+                  Cancel
+                </button>
+                <button onClick={() => setShowAddDeal(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
+                  Create Deal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

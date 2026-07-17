@@ -45,10 +45,18 @@ export default function TeamPage() {
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
     setInviting(true);
-    // TODO: wire to real invite endpoint
-    setTimeout(() => {
-      setInviting(false);
-      setInviteEmail("");
+    try {
+      const res = await fetch("/api/auth/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+      });
+      if (res.ok) {
+        setMembers(prev => [...prev, { user_id: "pending", full_name: null, email: inviteEmail, phone: null, role: inviteRole, avatar_url: null, created_at: new Date().toISOString() }]);
+      }
+    } catch {}
+    setInviting(false);
+    setInviteEmail("");
       setShowInvite(false);
     }, 1000);
   };
