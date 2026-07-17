@@ -6,7 +6,6 @@ import ClippyCompliance from "@clippy/compliance";
 
 export const dynamic = "force-dynamic";
 
-// Initialize compliance system
 const clippy = new ClippyCompliance({
   jurisdiction: "australia",
   state: "VIC",
@@ -47,33 +46,18 @@ export async function POST(req: NextRequest) {
     const OLLAMA_ENDPOINT = "https://ollama.com/v1/chat/completions";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 
-    // Get the last user message for compliance pre-flight
     const lastMessage = messages[messages.length - 1]?.content || "";
-
-    // Pre-flight compliance check
-    const preFlight = clippy.preFlightCheck({ 
-      message: lastMessage, 
-      lead: {}, 
-      platform: "webchat" 
-    });
-
-    // Build system prompt with compliance master prompt
+    const preFlight = clippy.preFlightCheck({ message: lastMessage, lead: {}, platform: "webchat" });
     const systemPrompt = clippy.systemMasterPrompt() + "
 
 " + clippy.platformPrompt();
 
     const response = await fetch(OLLAMA_ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + OLLAMA_API_KEY,
-      },
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + OLLAMA_API_KEY },
       body: JSON.stringify({
         model: OLLAMA_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
         max_tokens: 4096,
         temperature: 0.8,
       }),
@@ -88,29 +72,14 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
     let reply = data.choices?.[0]?.message?.content || data.message?.content || "";
 
-    // Gate response through compliance filter
-    const gateResult = clippy.gateResponse({ 
-      response: reply, 
-      platform: "webchat",
-      replacements: { AGENT_NAME: "Clippy", AGENCY_NAME: "your agency" }
-    });
+    const gateResult = clippy.gateResponse({ response: reply, platform: "webchat", replacements: { AGENT_NAME: "Clippy", AGENCY_NAME: "your agency" } });
 
-    // If response should be blocked, return compliance warning
     if (gateResult.shouldBlock) {
-      return NextResponse.json({ 
-        error: "Response blocked by compliance filter",
-        compliance: {
-          riskLevel: gateResult.riskLevel,
-          trigger: gateResult.trigger,
-          reason: gateResult.reason
-        }
-      }, { status: 403 });
+      return NextResponse.json({ error: "Response blocked by compliance filter", compliance: { riskLevel: gateResult.riskLevel, trigger: gateResult.trigger, reason: gateResult.reason } }, { status: 403 });
     }
 
-    // Use the sanitized response
     reply = gateResult.safeResponse || reply;
 
-    // Append disclaimers if required
     if (gateResult.disclaimersApplied && gateResult.disclaimersApplied.length > 0) {
       const disclaimerText = gateResult.disclaimersApplied.map((d: any) => d.text).join("
 ");
@@ -119,15 +88,7 @@ export async function POST(req: NextRequest) {
 " + disclaimerText;
     }
 
-    return NextResponse.json({ 
-      reply,
-      compliance: {
-        riskLevel: gateResult.riskLevel,
-        disclaimersApplied: gateResult.disclaimersApplied?.length || 0,
-        shouldEscalate: gateResult.shouldEscalate,
-        agentAlert: gateResult.agentAlert
-      }
-    });
+    return NextResponse.json({ reply, compliance: { riskLevel: gateResult.riskLevel, disclaimersApplied: gateResult.disclaimersApplied?.length || 0, shouldEscalate: gateResult.shouldEscalate, agentAlert: gateResult.agentAlert } });
   } catch (error: any) {
     console.error("Copilot error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
