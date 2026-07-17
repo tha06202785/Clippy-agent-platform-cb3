@@ -35,12 +35,15 @@ export default function TeamPage() {
     ]).then(([meData, _]) => {
       // Real implementation: fetch org members via a dedicated endpoint
       // Fetch real org members
-      const membersRes = await fetch("/api/team/members");
-      const membersData = await membersRes.json();
-      if (Array.isArray(membersData)) {
-        setMembers(membersData);
-        setOrg({ name: membersData[0]?.org_name || "Your Agency", plan: "professional", member_count: membersData.length });
-      }
+      fetch("/api/team/members")
+        .then(r => r.json())
+        .then(membersData => {
+          if (Array.isArray(membersData)) {
+            setMembers(membersData);
+            setOrg({ name: membersData[0]?.org_name || "Your Agency", plan: "professional", member_count: membersData.length });
+          }
+        })
+        .catch(() => {});
       setOrg({ name: "Your Agency", plan: "professional", member_count: 1 });
     }).catch(() => {
       setMembers([]);
