@@ -15,6 +15,14 @@ export default function SlotsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ listing_id: "", starts_at: "", ends_at: "", capacity: "10", inspection_type: "open_home", location_notes: "" });
+  const [listings, setListings] = useState<Array<{id: string; address: string | null}>>([]);
+
+  useEffect(() => {
+    fetch("/api/listings")
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setListings(d); })
+      .catch(() => {});
+  }, []);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -91,8 +99,13 @@ export default function SlotsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-muted-foreground">Listing ID</label>
-              <input type="text" value={form.listing_id} onChange={e => setForm({...form, listing_id: e.target.value})}
-                placeholder="uuid" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+              <select value={form.listing_id} onChange={e => setForm({...form, listing_id: e.target.value})}
+                className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm">
+                <option value="">Select a listing...</option>
+                {listings.map(l => (
+                  <option key={l.id} value={l.id}>{l.address || l.id.substring(0, 8) + "..."}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Type</label>

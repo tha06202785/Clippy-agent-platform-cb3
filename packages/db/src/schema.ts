@@ -384,20 +384,7 @@ export const message_delivery_attempts = pgTable("message_delivery_attempts", {
 });
 
 // Inspection bookings
-export const inspection_bookings = pgTable("inspection_bookings", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
-  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
-  listing_id: uuid("listing_id").references(() => listings.id).notNull(),
-  scheduled_at: timestamp("scheduled_at").notNull(),
-  status: text("status").default("pending"),
-  attendees: integer("attendees").default(1),
-  notes: text("notes"),
-  confirmed_by_lead: boolean("confirmed_by_lead").default(false),
-  confirmed_at: timestamp("confirmed_at"),
-  created_at: timestamp("created_at").defaultNow(),
-  updated_at: timestamp("updated_at").defaultNow(),
-});
+
 
 
 // ─── RENTAL INSPECTION PIPELINE ───
