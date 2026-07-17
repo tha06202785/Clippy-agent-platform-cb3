@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
                 externalConversationId: pageScopedSenderId,
                 leadId,
                 conversationId: aiData.conversationId,
-                orgId: orgId || undefined,
+                orgId: orgId!,
               }
             );
 
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
                 deliveryResult,
                 "facebook",
                 aiData.conversationId,
-                orgId
+                orgId!
               );
             }
           }
