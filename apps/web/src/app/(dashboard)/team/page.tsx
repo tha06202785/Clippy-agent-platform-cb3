@@ -59,7 +59,6 @@ export default function TeamPage() {
     setInviteEmail("");
     setShowInvite(false);
   };
-  };
 
   const roleColors: Record<string, string> = {
     owner: "bg-amber-100 text-amber-700",
