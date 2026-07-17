@@ -112,10 +112,11 @@ export async function POST(req: NextRequest) {
 
     // Append disclaimers if required
     if (gateResult.disclaimersApplied && gateResult.disclaimersApplied.length > 0) {
+      const disclaimerText = gateResult.disclaimersApplied.map((d: any) => d.text).join("
+");
       reply = reply + "
 
-" + gateResult.disclaimersApplied.map((d: any) => d.text).join("
-");
+" + disclaimerText;
     }
 
     return NextResponse.json({ 
