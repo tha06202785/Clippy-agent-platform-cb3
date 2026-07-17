@@ -48,9 +48,7 @@ export async function POST(req: NextRequest) {
 
     const lastMessage = messages[messages.length - 1]?.content || "";
     const preFlight = clippy.preFlightCheck({ message: lastMessage, lead: {}, platform: "webchat" });
-    const systemPrompt = clippy.systemMasterPrompt() + "
-
-" + clippy.platformPrompt();
+    const systemPrompt = clippy.systemMasterPrompt() + "\n\n" + clippy.platformPrompt();
 
     const response = await fetch(OLLAMA_ENDPOINT, {
       method: "POST",
@@ -81,11 +79,8 @@ export async function POST(req: NextRequest) {
     reply = gateResult.safeResponse || reply;
 
     if (gateResult.disclaimersApplied && gateResult.disclaimersApplied.length > 0) {
-      const disclaimerText = gateResult.disclaimersApplied.map((d: any) => d.text).join("
-");
-      reply = reply + "
-
-" + disclaimerText;
+      const disclaimerText = gateResult.disclaimersApplied.map((d: any) => d.text).join("\n");
+      reply = reply + "\n\n" + disclaimerText;
     }
 
     return NextResponse.json({ reply, compliance: { riskLevel: gateResult.riskLevel, disclaimersApplied: gateResult.disclaimersApplied?.length || 0, shouldEscalate: gateResult.shouldEscalate, agentAlert: gateResult.agentAlert } });
