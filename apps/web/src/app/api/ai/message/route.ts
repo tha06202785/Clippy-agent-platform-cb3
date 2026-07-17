@@ -276,8 +276,8 @@ export async function POST(req: NextRequest) {
         escalation: rawOutput.escalation || false,
         escalationReason: rawOutput.escalationReason || null,
         sentiment: rawOutput.sentiment || "neutral",
-        scores: { qualification: 0.5, urgency: 0.5, interest: 0.5, budget: null },
-        tags: rawOutput.tags || [],
+        scores: { buyingReadiness: 0.3, likelihoodToInspect: 0.4, probabilityOfPurchase: 0.1, urgency: 0.3 },
+        // tags removed from schema
         crmUpdates: rawOutput.crmUpdates || {},
         followUp: rawOutput.followUp || null,
         compliance: rawOutput.compliance || { status: "unchecked", flags: [] },
