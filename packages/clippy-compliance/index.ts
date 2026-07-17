@@ -28,8 +28,8 @@ class ClippyCompliance {
   platform: string;
   agentName: string;
   promptsDir: string;
-  private _systemMaster: string | null;
-  private _platformPrompts: string | null;
+  private _systemMaster: string;
+  private _platformPrompts: string;
 
   constructor(config: any = {}) {
     this.jurisdiction = config.jurisdiction || "australia";
@@ -38,11 +38,12 @@ class ClippyCompliance {
     this.platform = config.platform || "whatsapp";
     this.agentName = config.agentName || "Clippy";
     this.promptsDir = path.join(__dirname, "prompts");
-    this._systemMaster = null;
-    this._platformPrompts = null;
+    this._systemMaster = "";
+    this._platformPrompts = "";
   }
 
   systemMasterPrompt(): string {
+    if (!this._systemMaster) return "";
     if (!this._systemMaster) {
       try {
         this._systemMaster = fs.readFileSync(path.join(this.promptsDir, "system-master.md"), "utf8");
@@ -54,6 +55,7 @@ class ClippyCompliance {
   }
 
   platformPrompt(): string {
+    if (!this._platformPrompts) return "";
     if (!this._platformPrompts) {
       try {
         this._platformPrompts = fs.readFileSync(path.join(this.promptsDir, "platform-prompts.md"), "utf8");
