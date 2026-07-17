@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
                   externalConversationId: from,
                   leadId,
                   conversationId: aiData.conversationId,
-                  orgId,
+                  orgId: orgId!,
                 }
               );
 
@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
                   deliveryResult,
                   "whatsapp",
                   aiData.conversationId,
-                  orgId
+                  orgId!
                 );
               }
             }
