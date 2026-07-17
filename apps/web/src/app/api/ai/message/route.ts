@@ -5,6 +5,9 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
+// Canonical automation mode — single source of truth
+export const AUTOMATION_MODE = "autonomous" as const;
+
 // Zod schema for AI output validation
 const aiOutputSchema = z.object({
   reply: z.string().min(1).max(5000),
@@ -211,7 +214,7 @@ export async function POST(req: NextRequest) {
       const { data: conv } = await supabase.from("conversations").insert({
         org_id: orgId!, lead_id: leadId || null,
         channel: body.channel || "website", status: "active",
-        lead_stage: "unknown", automation_mode: "autonomous",
+        lead_stage: "unknown", automation_mode: AUTOMATION_MODE,
       }).select().single();
       conversationId = conv?.id;
     }
@@ -244,16 +247,21 @@ export async function POST(req: NextRequest) {
 
     // Validate AI output with Zod
     const currentStage = context.lead?.stage || "unknown";
+    const compliancePassed = compliance?.passed === true;
+    const complianceFailed = compliance?.passed === false;
+    const complianceStatus: "passed" | "failed" | "unchecked" =
+      complianceFailed ? "failed" : compliancePassed ? "passed" : "unchecked";
+
     const rawOutput = {
       reply: responseResult.reply || "Thanks for your message! I will look into that and get back to you.",
       confidence: intent.confidence || 0.5,
       leadStage: stageResult.stage || currentStage,
       nextAction: intent.intent === "inspection" ? "book_inspection" :
                   intent.intent === "negotiation" || intent.intent === "complaint" ? "escalate" : "reply",
-      escalation: intent.intent === "negotiation" || intent.intent === "complaint" || compliance && compliance.passed === false,
+      escalation: intent.intent === "negotiation" || intent.intent === "complaint" || complianceFailed,
       escalationReason: intent.intent === "negotiation" ? "Negotiation detected" :
                        intent.intent === "complaint" ? "Complaint detected" :
-                       compliance && compliance.passed === false ? "Compliance check failed" : undefined,
+                       complianceFailed ? "Compliance check failed" : undefined,
       sentiment: intent.intent === "complaint" ? "negative" : intent.intent === "inspection" ? "positive" : "neutral",
       scores: {
         buyingReadiness: stageResult.stage === "hot" ? 0.85 : stageResult.stage === "warm" ? 0.6 : 0.3,
@@ -261,24 +269,16 @@ export async function POST(req: NextRequest) {
         probabilityOfPurchase: stageResult.stage === "hot" ? 0.7 : stageResult.stage === "warm" ? 0.4 : 0.1,
         urgency: stageResult.stage === "hot" ? 0.8 : 0.3,
       },
-      compliance: { status: compliance && compliance.passed === true ? "passed" : (compliance && compliance.passed === false ? "failed" : "unchecked"), flags: compliance?.issues || [] },
+      compliance: { status: complianceStatus, flags: compliance?.issues || [] },
     };
 
     const validation = aiOutputSchema.safeParse(rawOutput);
     let output;
     if (!validation.success) {
-      console.error("AI output validation failed:", validation.error.format());
-      output = {
-        reply: rawOutput.reply || responseResult.reply || "",
-        confidence: rawOutput.confidence || 0.5,
-        leadStage: rawOutput.leadStage || "unknown",
-        nextAction: rawOutput.nextAction || "reply",
-        escalation: rawOutput.escalation || false,
-        escalationReason: rawOutput.escalationReason || null,
-        sentiment: rawOutput.sentiment || "neutral",
-        scores: rawOutput.scores || { buyingReadiness: 0.3, likelihoodToInspect: 0.4, probabilityOfPurchase: 0.1, urgency: 0.3 },
-        compliance: rawOutput.compliance || { status: "unchecked", flags: [] },
-      };
+      // Malformed LLM output — log but still return the best-effort reply.
+      // Never silently discard the reply; CRM fields may be incomplete.
+      console.error("AI output validation failed:", validation.error.format(), "\nRaw output:", JSON.stringify(rawOutput));
+      output = rawOutput;
     } else {
       output = validation.data;
     }

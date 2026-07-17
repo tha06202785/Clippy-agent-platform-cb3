@@ -114,7 +114,7 @@ export function PricingPage() {
                   <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{plan.desc}</p>
                   <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold text-foreground">{plan.price > 0 ? "$" + price : "$" + plan.price}</span>
+                    <span className="text-3xl font-bold text-foreground">{plan.price > 0 ? "$" + price : "Free"}</span>
                     <span className="text-sm text-muted-foreground">{plan.isPerAgent ? "/agent/mo" : "/month"}</span>
                   </div>
                   {plan.isPerAgent && <p className="text-[10px] text-muted-foreground mt-1">+ agents billed per seat</p>}

@@ -10,12 +10,18 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-04-10",
 });
 
-const planPrices: Record<string, string> = {
-  solo: process.env.STRIPE_SOLO_PRICE_ID!,
-  professional: process.env.STRIPE_PROFESSIONAL_PRICE_ID!,
-  team: process.env.STRIPE_TEAM_PRICE_ID!,
-  enterprise: process.env.STRIPE_ENTERPRISE_PRICE_ID!,
+const planPrices: Record<string, string | undefined> = {
+  solo:         process.env.STRIPE_SOLO_PRICE_ID,
+  professional: process.env.STRIPE_PROFESSIONAL_PRICE_ID,
+  team:         process.env.STRIPE_TEAM_PRICE_ID,
+  enterprise:   process.env.STRIPE_ENTERPRISE_PRICE_ID,
 };
+
+// Align with canonical PlanId enum in packages/shared/schemas.ts
+export type SupportedPlan = "solo" | "professional" | "team" | "enterprise";
+
+// Stripe only supports paid plans — free has no Stripe product
+export const STRIPE_PLANS: SupportedPlan[] = ["solo", "professional", "team", "enterprise"];
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();

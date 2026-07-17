@@ -22,9 +22,9 @@ interface Invoice {
 
 const PLAN_LABELS: Record<string, string> = {
   free: "Free",
-  starter: "Starter",
+  solo: "Solo",
   professional: "Professional",
-  agency: "Agency",
+  team: "Team",
   enterprise: "Enterprise",
   past_due: "Past Due",
 };

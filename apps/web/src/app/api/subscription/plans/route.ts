@@ -2,20 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { PLANS } from "../../../../../../../packages/shared/src/schemas";
 
 export const dynamic = "force-dynamic";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-04-10",
 });
-
-const PLAN_LABELS: Record<string, string> = {
-  starter: "Starter",
-  team: "Team",
-  office: "Office",
-  agency: "Agency",
-  professional: "Professional",
-};
 
 export async function GET(req: NextRequest) {
   const ip = await getClientIp();
@@ -24,81 +17,90 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
+  // Build plans response from canonical PLANS definition (packages/shared)
   const plans = [
     {
       id: "free",
-      name: "Free",
-      price: 0,
+      name: PLANS.free.name,
+      price: PLANS.free.price,
+      priceLabel: PLANS.free.priceLabel,
       features: ["30 AI replies/month", "5 listings", "Basic inbox", "Morning Briefing"],
     },
     {
-      id: "starter",
-      name: "Starter",
-      price: 29,
-      priceId: process.env.STRIPE_STARTER_PRICE_ID,
+      id: "solo",
+      name: PLANS.solo.name,
+      price: PLANS.solo.price,
+      priceLabel: PLANS.solo.priceLabel,
+      priceId: process.env.STRIPE_SOLO_PRICE_ID,
       features: [
         "500 AI replies/month",
         "50 listings",
         "WhatsApp / Gmail / Calendar",
         "AI Copilot",
         "Morning Briefing",
+        "Email support",
       ],
     },
     {
-      id: "team",
-      name: "Team",
-      price: 79,
-      priceId: process.env.STRIPE_TEAM_PRICE_ID,
-      isPerAgent: true,
+      id: "professional",
+      name: PLANS.professional.name,
+      price: PLANS.professional.price,
+      priceLabel: PLANS.professional.priceLabel,
+      priceId: process.env.STRIPE_PROFESSIONAL_PRICE_ID,
+      isPerAgent: false,
       features: [
         "Unlimited AI replies",
         "Unlimited listings",
         "All integrations",
+        "AI Copilot",
+        "Morning Briefing",
+        "Compliance monitoring",
+        "Priority support",
+      ],
+    },
+    {
+      id: "team",
+      name: PLANS.team.name,
+      price: PLANS.team.price,
+      priceLabel: PLANS.team.priceLabel,
+      priceId: process.env.STRIPE_TEAM_PRICE_ID,
+      isPerAgent: true,
+      features: [
+        "Everything in Professional",
         "Shared lead pool",
         "Team inbox",
         "Lead routing",
         "Role-based access",
-        "Compliance monitoring",
-      ],
-    },
-    {
-      id: "office",
-      name: "Office",
-      price: 149,
-      priceId: process.env.STRIPE_OFFICE_PRICE_ID,
-      isPerAgent: true,
-      features: [
-        "Everything in Team",
-        "AI Copilot per agent",
-        "API access",
         "Advanced automations",
-        "Custom AI training",
         "Bulk messaging",
         "Priority support",
       ],
     },
     {
-      id: "agency",
-      name: "Agency",
-      price: 199,
-      priceId: process.env.STRIPE_AGENCY_PRICE_ID,
+      id: "enterprise",
+      name: PLANS.enterprise.name,
+      price: PLANS.enterprise.price,
+      priceLabel: PLANS.enterprise.priceLabel,
+      priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID,
       isPerAgent: true,
       features: [
-        "Everything in Office",
+        "Everything in Team",
         "White-label branding",
         "Executive dashboard",
         "Board report PDF",
-        "Dedicated support",
+        "Custom AI training",
         "Custom integrations",
+        "Dedicated support",
+        "SLA guarantee",
       ],
     },
   ];
 
-  // If authenticated, also fetch real invoices from Stripe
+  // Fetch real invoices from Stripe for authenticated users
+  let invoices: any[] = [];
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    let invoices: any[] = [];
 
     if (user) {
       const { data: orgMember } = await supabase
@@ -115,29 +117,26 @@ export async function GET(req: NextRequest) {
           .single();
 
         if (org?.stripe_customer_id) {
-          try {
-            const stripeInvoices = await stripe.invoices.list({
-              customer: org.stripe_customer_id,
-              limit: 20,
-            });
-            invoices = stripeInvoices.data.map((inv) => ({
-              id: inv.id,
-              created: inv.created,
-              hosted_invoice_url: inv.hosted_invoice_url,
-              amount_paid: inv.amount_paid,
-              currency: inv.currency,
-              status: inv.status,
-              lines: inv.lines,
-            }));
-          } catch {
-            // Non-fatal — return plans without invoices
-          }
+          const stripeInvoices = await stripe.invoices.list({
+            customer: org.stripe_customer_id,
+            limit: 20,
+          });
+          invoices = stripeInvoices.data.map((inv) => ({
+            id: inv.id,
+            created: inv.created,
+            hosted_invoice_url: inv.hosted_invoice_url,
+            amount_paid: inv.amount_paid,
+            currency: inv.currency,
+            status: inv.status,
+            lines: inv.lines,
+          }));
         }
       }
     }
-
-    return NextResponse.json({ plans, invoices });
-  } catch {
-    return NextResponse.json({ plans, invoices: [] });
+  } catch (err) {
+    console.error("Failed to fetch Stripe invoices:", err);
+    // Non-fatal — return plans without invoices
   }
+
+  return NextResponse.json({ plans, invoices });
 }
