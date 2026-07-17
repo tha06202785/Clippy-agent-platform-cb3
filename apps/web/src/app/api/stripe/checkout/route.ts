@@ -21,7 +21,7 @@ const planPrices: Record<string, string | undefined> = {
 export type SupportedPlan = "solo" | "professional" | "team" | "enterprise";
 
 // Stripe only supports paid plans — free has no Stripe product
-export const STRIPE_PLANS: SupportedPlan[] = ["solo", "professional", "team", "enterprise"];
+const STRIPE_PLANS: SupportedPlan[] = ["solo", "professional", "team", "enterprise"];
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
