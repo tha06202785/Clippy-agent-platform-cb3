@@ -20,7 +20,7 @@ import { QueryProvider } from "@/components/query-provider";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Sparkles },
-  { href: "/inbox", label: "Inbox", icon: Inbox, badge: unreadCount > 0 ? String(unreadCount) : undefined },
+  { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/deals", label: "Deals", icon: FileText },
   { href: "/copilot", label: "AI Copilot", icon: Bot },
   { href: "/briefing", label: "Briefing", icon: FileText },
