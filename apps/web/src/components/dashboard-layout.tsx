@@ -18,7 +18,9 @@ import { PostHogProvider } from "@/components/posthog-provider";
 import { PostHogPageView } from "@/components/posthog-pageview";
 import { QueryProvider } from "@/components/query-provider";
 
-const navItems = [
+type NavItem = { href: string; label: string; icon: any; badge?: string };
+
+const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Sparkles },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/deals", label: "Deals", icon: FileText },
