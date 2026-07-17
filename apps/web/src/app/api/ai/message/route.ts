@@ -250,10 +250,10 @@ export async function POST(req: NextRequest) {
       leadStage: stageResult.stage || currentStage,
       nextAction: intent.intent === "inspection" ? "book_inspection" :
                   intent.intent === "negotiation" || intent.intent === "complaint" ? "escalate" : "reply",
-      escalation: intent.intent === "negotiation" || intent.intent === "complaint" || compliance.passed === false,
+      escalation: intent.intent === "negotiation" || intent.intent === "complaint" || compliance?.passed === false,
       escalationReason: intent.intent === "negotiation" ? "Negotiation detected" :
                        intent.intent === "complaint" ? "Complaint detected" :
-                       compliance.passed === false ? "Compliance check failed" : undefined,
+                       compliance?.passed === false ? "Compliance check failed" : undefined,
       sentiment: intent.intent === "complaint" ? "negative" : intent.intent === "inspection" ? "positive" : "neutral",
       scores: {
         buyingReadiness: stageResult.stage === "hot" ? 0.85 : stageResult.stage === "warm" ? 0.6 : 0.3,
@@ -261,7 +261,7 @@ export async function POST(req: NextRequest) {
         probabilityOfPurchase: stageResult.stage === "hot" ? 0.7 : stageResult.stage === "warm" ? 0.4 : 0.1,
         urgency: stageResult.stage === "hot" ? 0.8 : 0.3,
       },
-      compliance: { status: compliance.passed ? "passed" : "failed", flags: compliance.issues || [] },
+      compliance: { status: compliance?.passed === true ? "passed" : "failed", flags: compliance?.issues || [] },
     };
 
     const validation = aiOutputSchema.safeParse(rawOutput);
