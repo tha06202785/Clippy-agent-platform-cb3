@@ -272,14 +272,11 @@ export async function POST(req: NextRequest) {
         reply: rawOutput.reply || responseResult.reply || "",
         confidence: rawOutput.confidence || 0.5,
         leadStage: rawOutput.leadStage || "unknown",
-        nextAction: rawOutput.nextAction || "monitor",
+        nextAction: rawOutput.nextAction || "reply",
         escalation: rawOutput.escalation || false,
         escalationReason: rawOutput.escalationReason || null,
         sentiment: rawOutput.sentiment || "neutral",
-        scores: { buyingReadiness: 0.3, likelihoodToInspect: 0.4, probabilityOfPurchase: 0.1, urgency: 0.3 },
-        // tags removed from schema
-        crmUpdates: rawOutput.crmUpdates || {},
-        followUp: rawOutput.followUp || null,
+        scores: rawOutput.scores || { buyingReadiness: 0.3, likelihoodToInspect: 0.4, probabilityOfPurchase: 0.1, urgency: 0.3 },
         compliance: rawOutput.compliance || { status: "unchecked", flags: [] },
       };
     } else {
