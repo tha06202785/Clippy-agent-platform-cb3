@@ -8,13 +8,13 @@ const integrations = [
   { id: "gmail", name: "Gmail", desc: "Read and send emails", icon: Mail, color: "bg-red-500", oauthPath: "/api/integrations/google" },
   { id: "calendar", name: "Google Calendar", desc: "Schedule tours", icon: Calendar, color: "bg-blue-600", oauthPath: "/api/integrations/google" },
   { id: "facebook", name: "Facebook & Instagram", desc: "Import leads, reply via Messenger", icon: Facebook, color: "bg-blue-600", oauthPath: "/api/integrations/facebook" },
-  { id: "whatsapp_cli", name: "WhatsApp", desc: "Connect your WhatsApp Business number", icon: MessageCircle, color: "bg-emerald-500", oauthPath: "api.whatsapp.com/send?phone=" },
+  { id: "whatsapp", name: "WhatsApp", desc: "Connect your WhatsApp Business number", icon: MessageCircle, color: "bg-emerald-500", oauthPath: null },
 ];
 
 export default function IntegrationsPage() {
   const [connected, setConnected] = useState<string[]>([]);
   const [connecting, setConnecting] = useState<string | null>(null);
-  const [error, setError]
+  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   // Check URL params for OAuth callback results

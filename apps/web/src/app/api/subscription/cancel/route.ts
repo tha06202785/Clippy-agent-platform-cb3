@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     await supabase
       .from("orgs")
-      .update({ plan_id: "free", stripe_subscription_id: null })
+      .update({ plan: "free", stripe_subscription_id: null })
       .eq("id", orgMember.org_id);
 
     return NextResponse.json({ success: true, message: "Subscription cancelled" });

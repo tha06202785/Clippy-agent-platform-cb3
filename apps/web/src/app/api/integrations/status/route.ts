@@ -23,7 +23,7 @@ export async function GET() {
 
     const { data: integrations } = await supabase
       .from("integrations")
-      .select("provider, status, connected_at")
+      .select("provider, status, connected_at, settings_json")
       .eq("org_id", orgMember.org_id);
 
     return NextResponse.json(integrations || []);
