@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
           await supabase
             .from("orgs")
             .update({
-              plan_id: plan,
+              plan: plan,
               stripe_customer_id: session.customer as string,
               stripe_subscription_id: session.subscription as string,
             })
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
           await supabase
             .from("orgs")
             .update({
-              plan_id: "free",
+              plan: "free",
               stripe_subscription_id: null,
             })
             .eq("stripe_customer_id", customerId);
@@ -69,9 +69,10 @@ export async function POST(req: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
 
+        // Mark past_due but don't downgrade yet — Stripe retries before final failure
         await supabase
           .from("orgs")
-          .update({ plan_id: "free" })
+          .update({ plan: "past_due" })
           .eq("stripe_customer_id", customerId);
         break;
       }

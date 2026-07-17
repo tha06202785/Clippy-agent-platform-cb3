@@ -8,13 +8,14 @@ const integrations = [
   { id: "gmail", name: "Gmail", desc: "Read and send emails", icon: Mail, color: "bg-red-500", oauthPath: "/api/integrations/google" },
   { id: "calendar", name: "Google Calendar", desc: "Schedule tours", icon: Calendar, color: "bg-blue-600", oauthPath: "/api/integrations/google" },
   { id: "facebook", name: "Facebook & Instagram", desc: "Import leads, reply via Messenger", icon: Facebook, color: "bg-blue-600", oauthPath: "/api/integrations/facebook" },
-  { id: "whatsapp", name: "WhatsApp", desc: "Send and receive messages", icon: MessageCircle, color: "bg-emerald-500", oauthPath: null },
+  { id: "whatsapp_cli", name: "WhatsApp", desc: "Connect your WhatsApp Business number", icon: MessageCircle, color: "bg-emerald-500", oauthPath: "api.whatsapp.com/send?phone=" },
 ];
 
 export default function IntegrationsPage() {
   const [connected, setConnected] = useState<string[]>([]);
   const [connecting, setConnecting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]
+  const [success, setSuccess] = useState<string | null>(null); = useState<string | null>(null);
 
   // Check URL params for OAuth callback results
   useEffect(() => {
@@ -53,8 +54,12 @@ export default function IntegrationsPage() {
       setConnecting(id);
       window.location.href = integration.oauthPath;
     } else {
-      // WhatsApp needs concierge setup
-      setError("WhatsApp requires manual setup. Please contact support@clippy.ai to get connected.");
+      // WhatsApp setup
+      const phone = prompt("Enter your WhatsApp Business number (e.g. 61412345678):");
+      if (phone) {
+        window.open("https://wa.me/" + phone.replace(/[^0-9]/g, ""), "_blank");
+        setSuccess("WhatsApp configured! Messages will be delivered to this number.");
+      }
     }
   };
 

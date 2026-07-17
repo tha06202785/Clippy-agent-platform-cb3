@@ -41,6 +41,11 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAddLead, setShowAddLead] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ leads: any[]; deals: any[] }>({ leads: [], deals: [] });
+  const [searching, setSearching] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  let searchTimer: ReturnType<typeof setTimeout>;
   const [newLead, setNewLead] = useState({ full_name: "", email: "", phone: "" });
   const [addingLead, setAddingLead] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -140,8 +145,52 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
             <div className="relative max-w-md w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input type="text" placeholder="Search leads, deals, or anything..."
+                value={searchQuery} onChange={e => {
+                  setSearchQuery(e.target.value);
+                  if (searchTimer) clearTimeout(searchTimer);
+                  if (e.target.value.length < 2) { setSearchResults({ leads: [], deals: [] }); setShowSearch(false); return; }
+                  searchTimer = setTimeout(async () => {
+                    setSearching(true);
+                    try {
+                      const res = await fetch("/api/search?q=" + encodeURIComponent(e.target.value));
+                      const data = await res.json();
+                      setSearchResults(data);
+                      setShowSearch(true);
+                    } catch {}
+                    setSearching(false);
+                  }, 300);
+                }}
+                onFocus={() => searchResults.leads.length + searchResults.deals.length > 0 && setShowSearch(true)}
+                onBlur={() => setTimeout(() => setShowSearch(false), 200)}
+                onKeyDown={e => e.key === "Escape" && setShowSearch(false)}
                 className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
+            {showSearch && (searchResults.leads.length > 0 || searchResults.deals.length > 0) && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-50 max-h-80 overflow-y-auto">
+                {searchResults.leads.length > 0 && (
+                  <div className="p-2">
+                    <p className="text-xs font-semibold text-muted-foreground px-2 py-1 uppercase">Leads</p>
+                    {searchResults.leads.map((l: any) => (
+                      <a key={l.id} href={"/inbox?id=" + l.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{l.full_name?.[0] || "?"}</div>
+                        <div><p className="text-sm font-medium text-foreground">{l.full_name || "Unknown"}</p><p className="text-xs text-muted-foreground">{l.email || l.stage}</p></div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {searchResults.deals.length > 0 && (
+                  <div className="p-2 border-t border-border">
+                    <p className="text-xs font-semibold text-muted-foreground px-2 py-1 uppercase">Deals</p>
+                    {searchResults.deals.map((d: any) => (
+                      <a key={d.id} href={"/property/" + d.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors">
+                        <div className="w-6 h-6 rounded-full bg-amber/10 flex items-center justify-center text-xs font-bold text-amber-600">$</div>
+                        <div><p className="text-sm font-medium text-foreground">{d.address || "Untitled"}</p><p className="text-xs text-muted-foreground">{d.price || d.property_type}</p></div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setShowAddLead(true)}
