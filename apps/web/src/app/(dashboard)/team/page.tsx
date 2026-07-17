@@ -34,8 +34,13 @@ export default function TeamPage() {
       fetch("/api/integrations/status").then(r => r.json()).catch(() => []),
     ]).then(([meData, _]) => {
       // Real implementation: fetch org members via a dedicated endpoint
-      // For now show placeholder based on current user
-      setMembers([]);
+      // Fetch real org members
+      const membersRes = await fetch("/api/team/members");
+      const membersData = await membersRes.json();
+      if (Array.isArray(membersData)) {
+        setMembers(membersData);
+        setOrg({ name: membersData[0]?.org_name || "Your Agency", plan: "professional", member_count: membersData.length });
+      }
       setOrg({ name: "Your Agency", plan: "professional", member_count: 1 });
     }).catch(() => {
       setMembers([]);

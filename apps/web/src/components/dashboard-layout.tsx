@@ -20,7 +20,7 @@ import { QueryProvider } from "@/components/query-provider";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Sparkles },
-  { href: "/inbox", label: "Inbox", icon: Inbox, badge: "3" },
+  { href: "/inbox", label: "Inbox", icon: Inbox, badge: unreadCount > 0 ? String(unreadCount) : undefined },
   { href: "/deals", label: "Deals", icon: FileText },
   { href: "/copilot", label: "AI Copilot", icon: Bot },
   { href: "/briefing", label: "Briefing", icon: FileText },
@@ -41,6 +41,15 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAddLead, setShowAddLead] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread conversation count
+  useEffect(() => {
+    fetch("/api/conversations/unread")
+      .then(r => r.json())
+      .then(data => setUnreadCount(data.count || 0))
+      .catch(() => setUnreadCount(0));
+  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{ leads: any[]; deals: any[] }>({ leads: [], deals: [] });
   const [searching, setSearching] = useState(false);

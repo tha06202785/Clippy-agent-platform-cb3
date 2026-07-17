@@ -110,7 +110,13 @@ export async function GET(req: NextRequest) {
 
     // Save summary
     await supabase.from("ai_summaries").insert({
-      org_id: "default",
+      // Get first org for the briefing (single-tenant for now)
+      const { data: orgData } = await supabase.from("orgs").select("id").limit(1).single();
+      if (!orgData) {
+        console.warn("No org found for daily briefing, skipping");
+        return NextResponse.json({ skipped: "no org" });
+      }
+      org_id: orgData.id,
       date: today.toISOString(),
       conversations_handled: total,
       inspections_booked: 0,
