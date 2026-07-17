@@ -57,8 +57,8 @@ export default function TeamPage() {
     } catch {}
     setInviting(false);
     setInviteEmail("");
-      setShowInvite(false);
-    }, 1000);
+    setShowInvite(false);
+  };
   };
 
   const roleColors: Record<string, string> = {
