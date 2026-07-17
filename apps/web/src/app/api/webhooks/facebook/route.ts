@@ -61,21 +61,21 @@ export async function POST(req: NextRequest) {
         : null;
 
       // Fallback: use the first org if single-tenant
-      if (!resolvedOrgId) {
-        const { data: orgs } = await supabase.from("orgs").select("id").limit(1);
-        if (!orgs || orgs.length === 0) {
+      let orgId = resolvedOrgId;
+      if (!orgId) {
+        const { data: fallbackOrgs } = await supabase.from("orgs").select("id").limit(1);
+        if (!fallbackOrgs || fallbackOrgs.length === 0) {
           console.warn("Facebook webhook: no org found, skipping");
           continue;
         }
-        if (orgs.length > 1) {
+        if (fallbackOrgs.length > 1) {
           console.error(
             "Facebook webhook: multiple orgs found, cannot route to default. Setup required."
           );
           continue;
         }
+        orgId = fallbackOrgs[0].id;
       }
-
-      const orgId = resolvedOrgId || orgs![0].id;
 
       for (const event of messaging) {
         const senderId = event.sender?.id;
