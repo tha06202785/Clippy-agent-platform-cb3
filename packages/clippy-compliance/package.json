@@ -1,0 +1,13 @@
+{
+  "name": "@clippy/compliance",
+  "version": "1.0.0",
+  "description": "Clippy AI Compliance System for Australian Real Estate",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": ["compliance", "real-estate", "australia", "ai", "guardrails"],
+  "author": "Clippy",
+  "license": "MIT"
+}
