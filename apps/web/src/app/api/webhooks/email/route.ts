@@ -26,6 +26,17 @@ export async function POST(req: NextRequest) {
     const emailMatch = from.match(/<([^>]+)>/) || from.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
     const email = emailMatch ? emailMatch[1] || emailMatch[0] : from;
 
+    // Resolve org from email
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("org_id")
+      .eq("channel", "email")
+      .neq("settings_json", null)
+      .limit(1)
+      .single();
+    const orgId = integration?.org_id || (await supabase.from("orgs").select("id").limit(1).single()).data?.id;
+    if (!orgId) return NextResponse.json({ error: "No org found" }, { status: 400 });
+
     // Save raw webhook event
     await supabase.from("webhook_events").insert({
       channel: "email",
@@ -46,13 +57,13 @@ export async function POST(req: NextRequest) {
 
     if (!leadId) {
       const { data: lead } = await supabase.from("leads").insert({
-        org_id: "default", full_name: null,
+        org_id: orgId, full_name: null,
         email: email, source: "email", stage: "unknown",
       }).select().single();
       leadId = lead?.id;
       if (leadId) {
         await supabase.from("lead_identities").insert({
-          org_id: "default", lead_id: leadId,
+          org_id: orgId, lead_id: leadId,
           channel: "email", email_normalized: email.toLowerCase(),
         });
       }
@@ -63,7 +74,7 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orgId: "default", channel: "email",
+          orgId: orgId, channel: "email",
           leadId, message: text,
           metadata: { subject, email },
           externalConversationId: email,
@@ -76,11 +87,11 @@ export async function POST(req: NextRequest) {
           subject: "Re: " + (subject || "Your enquiry"),
           externalConversationId: email,
           leadId, conversationId: aiData.conversationId,
-          orgId: "default",
+          orgId: orgId,
         });
 
         if (aiData.conversationId) {
-          await trackDelivery(supabase, deliveryResult, "email", aiData.conversationId, "default");
+          await trackDelivery(supabase, deliveryResult, "email", aiData.conversationId, orgId);
         }
       }
     }

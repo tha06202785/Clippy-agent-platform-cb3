@@ -11,10 +11,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 const planPrices: Record<string, string> = {
-  starter: process.env.STRIPE_STARTER_PRICE_ID!,
+  solo: process.env.STRIPE_SOLO_PRICE_ID!,
+  professional: process.env.STRIPE_PROFESSIONAL_PRICE_ID!,
   team: process.env.STRIPE_TEAM_PRICE_ID!,
-  office: process.env.STRIPE_OFFICE_PRICE_ID!,
-  agency: process.env.STRIPE_AGENCY_PRICE_ID!,
+  enterprise: process.env.STRIPE_ENTERPRISE_PRICE_ID!,
 };
 
 export async function POST(req: NextRequest) {

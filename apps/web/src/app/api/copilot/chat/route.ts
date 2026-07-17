@@ -30,7 +30,10 @@ export async function POST(req: NextRequest) {
     }
     const { messages } = validation.data!;
 
-    const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY!;
+    const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
+    if (!OLLAMA_API_KEY) {
+      return NextResponse.json({ error: "AI service not configured. Contact support." }, { status: 503 });
+    }
     const OLLAMA_ENDPOINT = "https://ollama.com/v1/chat/completions";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
 

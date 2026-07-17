@@ -250,10 +250,10 @@ export async function POST(req: NextRequest) {
       leadStage: stageResult.stage || currentStage,
       nextAction: intent.intent === "inspection" ? "book_inspection" :
                   intent.intent === "negotiation" || intent.intent === "complaint" ? "escalate" : "reply",
-      escalation: intent.intent === "negotiation" || intent.intent === "complaint" || compliance?.passed === false,
+      escalation: intent.intent === "negotiation" || intent.intent === "complaint" || compliance && compliance.passed === false,
       escalationReason: intent.intent === "negotiation" ? "Negotiation detected" :
                        intent.intent === "complaint" ? "Complaint detected" :
-                       compliance?.passed === false ? "Compliance check failed" : undefined,
+                       compliance && compliance.passed === false ? "Compliance check failed" : undefined,
       sentiment: intent.intent === "complaint" ? "negative" : intent.intent === "inspection" ? "positive" : "neutral",
       scores: {
         buyingReadiness: stageResult.stage === "hot" ? 0.85 : stageResult.stage === "warm" ? 0.6 : 0.3,
@@ -261,14 +261,30 @@ export async function POST(req: NextRequest) {
         probabilityOfPurchase: stageResult.stage === "hot" ? 0.7 : stageResult.stage === "warm" ? 0.4 : 0.1,
         urgency: stageResult.stage === "hot" ? 0.8 : 0.3,
       },
-      compliance: { status: compliance?.passed === true ? "passed" : "failed", flags: compliance?.issues || [] },
+      compliance: { status: compliance && compliance.passed === true ? "passed" : (compliance && compliance.passed === false ? "failed" : "unchecked"), flags: compliance?.issues || [] },
     };
 
     const validation = aiOutputSchema.safeParse(rawOutput);
+    let output;
     if (!validation.success) {
       console.error("AI output validation failed:", validation.error.format());
+      output = {
+        reply: rawOutput.reply || responseResult.reply || "",
+        confidence: rawOutput.confidence || 0.5,
+        leadStage: rawOutput.leadStage || "unknown",
+        nextAction: rawOutput.nextAction || "monitor",
+        escalation: rawOutput.escalation || false,
+        escalationReason: rawOutput.escalationReason || null,
+        sentiment: rawOutput.sentiment || "neutral",
+        scores: { qualification: 0.5, urgency: 0.5, interest: 0.5, budget: null },
+        tags: rawOutput.tags || [],
+        crmUpdates: rawOutput.crmUpdates || {},
+        followUp: rawOutput.followUp || null,
+        compliance: rawOutput.compliance || { status: "unchecked", flags: [] },
+      };
+    } else {
+      output = validation.data;
     }
-    const output = validation.success ? validation.data : rawOutput;
 
     // Save AI response
     await supabase.from("conversation_messages").insert({
