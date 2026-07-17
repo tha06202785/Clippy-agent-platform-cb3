@@ -6,7 +6,7 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 
 // Canonical automation mode — single source of truth
-export const AUTOMATION_MODE = "autonomous" as const;
+const AUTOMATION_MODE = "autonomous";
 
 // Zod schema for AI output validation
 const aiOutputSchema = z.object({
