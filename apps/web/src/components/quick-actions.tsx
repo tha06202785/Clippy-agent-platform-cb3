@@ -19,10 +19,12 @@ export function QuickActions({ onAddLead }: { onAddLead?: () => void }) {
         if (onAddLead) onAddLead();
         break;
       case "call":
-        window.location.href = "tel:";
+        const phone = prompt("Enter phone number to call:");
+        if (phone) window.location.href = "tel:" + phone.replace(/[^0-9+]/g, "");
         break;
       case "text":
-        window.location.href = "sms:";
+        const smsNumber = prompt("Enter phone number to text:");
+        if (smsNumber) window.location.href = "sms:" + smsNumber.replace(/[^0-9+]/g, "");
         break;
       case "voice":
         // Trigger voice command

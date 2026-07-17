@@ -16,14 +16,16 @@ export async function GET(req: NextRequest) {
     const { data: orgMember } = await supabase.from("org_members").select("org_id").eq("user_id", user.id).single();
     const orgId = orgMember?.org_id;
 
+    const searchPattern = "%" + q + "%";
+    
     const [leadsRes, listingsRes] = await Promise.all([
       supabase.from("leads").select("id, full_name, email, phone, stage")
         .eq("org_id", orgId)
-        .or("full_name.ilike.%{q}%,email.ilike.%{q}%,phone.ilike.%{q}%")
+        .or()
         .limit(10),
       supabase.from("listings").select("id, address, price, status, property_type")
         .eq("org_id", orgId)
-        .or("address.ilike.%{q}%,property_type.ilike.%{q}%")
+        .or()
         .limit(10),
     ]);
 

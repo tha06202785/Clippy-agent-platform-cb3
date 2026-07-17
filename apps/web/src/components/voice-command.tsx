@@ -47,7 +47,15 @@ export function VoiceCommand() {
     else { setTranscript(""); recognitionRef.current?.start(); setListening(true); }
   };
 
-  if (!recognitionRef.current) return null;
+  // Fallback for unsupported browsers
+  if (!recognitionRef.current) {
+    return (
+      <button className="fixed bottom-24 right-6 z-50 w-12 h-12 rounded-full bg-muted border border-border shadow-xl flex items-center justify-center cursor-not-allowed opacity-50"
+        title="Voice commands not supported in this browser">
+        <Mic className="w-5 h-5 text-muted-foreground" />
+      </button>
+    );
+  }
 
   return (
     <div className="fixed bottom-24 right-6 z-50">
