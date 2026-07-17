@@ -81,7 +81,13 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        const orgId = resolvedOrgId || orgs![0].id;
+              let orgId = resolvedOrgId;
+      if (!orgId) {
+        const { data: fallbackOrgs } = await supabase.from("orgs").select("id").limit(1);
+        if (fallbackOrgs && fallbackOrgs.length > 0) {
+          orgId = fallbackOrgs[0].id;
+        }
+      }
 
         for (const msg of messages) {
           const from = msg.from; // sender phone in E.164
