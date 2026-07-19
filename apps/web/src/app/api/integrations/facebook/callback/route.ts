@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       "https://graph.facebook.com/v19.0/oauth/access_token?" +
         new URLSearchParams({
           client_id: process.env.FACEBOOK_APP_ID || "",
-          client_secret: process.env.FACEBOOK_ACCESS_TOKEN || "",
+          client_secret: process.env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_ACCESS_TOKEN || "",
           redirect_uri: origin + "/api/integrations/facebook/callback",
           code,
         })
