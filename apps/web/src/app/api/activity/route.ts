@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/integrations/status - Get all integration statuses
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -16,38 +15,24 @@ export async function GET(req: NextRequest) {
       .eq("user_id", user.id)
       .single();
 
-    if (!orgMember) return NextResponse.json([]);
+    if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
 
-    const { data: integrations } = await supabase
-      .from("integrations")
+    const { searchParams } = new URL(req.url);
+    const limit = parseInt(searchParams.get("limit") || "50");
+
+    const { data: activities } = await supabase
+      .from("clippy_activity_log")
       .select("*")
-      .eq("org_id", orgMember.org_id);
+      .eq("org_id", orgMember.org_id)
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-    // Also get health status
-    const { data: health } = await supabase
-      .from("integration_health")
-      .select("*")
-      .eq("org_id", orgMember.org_id);
-
-    // Merge data
-    const merged = (integrations || []).map((integration: any) => {
-      const healthData = (health || []).find((h: any) => h.provider === integration.provider);
-      return {
-        ...integration,
-        status: healthData?.status || integration.status,
-        last_sync_at: healthData?.last_sync_at,
-        items_indexed: healthData?.items_indexed || 0,
-        activity_summary: healthData?.activity_summary || {},
-      };
-    });
-
-    return NextResponse.json(merged);
+    return NextResponse.json(activities || []);
   } catch (error: any) {
-    return NextResponse.json([]);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST /api/integrations/status - Update integration health
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -63,18 +48,24 @@ export async function POST(req: NextRequest) {
     if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
 
     const body = await req.json();
-    const { provider, status, items_indexed, activity_summary } = body;
+    const { action, category, title, description, metadata, impact_summary } = body;
 
-    const { data, error } = await supabase
-      .from("integration_health")
-      .upsert({
+    if (!action || !category || !title) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const { data: activity, error } = await supabase
+      .from("clippy_activity_log")
+      .insert({
         org_id: orgMember.org_id,
-        provider,
-        status,
-        items_indexed,
-        activity_summary,
-        last_sync_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        user_id: user.id,
+        action,
+        category,
+        title,
+        description,
+        metadata,
+        impact_summary,
+        completed_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -83,7 +74,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(activity, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

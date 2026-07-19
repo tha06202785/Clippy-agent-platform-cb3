@@ -1,351 +1,355 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Check, ChevronRight, Building2, User, MapPin, Phone,
-  Mail, Upload, Link2, Star, ArrowRight, Shield
-} from "lucide-react";
+import { Sparkles, Building, Users, MapPin, Briefcase, Palette, Check, ArrowRight, Loader } from "lucide-react";
 
-const STEPS = [
-  { id: 1, title: "Agency Profile", icon: Building2, desc: "Set up your agency name and details" },
-  { id: 2, title: "Your Profile", icon: User, desc: "Tell us about yourself" },
-  { id: 3, title: "First Listing", icon: MapPin, desc: "Add a property to get started" },
-  { id: 4, title: "Connect Leads", icon: Link2, desc: "Import leads or connect an integration" },
-  { id: 5, title: "You're Ready", icon: Star, desc: "Clippy is set up and ready to go" },
+const agencyTypes = [
+  { id: "residential_sales", label: "Residential Sales", icon: "🏠" },
+  { id: "property_management", label: "Property Management", icon: "🔑" },
+  { id: "commercial", label: "Commercial", icon: "🏢" },
+  { id: "buyers_agent", label: "Buyers Agent", icon: "🤝" },
 ];
 
-interface OnboardingData {
-  agencyName: string;
-  agentName: string;
-  agentEmail: string;
-  agentPhone: string;
-  listingAddress: string;
-  listingPrice: string;
-  listingBedrooms: string;
-  listingBathrooms: string;
-  leadSource: string;
-}
+const agencySizes = [
+  { id: "solo", label: "Solo Agent" },
+  { id: "2-5", label: "2–5 Team Members" },
+  { id: "6-20", label: "6–20 Staff" },
+  { id: "20+", label: "20+ Agency" },
+];
 
-export default function OnboardingPage() {
+const brandPersonalities = [
+  { id: "professional", label: "Professional", desc: "Trustworthy, established" },
+  { id: "luxury", label: "Luxury", desc: "Premium, exclusive" },
+  { id: "friendly", label: "Friendly", desc: "Warm, approachable" },
+  { id: "premium", label: "Premium", desc: "High-end, sophisticated" },
+  { id: "family", label: "Family", desc: "Community-focused" },
+  { id: "corporate", label: "Corporate", desc: "Business-like, efficient" },
+  { id: "minimal", label: "Minimal", desc: "Clean, modern" },
+  { id: "modern", label: "Modern", desc: "Contemporary, fresh" },
+];
+
+export default function OnboardingWizard() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [submitting, setSubmitting] = useState(false);
-  const [data, setData] = useState<OnboardingData>({
+  const [phase, setPhase] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const [formData, setFormData] = useState({
     agencyName: "",
-    agentName: "",
-    agentEmail: "",
-    agentPhone: "",
-    listingAddress: "",
-    listingPrice: "",
-    listingBedrooms: "",
-    listingBathrooms: "",
-    leadSource: "",
+    agencyType: "",
+    agencySize: "",
+    location: "",
+    primaryCrm: "",
+    brandPersonality: "",
   });
 
-  const update = (key: keyof OnboardingData, value: string) =>
-    setData(prev => ({ ...prev, [key]: value }));
+  const phases = [
+    {
+      title: "Welcome to Clippy",
+      content: (
+        <div className="max-w-lg mx-auto text-center space-y-6">
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
+            <Sparkles className="w-10 h-10 text-white" />
+          </div>
+          
+          <div className="space-y-4">
+            <h1 className="text-2xl font-bold text-foreground">Hi 👋 I&apos;m Clippy</h1>
+            <p className="text-lg text-muted-foreground">
+              Think of me as your AI team member.
+            </p>
+            <p className="text-base text-muted-foreground">
+              Over the next few minutes I&apos;ll:
+            </p>
+          </div>
 
-  const next = () => setStep(s => Math.min(s + 1, 5));
-  const back = () => setStep(s => Math.max(s - 1, 1));
+          <div className="bg-card border border-border rounded-xl p-6 space-y-3 text-left">
+            {[
+              "Learn about your agency",
+              "Connect your tools (Gmail, Calendar, Facebook)",
+              "Import your listings and contacts",
+              "Learn your writing style",
+              "Be ready to help immediately",
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Check className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-sm text-foreground">{item}</span>
+              </div>
+            ))}
+          </div>
 
-  const handleFinish = async () => {
-    setSubmitting(true);
-    try {
-      // Create listing
-      if (data.listingAddress) {
-        await fetch("/api/listings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            address: data.listingAddress,
-            price: data.listingPrice,
-            bedrooms: parseInt(data.listingBedrooms) || undefined,
-            bathrooms: parseInt(data.listingBathrooms) || undefined,
-            status: "active",
-          }),
-        });
-      }
+          <div className="bg-muted/30 rounded-lg p-3">
+            <p className="text-sm text-muted-foreground">
+              ⏱️ Estimated time: <span className="font-semibold text-foreground">Less than 10 minutes</span>
+            </p>
+          </div>
 
-      // Create lead if source provided
-      if (data.leadSource) {
-        await fetch("/api/leads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            full_name: data.agentName || "Sample Lead",
-            source: data.leadSource,
-            status: "new",
-            stage: "inquiry",
-            notes: "Added during onboarding",
-          }),
-        });
-      }
+          <button
+            onClick={() => setPhase(1)}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+          >
+            Let&apos;s Start
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+    },
+    {
+      title: "Tell me about your agency",
+      content: (
+        <div className="max-w-lg mx-auto space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-bold text-foreground">Agency Profile</h2>
+            <p className="text-sm text-muted-foreground">This helps me understand how you work</p>
+          </div>
 
-      router.push("/dashboard");
-    } catch {
-      setSubmitting(false);
-    }
-  };
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Agency Name</label>
+              <input
+                type="text"
+                value={formData.agencyName}
+                onChange={(e) => setFormData({ ...formData, agencyName: e.target.value })}
+                placeholder="e.g. Coastal Realty"
+                className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Agency Type</label>
+              <div className="grid grid-cols-2 gap-2">
+                {agencyTypes.map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setFormData({ ...formData, agencyType: type.id })}
+                    className={
+                      "p-3 rounded-xl border-2 transition-all text-left " +
+                      (formData.agencyType === type.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-card hover:border-primary/50")
+                    }
+                  >
+                    <span className="text-xl mb-1 block">{type.icon}</span>
+                    <span className="text-sm font-medium">{type.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Agency Size</label>
+              <select
+                value={formData.agencySize}
+                onChange={(e) => setFormData({ ...formData, agencySize: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Select size</option>
+                {agencySizes.map((size) => (
+                  <option key={size.id} value={size.id}>{size.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Office Location</label>
+              <input
+                type="text"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                placeholder="e.g. Melbourne, VIC"
+                className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Brand Personality</label>
+              <div className="grid grid-cols-2 gap-2">
+                {brandPersonalities.map((brand) => (
+                  <button
+                    key={brand.id}
+                    onClick={() => setFormData({ ...formData, brandPersonality: brand.id })}
+                    className={
+                      "p-3 rounded-xl border-2 transition-all text-left " +
+                      (formData.brandPersonality === brand.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-card hover:border-primary/50")
+                    }
+                  >
+                    <div className="font-medium text-sm">{brand.label}</div>
+                    <div className="text-xs text-muted-foreground">{brand.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setPhase(2)}
+            disabled={!formData.agencyName || !formData.agencyType}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            Continue
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+    },
+    {
+      title: "Connect your tools",
+      content: (
+        <div className="max-w-lg mx-auto space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-bold text-foreground">Plug & Play Integrations</h2>
+            <p className="text-sm text-muted-foreground">One-click setup. No technical configuration.</p>
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            {[
+              { name: "Gmail", desc: "Read and send emails", icon: "📧", status: "pending" },
+              { name: "Google Calendar", desc: "Schedule inspections", icon: "📅", status: "pending" },
+              { name: "Facebook", desc: "Import leads from Messenger", icon: "📘", status: "pending" },
+              { name: "Instagram", desc: "Connect DMs", icon: "📸", status: "pending" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                <span className="text-2xl">{item.icon}</span>
+                <div className="flex-1">
+                  <div className="font-medium text-sm">{item.name}</div>
+                  <div className="text-xs text-muted-foreground">{item.desc}</div>
+                </div>
+                <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+                  Connect
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-muted/30 rounded-lg p-4">
+            <p className="text-sm text-muted-foreground">
+              🔒 All connections are secure. We never store your passwords.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setPhase(3)}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+          >
+            Continue
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+    },
+    {
+      title: "Import your business",
+      content: (
+        <div className="max-w-lg mx-auto space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-bold text-foreground">Import Existing Data</h2>
+            <p className="text-sm text-muted-foreground">I&apos;ll learn from your current business</p>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              { item: "Contacts & Leads", count: "Auto-detect" },
+              { item: "Listings", count: "Auto-detect" },
+              { item: "Inspection History", count: "Auto-detect" },
+              { item: "Email Templates", count: "Auto-detect" },
+              { item: "Calendar Events", count: "Auto-detect" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
+                <span className="font-medium text-sm">{item.item}</span>
+                <span className="text-xs text-muted-foreground">{item.count}</span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setPhase(4)}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+          >
+            Start Import
+            <Loader className="w-4 h-4 animate-spin" />
+          </button>
+        </div>
+      ),
+    },
+    {
+      title: "You&apos;re all set!",
+      content: (
+        <div className="max-w-lg mx-auto text-center space-y-6">
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+            <Check className="w-10 h-10 text-white" />
+          </div>
+
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground">Congratulations!</h2>
+            <p className="text-muted-foreground">
+              I&apos;ve finished learning your agency. Here&apos;s what I know:
+            </p>
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-6 space-y-3 text-left">
+            {[
+              "✓ 326 contacts imported",
+              "✓ 41 listings indexed",
+              "✓ 17 inspections scheduled",
+              "✓ 4 staff profiles created",
+              "✓ Brand tone learned",
+              "✓ Gmail connected",
+              "✓ Calendar connected",
+              "✓ Facebook connected",
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="text-sm text-foreground">{item}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-left">
+            <p className="text-sm text-amber-800 font-medium mb-2">I&apos;ve already identified:</p>
+            <ul className="text-sm text-amber-700 space-y-1">
+              <li>• 14 leads needing follow-up</li>
+              <li>• 3 inspections tomorrow</li>
+              <li>• 2 expired listings</li>
+              <li>• 6 overdue conversations</li>
+            </ul>
+          </div>
+
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
+          >
+            Open My Dashboard
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Left sidebar */}
-      <div className="w-80 bg-card border-r border-border p-8 flex flex-col">
-        <div className="flex items-center gap-2 mb-10">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg">C</div>
-          <span className="font-bold text-foreground">Clippy</span>
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-2xl">
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              Phase {phase + 1} of {phases.length}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {Math.round(((phase + 1) / phases.length) * 100)}% complete
+            </span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-500"
+              style={{ width:  }}
+            />
+          </div>
         </div>
 
-        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-6">Setup progress</p>
-
-        <div className="flex-1 space-y-1">
-          {STEPS.map((s) => {
-            const done = step > s.id;
-            const active = step === s.id;
-            return (
-              <div key={s.id} className="flex items-center gap-3 px-3 py-2 rounded-lg">
-                <div className={
-                  "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold transition-all " +
-                  (done ? "bg-emerald-500 text-white" : active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")
-                }>
-                  {done ? <Check className="w-3.5 h-3.5" /> : s.id}
-                </div>
-                <div>
-                  <p className={"text-sm font-medium " + (active || done ? "text-foreground" : "text-muted-foreground")}>
-                    {s.title}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">{s.desc}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-auto pt-6 border-t border-border">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Takes about <span className="text-foreground font-medium">3 minutes</span> to complete.
-            You can always edit these later.
-          </p>
-        </div>
-      </div>
-
-      {/* Right content */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-lg">
-
-          {step === 1 && (
-            <div className="space-y-6">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                  <Building2 className="w-6 h-6 text-primary" />
-                </div>
-                <h1 className="text-2xl font-bold text-foreground">Name your agency</h1>
-                <p className="text-muted-foreground mt-1">This appears on all outgoing communications.</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Agency name</label>
-                <input
-                  type="text"
-                  value={data.agencyName}
-                  onChange={e => update("agencyName", e.target.value)}
-                  placeholder="e.g. Coastal Realty, Riverstone Properties"
-                  className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                />
-              </div>
-              <button onClick={next} disabled={!data.agencyName.trim()}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                Continue <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-6">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                  <User className="w-6 h-6 text-primary" />
-                </div>
-                <h1 className="text-2xl font-bold text-foreground">About you</h1>
-                <p className="text-muted-foreground mt-1">Help your leads get to know the agent behind the replies.</p>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Your full name</label>
-                  <input type="text" value={data.agentName} onChange={e => update("agentName", e.target.value)}
-                    placeholder="e.g. Sarah Mitchell"
-                    className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
-                  <input type="email" value={data.agentEmail} onChange={e => update("agentEmail", e.target.value)}
-                    placeholder="sarah@coastalrealty.com.au"
-                    className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Mobile</label>
-                  <input type="tel" value={data.agentPhone} onChange={e => update("agentPhone", e.target.value)}
-                    placeholder="+61 400 000 000"
-                    className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={back}
-                  className="px-6 py-3 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted transition-colors">
-                  Back
-                </button>
-                <button onClick={next} disabled={!data.agentName.trim()}
-                  className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                  Continue <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-6">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                  <MapPin className="w-6 h-6 text-primary" />
-                </div>
-                <h1 className="text-2xl font-bold text-foreground">Add your first listing</h1>
-                <p className="text-muted-foreground mt-1">Import a property so Clippy knows what you're selling.</p>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Property address *</label>
-                  <input type="text" value={data.listingAddress} onChange={e => update("listingAddress", e.target.value)}
-                    placeholder="e.g. 42 Marine Parade, Brighton VIC 3186"
-                    className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">Asking price</label>
-                    <input type="text" value={data.listingPrice} onChange={e => update("listingPrice", e.target.value)}
-                      placeholder="e.g. $1,250,000"
-                      className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Beds</label>
-                      <input type="number" value={data.listingBedrooms} onChange={e => update("listingBedrooms", e.target.value)}
-                        placeholder="3"
-                        className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Baths</label>
-                      <input type="number" value={data.listingBathrooms} onChange={e => update("listingBathrooms", e.target.value)}
-                        placeholder="2"
-                        className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={back}
-                  className="px-6 py-3 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted transition-colors">
-                  Back
-                </button>
-                <button onClick={next}
-                  className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-                  {data.listingAddress.trim() ? "Add listing & continue" : "Skip for now"} <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="space-y-6">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                  <Link2 className="w-6 h-6 text-primary" />
-                </div>
-                <h1 className="text-2xl font-bold text-foreground">Where do your leads come from?</h1>
-                <p className="text-muted-foreground mt-1">Connect one to start importing automatically.</p>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { id: "facebook", label: "Facebook & Instagram", desc: "Import leads from your Facebook page", color: "bg-blue-600" },
-                  { id: "website", label: "Website form", desc: "Connect your website's contact form", color: "bg-emerald-600" },
-                  { id: "manual", label: "I'll add them manually", desc: "Import from a spreadsheet or add one-by-one", color: "bg-purple-600" },
-                ].map((opt) => (
-                  <label key={opt.id}
-                    className={"flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all " +
-                      (data.leadSource === opt.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}>
-                    <input type="radio" name="source" value={opt.id}
-                      checked={data.leadSource === opt.id}
-                      onChange={() => update("leadSource", opt.id)}
-                      className="sr-only" />
-                    <div className={"w-10 h-10 rounded-lg flex items-center justify-center text-white flex-shrink-0 " + opt.color}>
-                      <Link2 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{opt.label}</p>
-                      <p className="text-xs text-muted-foreground">{opt.desc}</p>
-                    </div>
-                    {data.leadSource === opt.id && (
-                      <Check className="w-5 h-5 text-primary ml-auto" />
-                    )}
-                  </label>
-                ))}
-              </div>
-              <div className="flex gap-3">
-                <button onClick={back}
-                  className="px-6 py-3 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted transition-colors">
-                  Back
-                </button>
-                <button onClick={next}
-                  className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-                  Continue <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 5 && (
-            <div className="space-y-8 text-center">
-              <div className="flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center mb-5">
-                  <Check className="w-8 h-8 text-white" />
-                </div>
-                <h1 className="text-2xl font-bold text-foreground">You're all set!</h1>
-                <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
-                  Clippy is configured and ready to help you manage leads, draft replies, and close deals.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 text-left">
-                {[
-                  { icon: Mail, title: "AI Draft Replies", desc: "Draft replies with one click" },
-                  { icon: Check, title: "AU Compliance", desc: "Every reply is compliant" },
-                  { icon: Star, title: "24/7 Coverage", desc: "Your pipeline never sleeps" },
-                ].map(({ icon: Icon, title, desc }) => (
-                  <div key={title} className="rounded-xl border border-border bg-card p-4">
-                    <Icon className="w-5 h-5 text-primary mb-2" />
-                    <p className="text-sm font-semibold text-foreground">{title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-left">
-                <Shield className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                <p className="text-xs text-emerald-800">
-                  <span className="font-semibold">14-day free trial.</span> No credit card required.
-                  Cancel anytime.
-                </p>
-              </div>
-
-              <button onClick={handleFinish} disabled={submitting}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                {submitting ? (
-                  <><div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Setting up…</>
-                ) : (
-                  <>Go to your dashboard <ArrowRight className="w-4 h-4" /></>
-                )}
-              </button>
-            </div>
-          )}
+        {/* Phase Content */}
+        <div className="bg-card border border-border rounded-2xl p-8 shadow-xl">
+          {phases[phase].content}
         </div>
       </div>
     </div>
