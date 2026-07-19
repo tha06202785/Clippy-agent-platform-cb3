@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { href: "/deals", label: "Deals", icon: FileText },
   { href: "/copilot", label: "AI Copilot", icon: Bot },
   { href: "/briefing", label: "Briefing", icon: FileText },
+  { href: "/knowledge", label: "Knowledge", icon: Brain },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/monitoring", label: "Monitoring", icon: BarChart3 },
   { href: "/team", label: "Team", icon: Users },
