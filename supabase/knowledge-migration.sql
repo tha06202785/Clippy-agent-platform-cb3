@@ -5,7 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Knowledge Layer Types
-DO 128760 BEGIN
+DO 130004 BEGIN
   CREATE TYPE knowledge_layer AS ENUM (
     'real_estate_shared',
     'agency_private',
@@ -14,9 +14,9 @@ DO 128760 BEGIN
   );
 EXCEPTION
   WHEN duplicate_object THEN null;
-END 128760;
+END 130004;
 
-DO 128760 BEGIN
+DO 130004 BEGIN
   CREATE TYPE knowledge_status AS ENUM (
     'pending',
     'indexed',
@@ -26,9 +26,9 @@ DO 128760 BEGIN
   );
 EXCEPTION
   WHEN duplicate_object THEN null;
-END 128760;
+END 130004;
 
-DO 128760 BEGIN
+DO 130004 BEGIN
   CREATE TYPE knowledge_source AS ENUM (
     'upload',
     'email',
@@ -47,7 +47,7 @@ DO 128760 BEGIN
   );
 EXCEPTION
   WHEN duplicate_object THEN null;
-END 128760;
+END 130004;
 
 -- Knowledge Documents Table
 CREATE TABLE IF NOT EXISTS knowledge_documents (
@@ -336,7 +336,7 @@ CREATE OR REPLACE FUNCTION upsert_integration(
   p_connected_at timestamptz,
   p_page_id text DEFAULT ''
 )
-RETURNS void AS 128760
+RETURNS void AS 130004
 BEGIN
   INSERT INTO integrations (org_id, provider, status, credentials_encrypted, connected_at, settings_json)
   VALUES (p_org_id, p_provider, p_status, p_credentials, p_connected_at, 
@@ -349,4 +349,4 @@ BEGIN
     settings_json = EXCLUDED.settings_json,
     updated_at = now();
 END;
-128760 LANGUAGE plpgsql;
+130004 LANGUAGE plpgsql;
