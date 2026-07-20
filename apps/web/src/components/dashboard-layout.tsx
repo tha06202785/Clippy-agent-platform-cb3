@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "sonner";
 import {
-  BarChart3, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut, Calendar, Clock,
+  BarChart3, Brain, Inbox, FileText, Sparkles, Bot, Users, Settings, LogOut, Calendar, Clock,
   Menu, X, Moon, Sun, Search, Plus, Home, ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
