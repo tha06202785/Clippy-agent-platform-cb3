@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Text-based search (replace with vector similarity in production)
-    knowledgeQuery = knowledgeQuery.or();
+    knowledgeQuery = knowledgeQuery.or("layer", "ilike", "%");
 
     const { data: documents } = await knowledgeQuery.limit(top_k);
 
