@@ -205,10 +205,10 @@ export default function OnboardingWizard() {
 
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             {[
-              { name: "Gmail", desc: "Read and send emails", icon: "📧", status: "pending" },
-              { name: "Google Calendar", desc: "Schedule inspections", icon: "📅", status: "pending" },
-              { name: "Facebook", desc: "Import leads from Messenger", icon: "📘", status: "pending" },
-              { name: "Instagram", desc: "Connect DMs", icon: "📸", status: "pending" },
+              { name: "Gmail", desc: "Read and send emails", icon: "📧", endpoint: "/api/integrations/google" },
+              { name: "Google Calendar", desc: "Schedule inspections", icon: "📅", endpoint: "/api/integrations/google" },
+              { name: "Facebook", desc: "Import leads from Messenger", icon: "📘", endpoint: "/api/integrations/facebook" },
+              { name: "Instagram", desc: "Connect DMs", icon: "📸", endpoint: "/api/integrations/facebook" },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <span className="text-2xl">{item.icon}</span>
@@ -216,7 +216,10 @@ export default function OnboardingWizard() {
                   <div className="font-medium text-sm">{item.name}</div>
                   <div className="text-xs text-muted-foreground">{item.desc}</div>
                 </div>
-                <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+                <button
+                  onClick={() => window.location.href = item.endpoint}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                >
                   Connect
                 </button>
               </div>
