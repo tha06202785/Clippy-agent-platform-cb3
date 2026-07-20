@@ -203,7 +203,7 @@ export async function runAutoLearningPipeline(orgId: string, userId: string) {
   const supabase = await createClient();
   await supabase.from("clippy_activity_log").insert({
     org_id: orgId,
-    user_id,
+    user_id: userId,
     action: "auto_learning_complete",
     category: "knowledge",
     title: "Auto-learning pipeline completed",
