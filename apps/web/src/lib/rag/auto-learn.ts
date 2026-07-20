@@ -136,9 +136,7 @@ export async function learnFromConversations(orgId: string, userId: string) {
   let learned = 0;
   for (const conv of conversations) {
     const messages = conv.conversation_messages || [];
-    const content = messages.map((m: any) => m.content).join('
-')
-");
+    const content = messages.map((m: any) => m.content).join("\n");
 
     try {
       await autoLearnFromSource(supabase, orgId, "conversation", content, {
