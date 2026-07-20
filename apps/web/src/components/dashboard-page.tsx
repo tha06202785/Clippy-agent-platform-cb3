@@ -19,7 +19,12 @@ export function DashboardPage() {
       .then((data) => {
         if (data.stats) setStats(data.stats);
         else if (data.leads || data.listings) setStats(data);
-        else setError(data.error || "Failed to load");
+        else if (data.error === "No org found") {
+          // Gracefully handle missing org — user exists but isn't linked to an org yet
+          setStats({ leads: { total: 0, new: 0 }, listings: { total: 0, active: 0 } });
+        } else {
+          setError(data.error || "Failed to load");
+        }
       })
       .catch(() => setError("Network error"))
       .finally(() => setLoading(false));
