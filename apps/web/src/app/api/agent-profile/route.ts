@@ -4,64 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 // GET /api/agent-profile - Get current user's AI profile
-
-// Handle "Teach Clippy" feedback
-async function handleTeach(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: orgMember } = await supabase
-    .from("org_members")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
-
-  const body = await req.json();
-  const {
-    original_response,
-    correction_type,
-    user_feedback,
-    applied_to,
-    guidance_text,
-    examples,
-  } = body;
-
-  const { data: correction, error } = await supabase
-    .from("clippy_corrections")
-    .insert({
-      org_id: orgMember.org_id,
-      user_id: user.id,
-      original_response,
-      correction_type,
-      user_feedback,
-      applied_to,
-      guidance_text,
-      examples,
-      status: "pending",
-    })
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  // Update agent profile confidence score
-  await supabase
-    .from("agent_profiles")
-    .update({
-      corrections_made: supabase.raw("corrections_made + 1"),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", user.id)
-    .eq("org_id", orgMember.org_id);
-
-  return NextResponse.json(correction, { status: 201 });
-}
-
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -90,13 +32,9 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/agent-profile - Create or update agent profile
+// POST /api/agent-profile/teach - "Teach Clippy" feedback
 export async function POST(req: NextRequest) {
   try {
-    // Route /teach requests to correction handler
-    if (req.nextUrl.pathname.endsWith('/teach')) {
-      return handleTeach(req);
-    }
-    
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -109,6 +47,12 @@ export async function POST(req: NextRequest) {
 
     if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
 
+    // Route /teach requests to correction handler
+    if (req.nextUrl.pathname.endsWith("/teach")) {
+      return handleTeach(supabase, user, orgMember, req);
+    }
+
+    // Otherwise handle agent profile update
     const body = await req.json();
     const {
       writing_style,
@@ -172,61 +116,52 @@ export async function POST(req: NextRequest) {
   }
 }
 
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// Handle "Teach Clippy" feedback
+async function handleTeach(
+  supabase: any,
+  user: any,
+  orgMember: any,
+  req: NextRequest
+) {
+  const body = await req.json();
+  const {
+    original_response,
+    correction_type,
+    user_feedback,
+    applied_to,
+    guidance_text,
+    examples,
+  } = body;
 
-    const { data: orgMember } = await supabase
-      .from("org_members")
-      .select("org_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
-
-    const body = await req.json();
-    const {
+  const { data: correction, error } = await supabase
+    .from("clippy_corrections")
+    .insert({
+      org_id: orgMember.org_id,
+      user_id: user.id,
       original_response,
       correction_type,
       user_feedback,
       applied_to,
       guidance_text,
       examples,
-    } = body;
+      status: "pending",
+    })
+    .select()
+    .single();
 
-    const { data: correction, error } = await supabase
-      .from("clippy_corrections")
-      .insert({
-        org_id: orgMember.org_id,
-        user_id: user.id,
-        original_response,
-        correction_type,
-        user_feedback,
-        applied_to,
-        guidance_text,
-        examples,
-        status: "pending",
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    // Update agent profile confidence score
-    await supabase
-      .from("agent_profiles")
-      .update({
-        corrections_made: supabase.raw("corrections_made + 1"),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", user.id)
-      .eq("org_id", orgMember.org_id);
-
-    return NextResponse.json(correction, { status: 201 });
-  } catch (error: any) {
+  if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Update agent profile confidence score
+  await supabase
+    .from("agent_profiles")
+    .update({
+      corrections_made: supabase.raw("corrections_made + 1"),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", user.id)
+    .eq("org_id", orgMember.org_id);
+
+  return NextResponse.json(correction, { status: 201 });
 }
