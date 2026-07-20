@@ -46,7 +46,7 @@ export async function generateEmbeddings(texts: string[], model = "text-embeddin
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": ,
+      "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
@@ -219,12 +219,11 @@ export async function retrieveForAIResponse(
   if (results.length > 0) {
     contextParts.push("Relevant knowledge:");
     results.forEach((result, i) => {
-      contextParts.push();
+      contextParts.push(`[${i + 1}] ${result.chunk?.content || result.document?.content || ""}`);
     });
   }
 
-  return contextParts.join("
-");
+  return contextParts.join("\n");
 }
 
 // Auto-learn from source (email, calendar, CRM, etc.)
@@ -269,7 +268,7 @@ export async function autoLearnFromSource(
       layer,
       source,
       source_metadata: metadata,
-      title: metadata.title || ,
+      title: metadata.title || content.slice(0, 100),
       content,
       status: "processing",
     })

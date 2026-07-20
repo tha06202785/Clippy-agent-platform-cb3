@@ -342,7 +342,7 @@ export default function OnboardingWizard() {
           <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-primary transition-all duration-500"
-              style={{ width:  }}
+              style={{ width: `${Math.round(((phase + 1) / phases.length) * 100)}%` }}
             />
           </div>
         </div>
