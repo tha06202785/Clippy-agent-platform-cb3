@@ -170,7 +170,7 @@ export async function learnFromInspections(orgId: string, userId: string) {
 
   let learned = 0;
   for (const booking of bookings) {
-    const content = ;
+    const content = "Inspection report for booking " + booking.id + " (Lead: " + booking.lead_id + ")";
 
     try {
       await autoLearnFromSource(supabase, orgId, "inspection_report", content, {
