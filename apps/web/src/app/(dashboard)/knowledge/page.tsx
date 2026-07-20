@@ -210,7 +210,7 @@ export default function KnowledgeDashboard() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Status</p>
-              <p className="font-medium text-foreground capitalize">{agentProfile.status}</p>
+              <p className="font-medium text-foreground capitalize">{(agentProfile as any)?.status}</p>
             </div>
           </div>
         </div>
