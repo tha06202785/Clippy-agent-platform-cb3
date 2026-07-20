@@ -140,7 +140,7 @@ export async function learnFromConversations(orgId: string, userId: string) {
 
     try {
       await autoLearnFromSource(supabase, orgId, "conversation", content, {
-        title: ,
+        title: conv.title || "Conversation",
         user_id: userId,
         client_id: conv.lead_id,
         conversation_id: conv.id,
@@ -174,7 +174,7 @@ export async function learnFromInspections(orgId: string, userId: string) {
 
     try {
       await autoLearnFromSource(supabase, orgId, "inspection_report", content, {
-        title: ,
+        title: conv.title || "Conversation",
         user_id: userId,
         client_id: booking.lead_id,
         booking_id: booking.id,
