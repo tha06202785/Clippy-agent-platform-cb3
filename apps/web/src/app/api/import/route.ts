@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
 
     const orgId = orgMember.org_id;
 
-    // Simulate import progress (in real implementation, this would connect to CRM APIs)
     const importResults: any = {
       contacts: 0,
       listings: 0,
@@ -34,7 +33,7 @@ export async function POST(req: NextRequest) {
       calendar_events: 0,
     };
 
-    // Import contacts/leads from existing CRM
+    // Import contacts/leads
     const { data: leads } = await supabase
       .from("leads")
       .select("*")
@@ -44,9 +43,8 @@ export async function POST(req: NextRequest) {
     if (leads && leads.length > 0) {
       importResults.contacts = leads.length;
       
-      // Auto-learn from each lead
       for (const lead of leads.slice(0, 50)) {
-        const leadContent = ;
+        const leadContent = "Lead: " + (lead.full_name || "Unknown") + ", Email: " + (lead.email || "N/A") + ", Status: " + (lead.status || "New");
         try {
           await autoLearnFromSource(supabase, orgId, "crm", leadContent, {
             lead_id: lead.id,
@@ -69,7 +67,7 @@ export async function POST(req: NextRequest) {
       importResults.listings = listings.length;
       
       for (const listing of listings.slice(0, 20)) {
-        const listingContent = ;
+        const listingContent = "Listing: " + (listing.address || "Unknown") + ", Price: $" + (listing.price || "TBA") + ", Type: " + (listing.property_type || "Residential");
         try {
           await autoLearnFromSource(supabase, orgId, "listing", listingContent, {
             listing_id: listing.id,
@@ -110,7 +108,7 @@ export async function POST(req: NextRequest) {
       action: "data_import_complete",
       category: "onboarding",
       title: "Business data imported",
-      description: ,
+      description: "Imported " + importResults.contacts + " contacts, " + importResults.listings + " listings",
       metadata: importResults,
       impact_summary: "Business data indexed for AI learning",
       completed_at: new Date().toISOString(),
