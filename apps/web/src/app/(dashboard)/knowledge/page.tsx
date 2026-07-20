@@ -202,11 +202,11 @@ export default function KnowledgeDashboard() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Confidence Score</p>
-              <p className="font-medium text-foreground">{agentProfile.confidence_score || 50}%</p>
+              <p className="font-medium text-foreground">{(agentProfile as any)?.confidence_score || 50}%</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Corrections Made</p>
-              <p className="font-medium text-foreground">{agentProfile.corrections_made || 0}</p>
+              <p className="font-medium text-foreground">{(agentProfile as any)?.corrections_made || 0}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Status</p>
