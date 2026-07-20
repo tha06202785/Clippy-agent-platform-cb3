@@ -198,7 +198,7 @@ export default function KnowledgeDashboard() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-muted-foreground">Communication Tone</p>
-              <p className="font-medium text-foreground capitalize">{agentProfile.communication_tone || "Not set"}</p>
+              <p className="font-medium text-foreground capitalize">{(agentProfile as any)?.communication_tone || "Not set"}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Confidence Score</p>
