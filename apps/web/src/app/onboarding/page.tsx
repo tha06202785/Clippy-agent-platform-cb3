@@ -31,6 +31,14 @@ const brandPersonalities = [
 export default function OnboardingWizard() {
   const router = useRouter();
   const [phase, setPhase] = useState(0);
+  const [importing, setImporting] = useState(false);
+  const [importResults, setImportResults] = useState<any>({ contacts: 0, listings: 0, inspections: 0, calendar_events: 0 });
+  const [importProgress, setImportProgress] = useState<any[]>([
+    { name: "Contacts & Leads", count: 0, done: false },
+    { name: "Listings", count: 0, done: false },
+    { name: "Inspections", count: 0, done: false },
+    { name: "Calendar Events", count: 0, done: false },
+  ]);
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -41,6 +49,31 @@ export default function OnboardingWizard() {
     primaryCrm: "",
     brandPersonality: "",
   });
+
+  const handleImport = async () => {
+    setImporting(true);
+    try {
+      const response = await fetch("/api/import", { method: "POST" });
+      const data = await response.json();
+      
+      if (data.success) {
+        setImportResults(data.results);
+        setImportProgress([
+          { name: "Contacts & Leads", count: data.results.contacts, done: true },
+          { name: "Listings", count: data.results.listings, done: true },
+          { name: "Inspections", count: data.results.inspections, done: true },
+          { name: "Calendar Events", count: data.results.calendar_events, done: true },
+        ]);
+        setTimeout(() => {
+          setImporting(false);
+          setPhase(4);
+        }, 1500);
+      }
+    } catch (error) {
+      console.error("Import failed:", error);
+      setImporting(false);
+    }
+  };
 
   const phases = [
     {
@@ -251,28 +284,51 @@ export default function OnboardingWizard() {
             <p className="text-sm text-muted-foreground">I&apos;ll learn from your current business</p>
           </div>
 
-          <div className="space-y-3">
-            {[
-              { item: "Contacts & Leads", count: "Auto-detect" },
-              { item: "Listings", count: "Auto-detect" },
-              { item: "Inspection History", count: "Auto-detect" },
-              { item: "Email Templates", count: "Auto-detect" },
-              { item: "Calendar Events", count: "Auto-detect" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
-                <span className="font-medium text-sm">{item.item}</span>
-                <span className="text-xs text-muted-foreground">{item.count}</span>
+          {importing ? (
+            <div className="space-y-4">
+              <div className="bg-card border border-border rounded-xl p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Loader className="w-5 h-5 animate-spin text-primary" />
+                  <span className="font-medium">Importing your data...</span>
+                </div>
+                <div className="space-y-2">
+                  {importProgress.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{item.name}</span>
+                      <span className={item.done ? "text-emerald-600" : "text-muted-foreground"}>
+                        {item.done ? "✓ " + item.count : "Scanning..."}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {[
+                { item: "Contacts & Leads", count: importResults.contacts || "Auto-detect" },
+                { item: "Listings", count: importResults.listings || "Auto-detect" },
+                { item: "Inspection History", count: importResults.inspections || "Auto-detect" },
+                { item: "Email Templates", count: "Auto-detect" },
+                { item: "Calendar Events", count: importResults.calendar_events || "Auto-detect" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
+                  <span className="font-medium text-sm">{item.item}</span>
+                  <span className="text-xs text-muted-foreground">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
-          <button
-            onClick={() => setPhase(4)}
-            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
-          >
-            Start Import
-            <Loader className="w-4 h-4 animate-spin" />
-          </button>
+          {!importing && (
+            <button
+              onClick={handleImport}
+              disabled={importing}
+              className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {importing ? <><Loader className="w-4 h-4 animate-spin" /> Importing...</> : <><>Start Import</><Loader className="w-4 h-4" /></>}
+            </button>
+          )}
         </div>
       ),
     },
