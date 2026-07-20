@@ -36,6 +36,7 @@ const navItems: NavItem[] = [
   { href: "/inspections/slots", label: "Time Slots", icon: Clock },
   { href: "/inspections/applications", label: "Applications", icon: FileText },
   { href: "/admin", label: "Admin", icon: Settings },
+  { href: "/onboarding", label: "Onboarding", icon: Sparkles },
 ];
 
 function DashboardInner({ children }: { children: React.ReactNode }) {
