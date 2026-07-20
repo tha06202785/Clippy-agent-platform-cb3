@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json([]);
 
     const { data: orgMember } = await supabase
-      .from("org_members")
+      .from("user_org_roles")
       .select("org_id")
       .eq("user_id", user.id)
       .single();
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     if (!orgMember) return NextResponse.json([]);
 
     const { data: members } = await supabase
-      .from("org_members")
+      .from("user_org_roles")
       .select()
       .eq("org_id", orgMember.org_id);
 

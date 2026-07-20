@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: orgMember } = await supabase
-      .from("org_members").select("org_id").eq("user_id", user.id).single();
+      .from("user_org_roles").select("org_id").eq("user_id", user.id).single();
     if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
 
     const orgId = orgMember.org_id;

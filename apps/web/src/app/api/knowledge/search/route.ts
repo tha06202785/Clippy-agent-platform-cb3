@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: orgMember } = await supabase
-      .from("org_members")
+      .from("user_org_roles")
       .select("org_id, role")
       .eq("user_id", user.id)
       .single();

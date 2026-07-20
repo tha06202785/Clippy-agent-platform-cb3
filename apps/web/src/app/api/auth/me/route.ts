@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     // Get user's org membership
     const { data: orgMember } = await supabase
-      .from("org_members")
+      .from("user_org_roles")
       .select("*, orgs(*)")
       .eq("user_id", user.id)
       .single();

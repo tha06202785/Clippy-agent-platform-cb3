@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     // Real compliance checks from Supabase
     const { data: orgMember } = await supabase
-      .from("org_members")
+      .from("user_org_roles")
       .select("org_id, role")
       .eq("user_id", user.id)
       .single();

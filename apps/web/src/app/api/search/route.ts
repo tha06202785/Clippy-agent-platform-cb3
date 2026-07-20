@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const q = searchParams.get("q")?.trim();
     if (!q || q.length < 2) return NextResponse.json({ leads: [], deals: [] });
 
-    const { data: orgMember } = await supabase.from("org_members").select("org_id").eq("user_id", user.id).single();
+    const { data: orgMember } = await supabase.from("user_org_roles").select("org_id").eq("user_id", user.id).single();
     const orgId = orgMember?.org_id;
 
     const searchPattern = "%" + q + "%";

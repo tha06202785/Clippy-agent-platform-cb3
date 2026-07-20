@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const listingId = searchParams.get("listingId");
 
-  let query = supabase.from("inspection_time_slots").select("*, listings!inner(address, price)").eq("org_id", (await supabase.from("org_members").select("org_id").eq("user_id", user.id).single()).data?.org_id);
+  let query = supabase.from("inspection_time_slots").select("*, listings!inner(address, price)").eq("org_id", (await supabase.from("user_org_roles").select("org_id").eq("user_id", user.id).single()).data?.org_id);
   if (listingId) query = query.eq("listing_id", listingId);
   query = query.order("starts_at", { ascending: true });
 
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: orgMember } = await supabase.from("org_members").select("org_id").eq("user_id", user.id).single();
+  const { data: orgMember } = await supabase.from("user_org_roles").select("org_id").eq("user_id", user.id).single();
   if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
 
   const body = await req.json();

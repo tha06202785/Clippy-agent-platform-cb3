@@ -13,11 +13,11 @@ export async function POST(req: NextRequest) {
     if (!email || !role) return NextResponse.json({ error: "Email and role required" }, { status: 400 });
 
     // Get user's org
-    const { data: orgMember } = await supabase.from("org_members").select("org_id").eq("user_id", user.id).single();
+    const { data: orgMember } = await supabase.from("user_org_roles").select("org_id").eq("user_id", user.id).single();
     if (!orgMember) return NextResponse.json({ error: "No org found" }, { status: 400 });
 
     // Create invite record
-    const { error } = await supabase.from("org_members").insert({
+    const { error } = await supabase.from("user_org_roles").insert({
       org_id: orgMember.org_id,
       user_id: email, // placeholder - real invite would use Supabase invite
       role: role,

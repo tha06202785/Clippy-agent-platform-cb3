@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
     let orgId: string | null = null;
     if (user) {
       const { data: orgMember } = await supabase
-        .from("org_members").select("org_id").eq("user_id", user.id).maybeSingle();
+        .from("user_org_roles").select("org_id").eq("user_id", user.id).maybeSingle();
       if (orgMember) orgId = orgMember.org_id;
     }
 

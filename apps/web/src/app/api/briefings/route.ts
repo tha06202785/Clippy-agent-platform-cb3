@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: orgMember } = await supabase.from("org_members").select("org_id").eq("user_id", user.id).single();
+  const { data: orgMember } = await supabase.from("user_org_roles").select("org_id").eq("user_id", user.id).single();
   if (!orgMember) return NextResponse.json([]);
 
   const { data: briefings } = await supabase
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: orgMember } = await supabase.from("org_members").select("org_id").eq("user_id", user.id).single();
+  const { data: orgMember } = await supabase.from("user_org_roles").select("org_id").eq("user_id", user.id).single();
   if (!orgMember) return NextResponse.json({ error: "No org found" }, { status: 400 });
 
   const body = await req.json();

@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       if (orgError) {
         console.error("Failed to create org:", orgError);
       } else {
-        const { error: memberError } = await supabase.from("org_members").insert({
+        const { error: memberError } = await supabase.from("user_org_roles").insert({
           org_id: org.id,
           user_id: data.user.id,
           role: "owner",
