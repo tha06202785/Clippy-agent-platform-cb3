@@ -229,7 +229,7 @@ export default function KnowledgeDashboard() {
             <p className="text-sm text-muted-foreground mt-1">Integrations</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold text-primary">{agentProfile?.corrections_made || 0}</p>
+            <p className="text-3xl font-bold text-primary">{(agentProfile as any)?.corrections_made || 0}</p>
             <p className="text-sm text-muted-foreground mt-1">Teach Clippy Actions</p>
           </div>
         </div>
