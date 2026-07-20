@@ -208,9 +208,7 @@ export async function runAutoLearningPipeline(orgId: string, userId: string) {
     category: "knowledge",
     title: "Auto-learning pipeline completed",
     description: ,
-    description: "Auto-learning completed",
     impact_summary: ,
-    impact_summary: "Knowledge items added",
   });
 
   return { total, results };
