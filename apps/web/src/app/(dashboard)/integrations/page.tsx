@@ -142,7 +142,7 @@ export default function IntegrationsPage() {
   const testConnection = async (provider: string) => {
     setTesting(provider);
     try {
-      const response = await fetch(`/api/integrations/test/`);
+      const response = await fetch("/api/integrations/test/" + provider);
       const result = await response.json();
       
       // Update the integration with test result
