@@ -6,8 +6,15 @@ import {
   MessageCircle, Calendar, CheckCircle, Zap, TrendingUp, Users, DollarSign, 
   Clock, Home, Brain, Sparkles, ArrowUpRight, Activity
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+// Inline Card components
+const Card = ({ className, children }: any) => (
+  <div className={cn("rounded-2xl border-0 shadow-soft bg-white", className)}>{children}</div>
+);
+const CardContent = ({ className, children }: any) => (
+  <div className={cn("p-6", className)}>{children}</div>
+);
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -19,9 +26,6 @@ export default function DashboardPage() {
     commissionGenerated: 0,
     timeSaved: 0,
   });
-
-  const [aiActions, setAiActions] = useState<any[]>([]);
-  const [dailyMessage, setDailyMessage] = useState("");
 
   useEffect(() => {
     fetch("/api/principal/dashboard")
@@ -36,12 +40,10 @@ export default function DashboardPage() {
           commissionGenerated: data.commissionGenerated || 83000,
           timeSaved: data.timeSaved || 3.8,
         });
-        setAiActions(data.aiActions || []);
       })
       .catch(() => {});
   }, []);
 
-  // Clippy personality messages
   const messages = [
     "While you were having lunch, I:",
     "Good morning! Five buyers opened your email overnight.",
@@ -114,7 +116,6 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-pastel-lavender via-pastel-blue to-pastel-mint p-8 md:p-12 shadow-lg"
         >
-          {/* Floating AI particles */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {[...Array(12)].map((_, i) => (
               <motion.div
@@ -165,10 +166,9 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* AI Actions Grid */}
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
               {[
-                { icon: MessageCircle, text: "Replied to 14 enquiries", value: "14", color: "text-blue-600" },
+                { icon: MessageCircle, text: "Replied to enquiries", value: "14", color: "text-blue-600" },
                 { icon: Calendar, text: "Booked inspections", value: "3", color: "text-purple-600" },
                 { icon: CheckCircle, text: "Qualified buyers", value: "6", color: "text-emerald-600" },
                 { icon: Zap, text: "Generated listings", value: "2", color: "text-orange-600" },
@@ -193,7 +193,6 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Time Saved CTA */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-8 border-t border-white/50">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-white/80 backdrop-blur flex items-center justify-center shadow-soft">
@@ -223,8 +222,8 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 + i * 0.1 }}
             >
-              <Card className={cn("rounded-2xl border-0 shadow-soft hover:shadow-md transition-all duration-300 hover:scale-105 overflow-hidden", card.color)}>
-                <CardContent className="p-6">
+              <div className={cn("rounded-2xl shadow-soft hover:shadow-md transition-all duration-300 hover:scale-105 overflow-hidden", card.color)}>
+                <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <card.icon className={cn("w-6 h-6", card.iconColor)} />
                     <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">
@@ -233,7 +232,6 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-3xl font-bold text-neutral-800 mb-1">{card.value}</div>
                   <div className="text-sm text-neutral-600 mb-4">{card.change}</div>
-                  {/* Mini sparkline graph */}
                   <div className="flex items-end gap-1 h-12">
                     {card.graph.map((value, j) => (
                       <div
@@ -243,16 +241,16 @@ export default function DashboardPage() {
                       />
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>
 
-        {/* AI Timeline - Instagram for Work */}
+        {/* AI Timeline */}
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <Card className="rounded-2xl shadow-soft border-0 bg-white overflow-hidden">
+            <div className="rounded-2xl shadow-soft border-0 bg-white overflow-hidden">
               <div className="p-6 border-b border-neutral-100 bg-gradient-to-r from-pastel-lavender/30 to-pastel-blue/30">
                 <div className="flex items-center gap-3">
                   <Activity className="w-6 h-6 text-purple-600" />
@@ -280,17 +278,14 @@ export default function DashboardPage() {
                     <div className="flex-1 p-4 rounded-xl bg-neutral-50 hover:bg-pastel-blue/20 transition-colors">
                       <div className="font-medium text-neutral-800">{event.event}</div>
                     </div>
-                    {i < timelineEvents.length - 1 && (
-                      <div className="absolute left-20 w-0.5 h-8 bg-neutral-200" style={{ marginLeft: '2.5rem' }} />
-                    )}
                   </motion.div>
                 ))}
               </div>
-            </Card>
+            </div>
           </div>
 
           {/* Recent Conversations */}
-          <Card className="rounded-2xl shadow-soft border-0 bg-white">
+          <div className="rounded-2xl shadow-soft border-0 bg-white">
             <div className="p-6 border-b border-neutral-100">
               <h2 className="text-xl font-bold text-neutral-800">Recent Conversations</h2>
               <p className="text-sm text-neutral-600 mt-1">Latest leads Clippy engaged</p>
@@ -309,7 +304,7 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </div>
