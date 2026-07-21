@@ -229,7 +229,7 @@ export default function IntegrationsPage() {
             <CardContent>
               <div className="text-2xl font-bold">{healthyCount} / {totalConnected}</div>
               <p className="text-xs text-muted-foreground">
-                {totalConnected === integrations.length ? "All connected" : }
+                {totalConnected === integrations.length ? "All connected" : integrations.length - totalConnected + " to connect"}
               </p>
             </CardContent>
           </Card>
