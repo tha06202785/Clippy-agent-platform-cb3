@@ -31,7 +31,7 @@ const Button = ({ className, variant, size, disabled, onClick, children, ...prop
 const Badge = ({ className, ...props }: any) => <div className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold", className)} {...props} />;
 const Progress = ({ value, className }: any) => (
   <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-secondary", className)}>
-    <div className="h-full bg-primary transition-all" style={{ width:  }} />
+    <div className="h-full bg-primary transition-all" style={{ width: `${value}%` }} />
   </div>
 );
 
