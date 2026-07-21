@@ -37,64 +37,27 @@
 }
 
 @layer components {
-  /* Premium Button */
   .btn-premium {
     @apply inline-flex items-center justify-center rounded-xl font-medium transition-all duration-300;
     @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
-    @apply hover:shadow-glow active:scale-95;
+    @apply hover:shadow-lg active:scale-95;
   }
 
-  /* Glass Card */
   .card-glass {
     @apply bg-white/80 backdrop-blur-xl border border-white/20;
-    @apply rounded-2xl shadow-soft hover:shadow-medium transition-all duration-300;
+    @apply rounded-2xl shadow-sm hover:shadow-md transition-all duration-300;
   }
 
-  /* Pastel Module Cards */
-  .card-pastel-blue {
-    @apply bg-pastel-blue border border-blue-100 shadow-pastel-blue;
-  }
-  .card-pastel-mint {
-    @apply bg-pastel-mint border border-emerald-100 shadow-pastel-mint;
-  }
-  .card-pastel-lavender {
-    @apply bg-pastel-lavender border border-purple-100 shadow-pastel-lavender;
-  }
-  .card-pastel-peach {
-    @apply bg-pastel-peach border border-orange-100 shadow-pastel-peach;
-  }
-  .card-pastel-pink {
-    @apply bg-pastel-pink border border-pink-100 shadow-pastel-pink;
-  }
-
-  /* Gradient Text */
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-secondary to-primary;
-    @apply animate-gradient;
-  }
-
-  /* Floating Animation */
-  .float {
-    animation: float 6s ease-in-out infinite;
-  }
-
-  /* AI Glow Effect */
-  .ai-glow {
-    @apply relative;
-  }
-  .ai-glow::before {
-    content: "";
-    @apply absolute -inset-1 bg-gradient-to-r from-primary via-secondary to-primary rounded-xl blur opacity-20 animate-pulse;
   }
 }
 
 @layer utilities {
-  /* Smooth scrolling */
   .smooth-scroll {
     scroll-behavior: smooth;
   }
 
-  /* Hide scrollbar but keep functional */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
