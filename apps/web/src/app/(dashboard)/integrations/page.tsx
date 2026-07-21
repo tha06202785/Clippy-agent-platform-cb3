@@ -1,16 +1,39 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+// Inline simple UI components
 import { 
   CheckCircle2, XCircle, AlertCircle, Loader2, RefreshCw, 
   Mail, Calendar, MessageCircle, Instagram, Globe, Zap,
   Activity, Shield, Clock, ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Simple inline components
+const Card = ({ className, ...props }: any) => <div className={cn("rounded-xl border bg-card text-card-foreground shadow", className)} {...props} />;
+const CardHeader = ({ className, ...props }: any) => <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />;
+const CardTitle = ({ className, ...props }: any) => <h3 className={cn("font-semibold leading-none tracking-tight", className)} {...props} />;
+const CardDescription = ({ className, ...props }: any) => <p className={cn("text-sm text-muted-foreground", className)} {...props} />;
+const CardContent = ({ className, ...props }: any) => <div className={cn("p-6 pt-0", className)} {...props} />;
+const Button = ({ className, variant, size, disabled, onClick, children, ...props }: any) => {
+  const base = "inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
+  const variants: any = {
+    default: "bg-primary text-primary-foreground hover:bg-primary/90",
+    outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+  };
+  const sizes: any = { sm: "h-9 px-3 text-xs", default: "h-10 px-4 py-2" };
+  return (
+    <button className={cn(base, variants[variant || "default"], sizes[size || "default"], className)} disabled={disabled} onClick={onClick} {...props}>
+      {children}
+    </button>
+  );
+};
+const Badge = ({ className, ...props }: any) => <div className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold", className)} {...props} />;
+const Progress = ({ value, className }: any) => (
+  <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-secondary", className)}>
+    <div className="h-full bg-primary transition-all" style={{ width:  }} />
+  </div>
+);
 
 interface Integration {
   provider: string;
