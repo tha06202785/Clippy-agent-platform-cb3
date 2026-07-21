@@ -18,25 +18,25 @@ import { PostHogProvider } from "@/components/posthog-provider";
 import { PostHogPageView } from "@/components/posthog-pageview";
 import { QueryProvider } from "@/components/query-provider";
 
-type NavItem = { href: string; label: string; icon: any; badge?: string };
+type NavItem = { href: string; label: string; icon: any; badge?: string; color?: string };
 
 const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: Sparkles },
-  { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/deals", label: "Deals", icon: FileText },
-  { href: "/copilot", label: "AI Copilot", icon: Bot },
-  { href: "/briefing", label: "Briefing", icon: FileText },
-  { href: "/knowledge", label: "Knowledge", icon: Brain },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard", label: "Dashboard", icon: Sparkles, color: "text-emerald-500" },
+  { href: "/inbox", label: "Inbox", icon: Inbox, color: "text-blue-500" },
+  { href: "/deals", label: "Deals", icon: FileText, color: "text-orange-500" },
+  { href: "/copilot", label: "AI Copilot", icon: Bot, color: "text-purple-500" },
+  { href: "/briefing", label: "Briefing", icon: FileText, color: "text-yellow-500" },
+  { href: "/knowledge", label: "Knowledge", icon: Brain, color: "text-mint-500" },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, color: "text-pink-500" },
   { href: "/monitoring", label: "Monitoring", icon: BarChart3 },
-  { href: "/team", label: "Team", icon: Users },
-  { href: "/integrations", label: "Integrations", icon: Settings },
+  { href: "/team", label: "Team", icon: Users, color: "text-blue-500" },
+  { href: "/integrations", label: "Integrations", icon: Settings, color: "text-pink-500" },
   { href: "/import", label: "Import CRM", icon: Settings },
-  { href: "/inspections", label: "Inspections", icon: Calendar },
+  { href: "/inspections", label: "Inspections", icon: Calendar, color: "text-purple-500" },
   { href: "/inspections/slots", label: "Time Slots", icon: Clock },
   { href: "/inspections/applications", label: "Applications", icon: FileText },
   { href: "/admin", label: "Admin", icon: Settings },
-  { href: "/onboarding", label: "Onboarding", icon: Sparkles },
+  { href: "/onboarding", label: "Onboarding", icon: Sparkles, color: "text-emerald-500" },
 ];
 
 function DashboardInner({ children }: { children: React.ReactNode }) {
@@ -47,13 +47,13 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const [showAddLead, setShowAddLead] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Fetch unread conversation count
   useEffect(() => {
     fetch("/api/conversations/unread")
       .then(r => r.json())
       .then(data => setUnreadCount(data.count || 0))
       .catch(() => setUnreadCount(0));
   }, []);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{ leads: any[]; deals: any[] }>({ leads: [], deals: [] });
   const [searching, setSearching] = useState(false);
@@ -71,219 +71,142 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Mobile header - always visible on small screens */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-card border-b border-border">
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 -ml-2 rounded-lg hover:bg-muted transition-colors">
-          {sidebarOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-foreground" />}
+    <div className="min-h-screen bg-gradient-hero">
+      {/* Mobile header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-white/80 backdrop-blur-xl border-b border-neutral-200">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
+          {sidebarOpen ? <X className="w-5 h-5 text-neutral-800" /> : <Menu className="w-5 h-5 text-neutral-800" />}
         </button>
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-sm text-foreground">Clippy</span>
+          <span className="font-bold text-sm text-neutral-800">Clippy</span>
         </Link>
         <div className="flex items-center gap-2">
-          <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-lg hover:bg-muted transition-colors">
-            {mounted && theme === "dark" ? <Sun className="w-4 h-4 text-foreground" /> : <Moon className="w-4 h-4 text-foreground" />}
+          <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-xl hover:bg-neutral-100 transition-colors">
+            {mounted && theme === "dark" ? <Sun className="w-4 h-4 text-neutral-800" /> : <Moon className="w-4 h-4 text-neutral-800" />}
           </button>
         </div>
       </div>
 
-      {/* Sidebar overlay for mobile */}
+      {/* Sidebar overlay */}
       {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setSidebarOpen(false)} />
+        <div className="lg:hidden fixed inset-0 z-30 bg-black/20 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
+      {/* Glass Sidebar */}
       <aside className={cn(
-        "fixed top-0 left-0 z-40 h-full w-64 bg-card border-r border-border flex flex-col transition-transform duration-200 ease-in-out",
-        "lg:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed top-0 left-0 z-40 h-full w-64 bg-white/90 backdrop-blur-xl border-r border-neutral-200 flex flex-col transition-transform duration-300 ease-in-out shadow-soft",
+        sidebarOpen ? "translate-x-0" : "-translate-x-64"
       )}>
-        {/* Logo - desktop only */}
-        <div className="hidden lg:flex items-center gap-3 px-5 h-16 border-b border-border">
-          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <span className="font-bold text-base text-foreground">Clippy</span>
-            <p className="text-[10px] text-muted-foreground -mt-0.5">AI Co-Agent</p>
-          </div>
+        {/* Logo */}
+        <div className="h-16 flex items-center px-6 border-b border-neutral-200">
+          <Link href="/dashboard" className="flex items-center gap-3 group">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform duration-300">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-lg text-neutral-800">Clippy</span>
+          </Link>
         </div>
 
-        {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1 pt-16 lg:pt-3">
+        {/* Nav Items */}
+        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
           {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            const isActive = pathname === item.href;
             return (
-              <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
+              <Link
+                key={item.href}
+                href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group",
                   isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                )}>
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                <span>{item.label}</span>
+                    ? "bg-gradient-to-r from-pastel-blue to-pastel-mint text-neutral-800 shadow-soft"
+                    : "text-neutral-600 hover:bg-neutral-100 hover:translate-x-1"
+                )}
+              >
+                <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : item.color || "text-neutral-400", "group-hover:scale-110 transition-transform")} />
+                <span className="font-medium text-sm">{item.label}</span>
                 {item.badge && (
-                  <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">{item.badge}</span>
+                  <span className="ml-auto text-xs font-semibold bg-primary text-white px-2 py-0.5 rounded-full">
+                    {item.badge}
+                  </span>
                 )}
               </Link>
             );
           })}
         </nav>
 
-        {/* Bottom actions */}
-        <div className="p-3 border-t border-border space-y-1">
-          <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            {mounted && theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            <span>{mounted && theme === "dark" ? "Light mode" : "Dark mode"}</span>
-          </button>
-          <button onClick={handleLogout}
-            className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <LogOut className="w-4 h-4" />
-            <span>Sign out</span>
+        {/* User Section */}
+        <div className="p-4 border-t border-neutral-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-neutral-600 hover:bg-red-50 hover:text-red-600 transition-all duration-300"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="font-medium text-sm">Sign Out</span>
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="lg:pl-64 pt-14 lg:pt-0">
-        {/* Top bar - desktop only */}
-        <div className="hidden lg:flex items-center justify-between px-6 h-16 border-b border-border bg-card">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="relative max-w-md w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input type="text" placeholder="Search leads, deals, or anything..."
-                value={searchQuery} onChange={e => {
-                  setSearchQuery(e.target.value);
-                  if (searchTimer) clearTimeout(searchTimer);
-                  if (e.target.value.length < 2) { setSearchResults({ leads: [], deals: [] }); setShowSearch(false); return; }
-                  searchTimer = setTimeout(async () => {
-                    setSearching(true);
-                    try {
-                      const res = await fetch("/api/search?q=" + encodeURIComponent(e.target.value));
-                      const data = await res.json();
-                      setSearchResults(data);
-                      setShowSearch(true);
-                    } catch {}
-                    setSearching(false);
-                  }, 300);
-                }}
-                onFocus={() => searchResults.leads.length + searchResults.deals.length > 0 && setShowSearch(true)}
-                onBlur={() => setTimeout(() => setShowSearch(false), 200)}
-                onKeyDown={e => e.key === "Escape" && setShowSearch(false)}
-                className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-            </div>
-            {showSearch && (searchResults.leads.length > 0 || searchResults.deals.length > 0) && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-50 max-h-80 overflow-y-auto">
-                {searchResults.leads.length > 0 && (
-                  <div className="p-2">
-                    <p className="text-xs font-semibold text-muted-foreground px-2 py-1 uppercase">Leads</p>
-                    {searchResults.leads.map((l: any) => (
-                      <a key={l.id} href={"/inbox?id=" + l.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{l.full_name?.[0] || "?"}</div>
-                        <div><p className="text-sm font-medium text-foreground">{l.full_name || "Unknown"}</p><p className="text-xs text-muted-foreground">{l.email || l.stage}</p></div>
-                      </a>
-                    ))}
-                  </div>
-                )}
-                {searchResults.deals.length > 0 && (
-                  <div className="p-2 border-t border-border">
-                    <p className="text-xs font-semibold text-muted-foreground px-2 py-1 uppercase">Deals</p>
-                    {searchResults.deals.map((d: any) => (
-                      <a key={d.id} href={"/property/" + d.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors">
-                        <div className="w-6 h-6 rounded-full bg-amber/10 flex items-center justify-center text-xs font-bold text-amber-600">$</div>
-                        <div><p className="text-sm font-medium text-foreground">{d.address || "Untitled"}</p><p className="text-xs text-muted-foreground">{d.price || d.property_type}</p></div>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => setShowAddLead(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold text-sm">
-              <Plus className="w-4 h-4" /><span>Add Lead</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Page content */}
-        <main className="p-4 md:p-6 lg:p-8 pb-24 lg:pb-8">
-          {children}
-        </main>
-      </div>
-
-      {/* Add Lead Modal */}
-      {showAddLead && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddLead(false)}>
-          <div className="bg-card rounded-xl border border-border p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-foreground mb-4">Add New Lead</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-foreground">Full name</label>
-                <input type="text" value={newLead.full_name} onChange={(e) => setNewLead({...newLead, full_name: e.target.value})}
-                  placeholder="Alex Johnson" className="w-full mt-1 px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Email</label>
-                <input type="email" value={newLead.email} onChange={(e) => setNewLead({...newLead, email: e.target.value})}
-                  placeholder="alex@email.com" className="w-full mt-1 px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Phone</label>
-                <input type="tel" value={newLead.phone} onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
-                  placeholder="0400 000 000" className="w-full mt-1 px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowAddLead(false)} className="flex-1 py-2.5 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors">Cancel</button>
-              <button onClick={async () => {
-                if (!newLead.full_name.trim()) return;
-                setAddingLead(true);
-                try {
-                  await fetch("/api/leads", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ full_name: newLead.full_name, email: newLead.email, phone: newLead.phone }),
-                  });
-                  setShowAddLead(false);
-                  setNewLead({ full_name: "", email: "", phone: "" });
-                  window.location.reload();
-                } catch {}
-                setAddingLead(false);
-              }} disabled={addingLead || !newLead.full_name.trim()}
-                className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
-                {addingLead ? "Adding..." : "Add Lead"}
+      {/* Main Content */}
+      <main className={cn(
+        "min-h-screen transition-all duration-300",
+        sidebarOpen ? "lg:ml-64" : "lg:ml-0"
+      )}>
+        {/* Top Bar */}
+        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-neutral-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="hidden lg:block p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
+                {sidebarOpen ? <Menu className="w-5 h-5 text-neutral-800" /> : <Menu className="w-5 h-5 text-neutral-800" />}
               </button>
+              <h1 className="text-2xl font-bold text-neutral-800">Dashboard</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="p-2 rounded-xl hover:bg-neutral-100 transition-colors hidden md:block"
+              >
+                {mounted && theme === "dark" ? <Sun className="w-5 h-5 text-neutral-800" /> : <Moon className="w-5 h-5 text-neutral-800" />}
+              </button>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pastel-blue to-pastel-mint flex items-center justify-center border-2 border-white shadow-soft">
+                <span className="text-sm font-bold text-neutral-800">T</span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        </header>
 
-      {/* Mobile bottom nav */}
-      <MobileNav onAddLead={() => setShowAddLead(true)} />
-      <QuickActions onAddLead={() => setShowAddLead(true)} />
+        {/* Page Content */}
+        <div className="p-6">
+          {children}
+        </div>
+      </main>
+
+      {/* Mobile Nav */}
+      <MobileNav />
+
+      {/* Quick Actions FAB */}
+      <QuickActions />
+
+      {/* Voice Command */}
       <VoiceCommand />
+
+      {/* Toaster */}
+      <Toaster richColors position="top-right" />
     </div>
   );
 }
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <PostHogProvider>
-      <QueryProvider>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <QueryProvider>
+      <PostHogProvider>
+        <PostHogPageView />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <DashboardInner>{children}</DashboardInner>
-          <Toaster richColors />
         </ThemeProvider>
-      </QueryProvider>
-      <PostHogPageView />
-    </PostHogProvider>
+      </PostHogProvider>
+    </QueryProvider>
   );
 }
