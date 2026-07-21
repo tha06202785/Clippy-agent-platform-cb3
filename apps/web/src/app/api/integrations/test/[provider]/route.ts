@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 // GET /api/integrations/test/:provider - Test integration connection
-export async function GET(req: NextRequest, { params }: { params: { provider: string } }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ provider: string }> }
+) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -23,7 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
     }
 
     const orgId = orgMember.org_id;
-    const provider = params.provider;
+    const { provider } = await context.params;
 
     // Get integration
     const { data: integration } = await supabase
@@ -95,7 +98,7 @@ export async function GET(req: NextRequest, { params }: { params: { provider: st
   } catch (error: any) {
     return NextResponse.json({
       success: false,
-      provider: params.provider,
+      provider: (await context.params).provider,
       status: "error",
       message: "Connection test failed: " + error.message,
       errorType: "test_error",
