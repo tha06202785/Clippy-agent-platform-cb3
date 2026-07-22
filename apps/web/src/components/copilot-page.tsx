@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Copy, Check } from "lucide-react";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-}
+import { Send, Bot, User, Sparkles, Check } from "lucide-react";
 
 const quickActions = [
   { label: "Draft follow-up", prompt: "Draft a follow-up email" },
@@ -16,17 +10,27 @@ const quickActions = [
   { label: "Schedule tour", prompt: "Schedule tour for tomorrow 2pm" },
 ];
 
+const progressSteps = [
+  { text: "Reading your message...", icon: "👁️" },
+  { text: "Analyzing context...", icon: "🧠" },
+  { text: "Checking knowledge base...", icon: "📚" },
+  { text: "Drafting response...", icon: "✍️" },
+  { text: "Reviewing compliance...", icon: "✅" },
+  { text: "Finalizing...", icon: "✨" },
+];
+
 export function CopilotPage() {
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<any[]>([
     { id: "1", role: "assistant", content: "G'day! I'm Clippy. How can I help today?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [progressStep, setProgressStep] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, loading]);
 
   const sendMessage = async (text: string) => {
     const msg = text || input;
@@ -35,6 +39,18 @@ export function CopilotPage() {
     setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content: msg }]);
     setInput("");
     setLoading(true);
+    setProgressStep(0);
+
+    // Animate progress steps
+    const progressInterval = setInterval(() => {
+      setProgressStep((prev) => {
+        if (prev >= progressSteps.length - 1) {
+          clearInterval(progressInterval);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 400);
 
     try {
       const res = await fetch("/api/copilot/chat", {
@@ -43,6 +59,8 @@ export function CopilotPage() {
         body: JSON.stringify({ message: msg }),
       });
       const data = await res.json();
+
+      clearInterval(progressInterval);
 
       if (data.error) {
         setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Error: " + data.error }]);
@@ -53,37 +71,69 @@ export function CopilotPage() {
       setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Network error" }]);
     } finally {
       setLoading(false);
+      setProgressStep(0);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-neutral-50">
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.map((msg) => (
+        {messages.map((msg: any) => (
           <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : "flex justify-start"}>
             {msg.role === "assistant" && (
-              <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center mr-3 mt-1">
-                <Bot className="w-4 h-4 text-white" />
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mr-3 mt-1 shadow-md">
+                <Bot className="w-5 h-5 text-white" />
               </div>
             )}
             <div className={
               msg.role === "user"
-                ? "max-w-2xl px-4 py-3 rounded-2xl bg-emerald-500 text-white rounded-br-none"
-                : "max-w-2xl px-4 py-3 rounded-2xl bg-white border rounded-bl-none"
+                ? "max-w-2xl px-5 py-3 rounded-2xl bg-emerald-500 text-white rounded-br-none shadow-md"
+                : "max-w-2xl px-5 py-3 rounded-2xl bg-white border border-neutral-200 rounded-bl-none shadow-sm"
             }>
-              <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+              <div className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</div>
             </div>
             {msg.role === "user" && (
-              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center ml-3 mt-1">
-                <User className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center ml-3 mt-1 shadow-md">
+                <User className="w-5 h-5 text-white" />
               </div>
             )}
           </div>
         ))}
+        
+        {loading && (
+          <div className="flex justify-start">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mr-3 mt-1 shadow-md">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <div className="max-w-2xl bg-white border border-neutral-200 rounded-2xl rounded-bl-none p-4 shadow-sm">
+              <div className="space-y-2">
+                {progressSteps.map((step, i) => (
+                  <div
+                    key={i}
+                    className={}
+                  >
+                    <span className="text-base">{step.text.includes("Finalizing") && i === progressStep ? "✨" : i < progressStep ? "✅" : step.icon}</span>
+                    <span className={i === progressStep ? "text-emerald-600 font-medium" : "text-neutral-600"}>
+                      {step.text}
+                    </span>
+                  </div>
+                ))}
+                {progressStep < progressSteps.length - 1 && (
+                  <div className="flex items-center gap-1 pt-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t p-4 bg-white">
+      <div className="border-t border-neutral-200 p-4 bg-white">
         <div className="max-w-4xl mx-auto space-y-3">
           <div className="flex flex-wrap gap-2">
             {quickActions.map((action, i) => (
@@ -91,7 +141,7 @@ export function CopilotPage() {
                 key={i}
                 onClick={() => sendMessage(action.prompt)}
                 disabled={loading}
-                className="text-xs px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 hover:bg-purple-200 disabled:opacity-50"
+                className="text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors disabled:opacity-50"
               >
                 {action.label}
               </button>
@@ -102,14 +152,14 @@ export function CopilotPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Clippy..."
-              className="flex-1 px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Ask Clippy anything..."
+              className="flex-1 px-4 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               disabled={loading}
             />
             <button
               onClick={() => sendMessage("")}
               disabled={loading || !input.trim()}
-              className="px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
             >
               <Send className="w-4 h-4" />
             </button>

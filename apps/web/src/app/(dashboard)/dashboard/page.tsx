@@ -281,7 +281,7 @@ export default function DashboardPage() {
         >
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="w-5 h-5 text-red-600" />
-            <h2 className="text-xl font-bold text-neutral-800">Today's Priorities</h2>
+            <h2 className="text-xl font-bold text-neutral-800">🎯 If I were you...</h2>
             <span className="text-sm text-neutral-500 ml-auto">3 urgent items</span>
           </div>
           
@@ -402,7 +402,50 @@ export default function DashboardPage() {
 
         {/* Relationship Health & AI Timeline */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Relationship Health */}
+  
+        {/* AI Memory - Moat Feature */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="rounded-2xl shadow-sm border-0 bg-gradient-to-br from-purple-50 to-white p-6"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <Brain className="w-5 h-5 text-purple-600" />
+            <h2 className="text-lg font-bold text-neutral-800">🧠 Things I Remember</h2>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-purple-100">
+              <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-xs">📱</span>
+              </div>
+              <div>
+                <div className="font-semibold text-neutral-800 text-sm">Sarah prefers SMS</div>
+                <div className="text-xs text-neutral-600">Never calls before 6pm</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-purple-100">
+              <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-xs">⏰</span>
+              </div>
+              <div>
+                <div className="font-semibold text-neutral-800 text-sm">Michael negotiates after inspections</div>
+                <div className="text-xs text-neutral-600">Best to discuss price in person</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-purple-100">
+              <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-xs">🌅</span>
+              </div>
+              <div>
+                <div className="font-semibold text-neutral-800 text-sm">Emma never answers before 10am</div>
+                <div className="text-xs text-neutral-600">Prefers afternoon communication</div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Relationship Health */}
           <div className="rounded-2xl shadow-sm border-0 bg-white p-6">
             <div className="flex items-center gap-3 mb-4">
               <Users className="w-5 h-5 text-emerald-600" />
@@ -450,7 +493,7 @@ export default function DashboardPage() {
             <div className="p-5 border-b border-neutral-100 bg-gradient-to-r from-emerald-50 to-white">
               <div className="flex items-center gap-3">
                 <Activity className="w-5 h-5 text-emerald-600" />
-                <h2 className="text-lg font-bold text-neutral-800">AI Activity Timeline</h2>
+                <h2 className="text-lg font-bold text-neutral-800">🤖 Watch Clippy Work</h2>
               </div>
               <p className="text-xs text-neutral-600 mt-1">Watch Clippy work in real-time</p>
             </div>
