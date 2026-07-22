@@ -128,7 +128,7 @@ export default function DashboardPage() {
     {
       title: "Replies Today",
       value: stats.repliesToday,
-      change: replyChange > 0 ?  : replyChange < 0 ?  : "No change",
+      change: replyChange > 0 ? "▲ " + replyChange + "%" : replyChange < 0 ? "▼ " + Math.abs(replyChange) + "%" : "No change",
       context: "vs Yesterday",
       icon: MessageCircle,
       color: "bg-pastel-blue",
