@@ -11,7 +11,7 @@ interface Message {
 
 const quickActions = [
   { label: "Draft a follow-up", prompt: "Draft a follow-up email for my hot leads" },
-  { label: "Generate captions", prompt: "Generate 3 caption options for a 4-bedroom, 2-bathroom house in Paddington, NSW with a renovated kitchen and north-facing backyard. Open home this Saturday 2-3pm" },
+  { label: "Generate captions", prompt: "Generate 3 caption options for a 4-bedroom, 2-bathroom house in Paddington, NSW" },
   { label: "Compliance check", prompt: "What do I need to disclose when selling a strata unit in NSW?" },
   { label: "Schedule a tour", prompt: "Schedule a property tour for tomorrow at 2pm" },
 ];
@@ -37,35 +37,13 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function MessageContent({ content }: { content: string }) {
-  const sections = content.split(/
-[-=]{10,}
-/);
-
-  if (sections.length <= 1) {
-    return (
-      <div className="relative group">
-        <div className="whitespace-pre-wrap text-sm leading-relaxed">{content}</div>
-        <div className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <CopyButton text={content} />
-        </div>
-      </div>
-    );
-  }
-
+  // Simple rendering without regex split
   return (
-    <div className="space-y-4">
-      {sections.map((section, i) => {
-        const trimmed = section.trim();
-        if (!trimmed) return null;
-        return (
-          <div key={i} className="relative group rounded-lg border border-border/50 bg-card/50 p-3">
-            <div className="whitespace-pre-wrap text-sm leading-relaxed">{trimmed}</div>
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <CopyButton text={trimmed} />
-            </div>
-          </div>
-        );
-      })}
+    <div className="relative group">
+      <div className="whitespace-pre-wrap text-sm leading-relaxed">{content}</div>
+      <div className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        <CopyButton text={content} />
+      </div>
     </div>
   );
 }
@@ -122,14 +100,14 @@ What are you working on today?" },
         setMessages((prev) => [...prev, {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: "I received your message but could not generate a response. The AI service may be temporarily unavailable. Please try again.",
+          content: "I received your message but could not generate a response. Please try again.",
         }]);
       }
     } catch (err) {
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Network error: Could not reach the AI service. Please check your connection and try again.",
+        content: "Network error: Could not reach the AI service.",
       }]);
     } finally {
       setLoading(false);
