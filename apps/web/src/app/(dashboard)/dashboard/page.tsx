@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { 
   MessageCircle, Calendar, CheckCircle, Zap, TrendingUp, Users, DollarSign, 
   Clock, Home, Brain, Sparkles, ArrowUpRight, Activity, AlertCircle, 
-  Star, ChevronRight, Check, X, Bell, Phone, Mail, Send
+  Star, Phone, Mail, Send, Bell, Sun
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,20 +19,34 @@ export default function DashboardPage() {
     commissionGenerated: 0,
     timeSaved: 0,
     repliesToday: 0,
-    repliesYesterday: 0,
+    aiScore: 0,
+    relationshipHealth: { hot: 0, warm: 0, cold: 0 },
   });
 
   const [priorities, setPriorities] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [greeting, setGreeting] = useState("Good morning");
+  const [greeting, setGreeting] = useState("");
+  const [subGreeting, setSubGreeting] = useState("");
   const [agentName, setAgentName] = useState("Sarah");
 
   useEffect(() => {
-    // Dynamic greeting based on time
     const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Good morning");
-    else if (hour < 17) setGreeting("Good afternoon");
-    else setGreeting("Good evening");
+    const greetings = [
+      { start: "👋 Good morning", sub: "I cleared your inbox before coffee.", time: [5, 12] },
+      { start: "☀️ Good afternoon", sub: "Three buyers need your attention.", time: [12, 17] },
+      { start: "🌙 Good evening", sub: "You crushed it today.", time: [17, 22] },
+      { start: "🌟 Welcome back", sub: "I found opportunities while you were away.", time: [22, 5] },
+    ];
+    
+    const matched = greetings.find(g => {
+      if (g.time[0] > g.time[1]) {
+        return hour >= g.time[0] || hour < g.time[1];
+      }
+      return hour >= g.time[0] && hour < g.time[1];
+    }) || greetings[0];
+    
+    setGreeting(matched.start + ", " + agentName);
+    setSubGreeting(matched.sub);
 
     fetch("/api/principal/dashboard")
       .then(r => r.json())
@@ -46,10 +60,10 @@ export default function DashboardPage() {
           commissionGenerated: data.commissionGenerated || 126000,
           timeSaved: data.timeSaved || 3.7,
           repliesToday: data.repliesToday || 14,
-          repliesYesterday: data.repliesYesterday || 11,
+          aiScore: data.aiScore || 98,
+          relationshipHealth: data.relationshipHealth || { hot: 32, warm: 18, cold: 6 },
         });
         
-        // Mock priorities - would come from API
         setPriorities([
           {
             id: 1,
@@ -80,7 +94,6 @@ export default function DashboardPage() {
           },
         ]);
 
-        // Mock recommendations
         setRecommendations([
           {
             id: 1,
@@ -112,63 +125,55 @@ export default function DashboardPage() {
   }, []);
 
   const timelineEvents = [
-    { time: "09:01", event: "REA enquiry received", icon: MessageCircle, color: "text-blue-600", bg: "bg-pastel-blue" },
-    { time: "09:02", event: "Clippy replied in 28 seconds", icon: Zap, color: "text-emerald-600", bg: "bg-pastel-mint" },
-    { time: "09:04", event: "Buyer qualified - Budget 50k", icon: CheckCircle, color: "text-purple-600", bg: "bg-pastel-lavender" },
-    { time: "09:06", event: "Inspection booked for Saturday 2pm", icon: Calendar, color: "text-orange-600", bg: "bg-pastel-peach" },
-    { time: "09:08", event: "Reminder sent to buyer", icon: Bell, color: "text-pink-600", bg: "bg-pastel-pink" },
-    { time: "09:10", event: "Lead moved to Hot Buyers", icon: TrendingUp, color: "text-emerald-600", bg: "bg-pastel-mint" },
+    { time: "09:01", event: "REA enquiry received", icon: MessageCircle, color: "text-emerald-600" },
+    { time: "09:02", event: "Clippy replied in 28 seconds", icon: Zap, color: "text-emerald-600" },
+    { time: "09:04", event: "Buyer qualified - Budget 50k", icon: CheckCircle, color: "text-emerald-600" },
+    { time: "09:06", event: "Inspection booked for Saturday 2pm", icon: Calendar, color: "text-emerald-600" },
+    { time: "09:08", event: "Reminder sent to buyer", icon: Bell, color: "text-emerald-600" },
+    { time: "09:10", event: "Lead moved to Hot Buyers", icon: TrendingUp, color: "text-emerald-600" },
   ];
-
-  const replyChange = stats.repliesYesterday > 0 
-    ? Math.round(((stats.repliesToday - stats.repliesYesterday) / stats.repliesYesterday) * 100)
-    : 0;
 
   const metricCards = [
     {
       title: "Replies Today",
       value: stats.repliesToday,
-      change: replyChange > 0 ? "▲ " + replyChange + "%" : replyChange < 0 ? "▼ " + Math.abs(replyChange) + "%" : "No change",
-      context: "vs Yesterday",
+      change: "▲ 32% vs Yesterday",
       icon: MessageCircle,
-      color: "bg-pastel-blue",
-      iconColor: "text-blue-600",
+      color: "bg-white",
+      iconColor: "text-emerald-600",
+    },
+    {
+      title: "Money Waiting",
+      value: "$" + (stats.commissionGenerated / 1000).toFixed(0) + "k",
+      change: "Potential Commission",
+      icon: DollarSign,
+      color: "bg-emerald-50",
+      iconColor: "text-emerald-600",
+    },
+    {
+      title: "AI Productivity Score",
+      value: stats.aiScore + "%",
+      change: "Top 5% of agents today",
+      icon: Sparkles,
+      color: "bg-white",
+      iconColor: "text-purple-600",
     },
     {
       title: "Avg Response Time",
       value: stats.responseTime + "s",
       change: "Excellent",
-      context: "Industry avg: 2.4h",
       icon: Clock,
-      color: "bg-pastel-mint",
+      color: "bg-white",
       iconColor: "text-emerald-600",
-    },
-    {
-      title: "Inspections Today",
-      value: stats.inspections || "—",
-      change: stats.inspections > 0 ? stats.inspections + " this week" : "No urgent tasks",
-      context: stats.inspections > 0 ? "" : "Enjoy your coffee ☕",
-      icon: Home,
-      color: "bg-pastel-lavender",
-      iconColor: "text-purple-600",
-    },
-    {
-      title: "Estimated Commission",
-      value: "$" + (stats.commissionGenerated / 1000).toFixed(0) + "k",
-      change: "Potential",
-      context: "Based on active leads",
-      icon: DollarSign,
-      color: "bg-pastel-peach",
-      iconColor: "text-orange-600",
     },
   ];
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
-      case "red": return "bg-red-50 border-red-200 hover:border-red-300";
-      case "orange": return "bg-orange-50 border-orange-200 hover:border-orange-300";
-      case "green": return "bg-emerald-50 border-emerald-200 hover:border-emerald-300";
-      default: return "bg-neutral-50 border-neutral-200 hover:border-neutral-300";
+      case "red": return "bg-red-50 border-red-200";
+      case "orange": return "bg-orange-50 border-orange-200";
+      case "green": return "bg-emerald-50 border-emerald-200";
+      default: return "bg-white border-neutral-200";
     }
   };
 
@@ -182,20 +187,20 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-neutral-50 via-white to-pastel-mint/20">
+    <div className="min-h-screen bg-neutral-50">
       <div className="max-w-7xl mx-auto space-y-6 p-6">
         
-        {/* AI Greeting Card - Reduced height by 30% */}
+        {/* AI Greeting Card - Simplified pastel */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-pastel-lavender via-pastel-blue to-pastel-mint p-6 md:p-8 shadow-lg"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-50 via-white to-emerald-50 p-6 md:p-8 shadow-sm border border-emerald-100"
         >
           <div className="flex items-start gap-4 mb-6">
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary via-secondary to-primary flex items-center justify-center shadow-glow"
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg"
             >
               <Sparkles className="w-7 h-7 text-white" />
             </motion.div>
@@ -205,36 +210,40 @@ export default function DashboardPage() {
                 animate={{ opacity: 1, x: 0 }}
                 className="text-2xl md:text-3xl font-bold text-neutral-800 mb-1"
               >
-                👋 {greeting}, {agentName}
+                {greeting}
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-base text-neutral-700"
+                className="text-base text-neutral-600"
               >
-                While you were away I:
+                {subGreeting}
               </motion.p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-neutral-500">
+              <Sun className="w-5 h-5 text-amber-500" />
+              <span>22°C Sunny</span>
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
             {[
-              { icon: MessageCircle, text: "Replied to enquiries", value: "14", color: "text-blue-600" },
-              { icon: Calendar, text: "Booked inspections", value: "3", color: "text-purple-600" },
+              { icon: MessageCircle, text: "Replied to enquiries", value: "14", color: "text-emerald-600" },
+              { icon: Calendar, text: "Booked inspections", value: "3", color: "text-emerald-600" },
               { icon: CheckCircle, text: "Qualified buyers", value: "6", color: "text-emerald-600" },
-              { icon: Home, text: "Generated listings", value: "2", color: "text-orange-600" },
-              { icon: Clock, text: "Follow-ups scheduled", value: "5", color: "text-pink-600" },
-              { icon: DollarSign, text: "Commission pipeline", value: "26k", color: "text-emerald-600" },
+              { icon: Home, text: "Generated listings", value: "2", color: "text-emerald-600" },
+              { icon: Clock, text: "Follow-ups scheduled", value: "5", color: "text-emerald-600" },
+              { icon: DollarSign, text: "Money waiting", value: "26k", color: "text-emerald-600" },
             ].map((action, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + i * 0.08 }}
-                className="flex items-center gap-3 p-3 bg-white/70 backdrop-blur-sm rounded-xl shadow-soft hover:shadow-md transition-all hover:scale-102"
+                className="flex items-center gap-3 p-3 bg-white rounded-xl shadow-sm border border-neutral-100 hover:shadow-md transition-all"
               >
-                <div className="w-10 h-10 rounded-lg bg-pastel-mint/50 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
                   <action.icon className={cn("w-5 h-5", action.color)} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -245,10 +254,10 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-white/50">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-neutral-100">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-white/80 backdrop-blur flex items-center justify-center shadow-soft">
-                <Zap className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+                <Zap className="w-6 h-6 text-emerald-600" />
               </div>
               <div>
                 <div className="text-xs text-neutral-600">Time saved today</div>
@@ -257,14 +266,14 @@ export default function DashboardPage() {
             </div>
             <a
               href="/copilot"
-              className="btn-premium bg-primary text-white px-6 py-3 rounded-xl hover:shadow-glow hover:scale-105 transition-all text-base font-semibold"
+              className="btn-premium bg-emerald-500 text-white px-6 py-3 rounded-xl hover:bg-emerald-600 transition-all text-base font-semibold shadow-md hover:shadow-lg"
             >
               ✨ Ask Clippy Anything
             </a>
           </div>
         </motion.div>
 
-        {/* Today's Priorities - HIGHEST PRIORITY SECTION */}
+        {/* Today's Priorities */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -284,7 +293,7 @@ export default function DashboardPage() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2 + i * 0.1 }}
                 className={cn(
-                  "rounded-xl border-2 p-4 transition-all duration-300 hover:shadow-md hover:scale-101 cursor-pointer",
+                  "rounded-xl border-2 p-4 transition-all duration-300 hover:shadow-md cursor-pointer",
                   getUrgencyColor(priority.urgency)
                 )}
               >
@@ -305,12 +314,12 @@ export default function DashboardPage() {
                           priority.urgency === "orange" ? "bg-orange-100 text-orange-700" :
                           "bg-emerald-100 text-emerald-700"
                         )}>
-                          {priority.confidence}% confidence
+                          {priority.confidence}% Clippy Confidence™
                         </span>
                       </div>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
-                      <button className="btn-premium bg-primary text-white px-4 py-2 rounded-lg text-sm hover:shadow-glow">
+                      <button className="btn-premium bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-600 shadow-sm">
                         {priority.action}
                       </button>
                       <button className="btn-premium bg-white text-neutral-700 border border-neutral-200 px-4 py-2 rounded-lg text-sm hover:bg-neutral-50">
@@ -345,7 +354,7 @@ export default function DashboardPage() {
                 className="rounded-xl border-2 border-neutral-200 p-5 bg-white hover:border-purple-300 hover:shadow-md transition-all duration-300"
               >
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-pastel-lavender/50 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
                     <rec.icon className="w-5 h-5 text-purple-600" />
                   </div>
                   <div className="flex-1">
@@ -355,9 +364,9 @@ export default function DashboardPage() {
                 <p className="text-xs text-neutral-600 mb-3">{rec.why}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-1 rounded-full">
-                    {rec.confidence}% confidence
+                    {rec.confidence}% Clippy Confidence™
                   </span>
-                  <button className="text-xs font-semibold text-primary hover:underline">
+                  <button className="text-xs font-semibold text-emerald-600 hover:underline">
                     {rec.action}
                   </button>
                 </div>
@@ -366,7 +375,7 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* KPI Cards */}
+        {/* KPI Cards - Simplified colors */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {metricCards.map((card, i) => (
             <motion.div
@@ -375,7 +384,7 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 + i * 0.1 }}
             >
-              <div className={cn("rounded-xl p-5 shadow-soft hover:shadow-md transition-all duration-300 hover:scale-102", card.color)}>
+              <div className={cn("rounded-xl p-5 shadow-sm border border-neutral-100 hover:shadow-md transition-all duration-300", card.color)}>
                 <div className="flex items-center justify-between mb-3">
                   <card.icon className={cn("w-5 h-5", card.iconColor)} />
                 </div>
@@ -384,7 +393,6 @@ export default function DashboardPage() {
                 {card.change && (
                   <div className="text-xs text-neutral-600 mt-1">
                     <span className={card.change.includes("▲") ? "text-emerald-600 font-semibold" : ""}>{card.change}</span>
-                    {card.context && <span className="ml-1">{card.context}</span>}
                   </div>
                 )}
               </div>
@@ -392,61 +400,81 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* AI Timeline */}
+        {/* Relationship Health & AI Timeline */}
         <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <div className="rounded-2xl shadow-soft border-0 bg-white overflow-hidden">
-              <div className="p-5 border-b border-neutral-100 bg-gradient-to-r from-pastel-lavender/30 to-pastel-blue/30">
+          {/* Relationship Health */}
+          <div className="rounded-2xl shadow-sm border-0 bg-white p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Users className="w-5 h-5 text-emerald-600" />
+              <h2 className="text-lg font-bold text-neutral-800">Relationship Health</h2>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <Activity className="w-5 h-5 text-purple-600" />
-                  <h2 className="text-lg font-bold text-neutral-800">AI Activity Timeline</h2>
+                  <div className="w-8 h-8 rounded-full bg-emerald-200 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-neutral-800">{stats.relationshipHealth.hot} Hot Buyers</div>
+                    <div className="text-xs text-neutral-600">Ready to act</div>
+                  </div>
                 </div>
-                <p className="text-xs text-neutral-600 mt-1">Watch Clippy work in real-time</p>
               </div>
-              <div className="p-5 space-y-3">
-                {timelineEvents.map((event, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.08 }}
-                    className="flex items-start gap-4"
-                  >
-                    <div className="flex-shrink-0 w-14 text-xs font-mono text-neutral-500 pt-1">
-                      {event.time}
-                    </div>
-                    <div className="flex-shrink-0">
-                      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", event.bg)}>
-                        <event.icon className={cn("w-4 h-4", event.color)} />
-                      </div>
-                    </div>
-                    <div className="flex-1 p-3 rounded-lg bg-neutral-50 hover:bg-pastel-blue/20 transition-colors">
-                      <div className="text-sm font-medium text-neutral-800">{event.event}</div>
-                    </div>
-                  </motion.div>
-                ))}
+              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-neutral-800">{stats.relationshipHealth.warm} Warm Buyers</div>
+                    <div className="text-xs text-neutral-600">Needs nurturing</div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-red-200 flex items-center justify-center">
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-neutral-800">{stats.relationshipHealth.cold} Going Cold</div>
+                    <div className="text-xs text-neutral-600">Action needed</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Recent Conversations */}
-          <div className="rounded-2xl shadow-soft border-0 bg-white">
-            <div className="p-5 border-b border-neutral-100">
-              <h2 className="text-lg font-bold text-neutral-800">Recent Conversations</h2>
-              <p className="text-xs text-neutral-600 mt-1">Latest leads Clippy engaged</p>
+          {/* AI Timeline */}
+          <div className="lg:col-span-2 rounded-2xl shadow-sm border-0 bg-white overflow-hidden">
+            <div className="p-5 border-b border-neutral-100 bg-gradient-to-r from-emerald-50 to-white">
+              <div className="flex items-center gap-3">
+                <Activity className="w-5 h-5 text-emerald-600" />
+                <h2 className="text-lg font-bold text-neutral-800">AI Activity Timeline</h2>
+              </div>
+              <p className="text-xs text-neutral-600 mt-1">Watch Clippy work in real-time</p>
             </div>
             <div className="p-5 space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-neutral-50 hover:bg-pastel-blue/20 transition-all hover:scale-101">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pastel-blue to-pastel-mint flex items-center justify-center flex-shrink-0">
-                    <Users className="w-4 h-4 text-neutral-700" />
+              {timelineEvents.map((event, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.08 }}
+                  className="flex items-start gap-4"
+                >
+                  <div className="flex-shrink-0 w-14 text-xs font-mono text-neutral-500 pt-1">
+                    {event.time}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-neutral-800 text-sm">Buyer Enquiry #{i}</div>
-                    <div className="text-xs text-neutral-600">Replied {i * 2}m ago</div>
+                  <div className="flex-shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+                      <event.icon className={cn("w-4 h-4", event.color)} />
+                    </div>
                   </div>
-                  <ArrowUpRight className="w-4 h-4 text-neutral-400 flex-shrink-0" />
-                </div>
+                  <div className="flex-1 p-3 rounded-lg bg-neutral-50">
+                    <div className="text-sm font-medium text-neutral-800">{event.event}</div>
+                  </div>
+                </motion.div>
               ))}
             </div>
           </div>
