@@ -146,7 +146,7 @@ export default function DashboardPage() {
     {
       title: "Inspections Today",
       value: stats.inspections || "—",
-      change: stats.inspections > 0 ?  : "No urgent tasks",
+      change: stats.inspections > 0 ? stats.inspections + " this week" : "No urgent tasks",
       context: stats.inspections > 0 ? "" : "Enjoy your coffee ☕",
       icon: Home,
       color: "bg-pastel-lavender",
