@@ -37,8 +37,9 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function MessageContent({ content }: { content: string }) {
-  // Split on copy-box separators (--- or ==== lines)
-  const sections = content.split(/\n[-=]{10,}\n/);
+  const sections = content.split(/
+[-=]{10,}
+/);
 
   if (sections.length <= 1) {
     return (
@@ -56,7 +57,6 @@ function MessageContent({ content }: { content: string }) {
       {sections.map((section, i) => {
         const trimmed = section.trim();
         if (!trimmed) return null;
-        const isHeading = trimmed.startsWith("#") || trimmed.startsWith("**");
         return (
           <div key={i} className="relative group rounded-lg border border-border/50 bg-card/50 p-3">
             <div className="whitespace-pre-wrap text-sm leading-relaxed">{trimmed}</div>
@@ -66,16 +66,20 @@ function MessageContent({ content }: { content: string }) {
           </div>
         );
       })}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-        <CopyButton text={content} />
-      </div>
     </div>
   );
 }
 
 export function CopilotPage() {
   const [messages, setMessages] = useState<Message[]>([
-    { id: "0", role: "assistant", content: "G'day! I'm Clippy, your real estate co-agent. Ready to help you with:\n\n• Drafting lead replies & follow-ups\n• Property captions for socials/listings\n• Compliance checks (all states)\n• Email/SMS/WhatsApp messages\n\nWhat are you working on today?" },
+    { id: "0", role: "assistant", content: "G'day! I'm Clippy, your real estate co-agent. Ready to help you with:
+
+• Drafting lead replies & follow-ups
+• Property captions for socials/listings
+• Compliance checks (all states)
+• Email/SMS/WhatsApp messages
+
+What are you working on today?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -98,7 +102,7 @@ export function CopilotPage() {
       const res = await fetch("/api/copilot/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [{ role: "user", content: msg }] }),
+        body: JSON.stringify({ message: msg }),
       });
       const data = await res.json();
 
@@ -150,54 +154,52 @@ export function CopilotPage() {
               <MessageContent content={msg.content} />
             </div>
             {msg.role === "user" && (
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-1">
-                <User className="w-4 h-4 text-muted-foreground" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pastel-blue to-pastel-mint flex items-center justify-center flex-shrink-0 mt-1">
+                <User className="w-4 h-4 text-neutral-700" />
               </div>
             )}
           </div>
         ))}
-        {loading && (
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-              <Bot className="w-4 h-4 text-white" />
-            </div>
-            <div className="bg-card border border-border rounded-2xl rounded-bl-none px-4 py-3">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" />
-                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0.1s" }} />
-                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0.2s" }} />
-              </div>
-            </div>
-          </div>
-        )}
         <div ref={bottomRef} />
       </div>
 
-      {messages.length <= 1 && (
-        <div className="px-4 md:px-6 pb-4">
-          <p className="text-xs text-muted-foreground mb-3 text-center">Try asking Clippy to...</p>
-          <div className="flex flex-wrap gap-2 justify-center">
-            {quickActions.map((action) => (
-              <button key={action.label} onClick={() => sendMessage(action.prompt)} disabled={loading}
-                className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-border transition-colors disabled:opacity-50">
-                <Sparkles className="w-3 h-3 inline mr-1" />
+      <div className="border-t border-border bg-card p-4">
+        <div className="max-w-4xl mx-auto space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {quickActions.map((action, i) => (
+              <button
+                key={i}
+                onClick={() => sendMessage(action.prompt)}
+                disabled={loading}
+                className="text-xs px-3 py-1.5 rounded-full bg-pastel-lavender/50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors disabled:opacity-50"
+              >
                 {action.label}
               </button>
             ))}
           </div>
-        </div>
-      )}
-
-      <div className="border-t border-border p-4 md:p-6">
-        <div className="flex gap-3 max-w-4xl mx-auto">
-          <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
-            placeholder="Ask Clippy to draft, schedule, or find something..."
-            className="flex-1 px-4 py-3 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-          <button onClick={() => sendMessage(input)} disabled={loading || !input.trim()}
-            className="px-4 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50">
-            <Send className="w-4 h-4" />
-          </button>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage();
+            }}
+            className="flex gap-2"
+          >
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask Clippy anything..."
+              className="flex-1 px-4 py-2 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
         </div>
       </div>
     </div>
