@@ -20,19 +20,19 @@ const progressSteps = [
 ];
 
 export function CopilotPage() {
-  const [messages, setMessages] = useState<any[]>([
+  const [messages, setMessages] = useState([
     { id: "1", role: "assistant", content: "G'day! I'm Clippy. How can I help today?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text) => {
     const msg = text || input;
     if (!msg.trim() || loading) return;
 
@@ -41,7 +41,6 @@ export function CopilotPage() {
     setLoading(true);
     setProgressStep(0);
 
-    // Animate progress steps
     const progressInterval = setInterval(() => {
       setProgressStep((prev) => {
         if (prev >= progressSteps.length - 1) {
@@ -78,7 +77,7 @@ export function CopilotPage() {
   return (
     <div className="flex flex-col h-screen bg-neutral-50">
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.map((msg: any) => (
+        {messages.map((msg) => (
           <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : "flex justify-start"}>
             {msg.role === "assistant" && (
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mr-3 mt-1 shadow-md">
@@ -107,17 +106,20 @@ export function CopilotPage() {
             </div>
             <div className="max-w-2xl bg-white border border-neutral-200 rounded-2xl rounded-bl-none p-4 shadow-sm">
               <div className="space-y-2">
-                {progressSteps.map((step, i) => (
-                  <div
-                    key={i}
-                    className={}
-                  >
-                    <span className="text-base">{step.text.includes("Finalizing") && i === progressStep ? "✨" : i < progressStep ? "✅" : step.icon}</span>
-                    <span className={i === progressStep ? "text-emerald-600 font-medium" : "text-neutral-600"}>
-                      {step.text}
-                    </span>
-                  </div>
-                ))}
+                {progressSteps.map((step, i) => {
+                  const isComplete = i < progressStep;
+                  const isCurrent = i === progressStep;
+                  const opacityClass = isComplete || isCurrent ? "opacity-100" : "opacity-30";
+                  const colorClass = isCurrent ? "text-emerald-600 font-medium" : "text-neutral-600";
+                  const icon = isComplete ? "✅" : (step.text.includes("Finalizing") && isCurrent ? "✨" : step.icon);
+                  
+                  return (
+                    <div key={i} className={opacityClass + " flex items-center gap-2 text-sm transition-all duration-300"}>
+                      <span className="text-base">{icon}</span>
+                      <span className={colorClass}>{step.text}</span>
+                    </div>
+                  );
+                })}
                 {progressStep < progressSteps.length - 1 && (
                   <div className="flex items-center gap-1 pt-2">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
