@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles, Copy, Check } from "lucide-react";
+import { Send, Bot, User, Copy, Check } from "lucide-react";
 
 interface Message {
   id: string;
@@ -11,14 +11,13 @@ interface Message {
 
 const quickActions = [
   { label: "Draft a follow-up", prompt: "Draft a follow-up email for my hot leads" },
-  { label: "Generate captions", prompt: "Generate 3 caption options for a 4-bedroom, 2-bathroom house in Paddington, NSW" },
+  { label: "Generate captions", prompt: "Generate 3 caption options for a 4-bedroom house in Paddington, NSW" },
   { label: "Compliance check", prompt: "What do I need to disclose when selling a strata unit in NSW?" },
   { label: "Schedule a tour", prompt: "Schedule a property tour for tomorrow at 2pm" },
 ];
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -26,38 +25,17 @@ function CopyButton({ text }: { text: string }) {
       setTimeout(() => setCopied(false), 2000);
     } catch {}
   };
-
   return (
-    <button onClick={handleCopy}
-      className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-border transition-colors">
+    <button onClick={handleCopy} className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 transition-colors">
       {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
       {copied ? "Copied!" : "Copy"}
     </button>
   );
 }
 
-function MessageContent({ content }: { content: string }) {
-  // Simple rendering without regex split
-  return (
-    <div className="relative group">
-      <div className="whitespace-pre-wrap text-sm leading-relaxed">{content}</div>
-      <div className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        <CopyButton text={content} />
-      </div>
-    </div>
-  );
-}
-
 export function CopilotPage() {
   const [messages, setMessages] = useState<Message[]>([
-    { id: "0", role: "assistant", content: "G'day! I'm Clippy, your real estate co-agent. Ready to help you with:
-
-• Drafting lead replies & follow-ups
-• Property captions for socials/listings
-• Compliance checks (all states)
-• Email/SMS/WhatsApp messages
-
-What are you working on today?" },
+    { id: "0", role: "assistant", content: "G'day! I'm Clippy, your real estate co-agent. Ready to help you with lead replies, property captions, compliance checks, and more. What are you working on today?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -85,30 +63,14 @@ What are you working on today?" },
       const data = await res.json();
 
       if (data.error) {
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: "Error: " + data.error,
-        }]);
+        setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Error: " + data.error }]);
       } else if (data.reply) {
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: data.reply,
-        }]);
+        setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: data.reply }]);
       } else {
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: "I received your message but could not generate a response. Please try again.",
-        }]);
+        setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "I received your message but could not generate a response. Please try again." }]);
       }
     } catch (err) {
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Network error: Could not reach the AI service.",
-      }]);
+      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Network error: Could not reach the AI service." }]);
     } finally {
       setLoading(false);
     }
@@ -124,12 +86,13 @@ What are you working on today?" },
                 <Bot className="w-4 h-4 text-white" />
               </div>
             )}
-            <div className={"max-w-2xl px-4 py-3 rounded-2xl text-sm leading-relaxed " +
-              (msg.role === "user"
-                ? "bg-primary text-primary-foreground rounded-br-none"
-                : "bg-card border border-border text-foreground rounded-bl-none"
-              )}>
-              <MessageContent content={msg.content} />
+            <div className={"max-w-2xl px-4 py-3 rounded-2xl text-sm leading-relaxed " + (msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-none" : "bg-card border border-border text-foreground rounded-bl-none")}>
+              <div className="relative group">
+                <div className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</div>
+                <div className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <CopyButton text={msg.content} />
+                </div>
+              </div>
             </div>
             {msg.role === "user" && (
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pastel-blue to-pastel-mint flex items-center justify-center flex-shrink-0 mt-1">
@@ -145,36 +108,14 @@ What are you working on today?" },
         <div className="max-w-4xl mx-auto space-y-3">
           <div className="flex flex-wrap gap-2">
             {quickActions.map((action, i) => (
-              <button
-                key={i}
-                onClick={() => sendMessage(action.prompt)}
-                disabled={loading}
-                className="text-xs px-3 py-1.5 rounded-full bg-pastel-lavender/50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors disabled:opacity-50"
-              >
+              <button key={i} onClick={() => sendMessage(action.prompt)} disabled={loading} className="text-xs px-3 py-1.5 rounded-full bg-pastel-lavender/50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors disabled:opacity-50">
                 {action.label}
               </button>
             ))}
           </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendMessage();
-            }}
-            className="flex gap-2"
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Clippy anything..."
-              className="flex-1 px-4 py-2 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={loading}
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
+          <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2">
+            <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask Clippy anything..." className="flex-1 px-4 py-2 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary" disabled={loading} />
+            <button type="submit" disabled={loading || !input.trim()} className="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               <Send className="w-4 h-4" />
             </button>
           </form>
