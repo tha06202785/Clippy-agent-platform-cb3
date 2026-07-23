@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { 
   MessageCircle, Calendar, CheckCircle, Zap, TrendingUp, Users, DollarSign, 
   Clock, Home, Brain, Sparkles, ArrowUpRight, Activity, AlertCircle, 
-  Star, Phone, Mail, Send, Bell, Sun
+  Star, Phone, Mail, Send, Bell, Sun, Cloud
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +30,36 @@ export default function DashboardPage() {
   const [agentName, setAgentName] = useState("Sarah");
 
   useEffect(() => {
+    // Get agent's location for weather
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        try {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true");
+          const data = await res.json();
+          const temp = Math.round(data.current_weather.temperature);
+          const code = data.current_weather.weathercode;
+          let condition = "sunny";
+          if (code >= 61 && code <= 67) condition = "rainy";
+          else if (code >= 71 && code <= 77) condition = "snowy";
+          else if (code >= 80 && code <= 82) condition = "rainy";
+          else if (code >= 95) condition = "stormy";
+          else if (code >= 3 && code <= 48) condition = "cloudy";
+          
+          // Reverse geocode to get city name
+          const geoRes = await fetch("https://api.bigdatacloud.net/v1/reverse-geocode?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=en");
+          const geoData = await geoRes.json();
+          const city = geoData.city || "your location";
+          
+          setWeather({ temp, condition, location: city });
+          setAgentLocation({ city, temp, condition });
+        } catch (err) {
+          console.error("Weather fetch failed:", err);
+        }
+      }, () => {}, { enableHighAccuracy: true, timeout: 5000 });
+    }
+    
     const hour = new Date().getHours();
     const greetings = [
       { start: "👋 Good morning", sub: "I cleared your inbox before coffee.", time: [5, 12] },
@@ -222,8 +252,8 @@ export default function DashboardPage() {
               </motion.p>
             </div>
             <div className="flex items-center gap-2 text-sm text-neutral-500">
-              <Sun className="w-5 h-5 text-amber-500" />
-              <span>22°C Sunny</span>
+              {weather.condition === "sunny" ? <Sun className="w-5 h-5 text-amber-500" /> : <Cloud className="w-5 h-5 text-neutral-500" />}
+              <span>{weather.temp}°C {weather.location}</span>
             </div>
           </div>
 

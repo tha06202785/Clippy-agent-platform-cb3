@@ -26,7 +26,6 @@ export function CopilotPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
-  const [streamingText, setStreamingText] = useState("");
 
   const sendMessage = async (text: string) => {
     const msg = text || input;
@@ -36,7 +35,6 @@ export function CopilotPage() {
     setInput("");
     setLoading(true);
     setThinkingStep(0);
-    setStreamingText("");
 
     let stepIndex = 0;
     const stepInterval = setInterval(() => {
@@ -46,7 +44,7 @@ export function CopilotPage() {
       } else {
         setThinkingStep(stepIndex);
       }
-    }, 500);
+    }, 400);
 
     try {
       const res = await fetch("/api/copilot/chat", {
@@ -55,6 +53,10 @@ export function CopilotPage() {
         body: JSON.stringify({ message: msg }),
       });
       
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status);
+      }
+      
       const data = await res.json();
 
       clearInterval(stepInterval);
@@ -62,26 +64,14 @@ export function CopilotPage() {
 
       if (data.error) {
         setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Error: " + data.error }]);
-      } else if (data.reply) {
-        const fullText = data.reply;
-        let currentIndex = 0;
-        
-        const streamInterval = setInterval(() => {
-          currentIndex++;
-          if (currentIndex <= fullText.length) {
-            setStreamingText(fullText.slice(0, currentIndex));
-          } else {
-            clearInterval(streamInterval);
-            setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: fullText }]);
-            setStreamingText("");
-          }
-        }, 20);
+      } else if (data.reply && data.reply.trim()) {
+        setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: data.reply }]);
       } else {
-        setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "No response from AI" }]);
+        setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "I received your message but don't have a response. Please try again." }]);
       }
     } catch (err) {
       console.error("Copilot error:", err);
-      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Network error. Please try again." }]);
+      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Network error: " + (err as Error).message + ". Please try again." }]);
     } finally {
       setLoading(false);
       setThinkingStep(0);
@@ -119,7 +109,7 @@ export function CopilotPage() {
               <Bot className="w-5 h-5 text-white" />
             </div>
             <div className="max-w-2xl bg-white border border-neutral-200 rounded-2xl rounded-bl-none p-5 shadow-sm flex-1">
-              <div className="space-y-3 mb-4">
+              <div className="space-y-3">
                 {thinkingSteps.map((step, i) => {
                   const isComplete = i < thinkingStep;
                   const isCurrent = i === thinkingStep;
@@ -153,16 +143,6 @@ export function CopilotPage() {
                   );
                 })}
               </div>
-              
-              {streamingText && (
-                <div className="border-t border-neutral-100 pt-4 mt-2">
-                  <div className="text-xs text-neutral-500 mb-2 font-medium">Generating response:</div>
-                  <div className="text-sm whitespace-pre-wrap leading-relaxed text-neutral-800">
-                    {streamingText}
-                    <span className="inline-block w-2 h-4 bg-emerald-500 ml-1 animate-pulse" />
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
