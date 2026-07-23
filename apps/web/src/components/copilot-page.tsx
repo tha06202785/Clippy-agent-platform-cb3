@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Send, Bot, User } from "lucide-react";
 
 const quickActions = [
@@ -8,6 +8,15 @@ const quickActions = [
   { label: "Generate captions", prompt: "Generate 3 property captions" },
   { label: "Compliance", prompt: "NSW strata disclosure requirements" },
   { label: "Schedule tour", prompt: "Schedule tour for tomorrow 2pm" },
+];
+
+const thinkingSteps = [
+  "Reading your message",
+  "Understanding context",
+  "Checking your knowledge base",
+  "Reviewing compliance requirements",
+  "Drafting response",
+  "Final review",
 ];
 
 export function CopilotPage() {
@@ -19,15 +28,6 @@ export function CopilotPage() {
   const [thinkingStep, setThinkingStep] = useState(0);
   const [streamingText, setStreamingText] = useState("");
 
-  const thinkingSteps = [
-    "Reading your message",
-    "Understanding context",
-    "Checking your knowledge base",
-    "Reviewing compliance requirements",
-    "Drafting response",
-    "Final review",
-  ];
-
   const sendMessage = async (text: string) => {
     const msg = text || input;
     if (!msg.trim() || loading) return;
@@ -38,16 +38,15 @@ export function CopilotPage() {
     setThinkingStep(0);
     setStreamingText("");
 
-    // Animate thinking steps
+    let stepIndex = 0;
     const stepInterval = setInterval(() => {
-      setThinkingStep((prev) => {
-        if (prev >= thinkingSteps.length - 1) {
-          clearInterval(stepInterval);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 600);
+      stepIndex++;
+      if (stepIndex >= thinkingSteps.length) {
+        clearInterval(stepInterval);
+      } else {
+        setThinkingStep(stepIndex);
+      }
+    }, 500);
 
     try {
       const res = await fetch("/api/copilot/chat", {
@@ -55,30 +54,34 @@ export function CopilotPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: msg }),
       });
+      
       const data = await res.json();
 
       clearInterval(stepInterval);
+      setThinkingStep(thinkingSteps.length);
 
       if (data.error) {
         setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Error: " + data.error }]);
       } else if (data.reply) {
-        // Stream the response character by character (ChatGPT style)
         const fullText = data.reply;
         let currentIndex = 0;
         
         const streamInterval = setInterval(() => {
-          if (currentIndex < fullText.length) {
-            setStreamingText(fullText.slice(0, currentIndex + 1));
-            currentIndex++;
+          currentIndex++;
+          if (currentIndex <= fullText.length) {
+            setStreamingText(fullText.slice(0, currentIndex));
           } else {
             clearInterval(streamInterval);
             setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: fullText }]);
             setStreamingText("");
           }
-        }, 15); // 15ms per character = natural typing speed
+        }, 20);
+      } else {
+        setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "No response from AI" }]);
       }
     } catch (err) {
-      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Network error" }]);
+      console.error("Copilot error:", err);
+      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Network error. Please try again." }]);
     } finally {
       setLoading(false);
       setThinkingStep(0);
@@ -91,7 +94,7 @@ export function CopilotPage() {
         {messages.map((msg: any) => (
           <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : "flex justify-start"}>
             {msg.role === "assistant" && (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mr-3 mt-1 shadow-md">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mr-3 mt-1 shadow-md flex-shrink-0">
                 <Bot className="w-5 h-5 text-white" />
               </div>
             )}
@@ -103,7 +106,7 @@ export function CopilotPage() {
               <div className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</div>
             </div>
             {msg.role === "user" && (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center ml-3 mt-1 shadow-md">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center ml-3 mt-1 shadow-md flex-shrink-0">
                 <User className="w-5 h-5 text-white" />
               </div>
             )}
@@ -116,7 +119,6 @@ export function CopilotPage() {
               <Bot className="w-5 h-5 text-white" />
             </div>
             <div className="max-w-2xl bg-white border border-neutral-200 rounded-2xl rounded-bl-none p-5 shadow-sm flex-1">
-              {/* Thinking indicator - ChatGPT style */}
               <div className="space-y-3 mb-4">
                 {thinkingSteps.map((step, i) => {
                   const isComplete = i < thinkingStep;
@@ -125,22 +127,18 @@ export function CopilotPage() {
                   return (
                     <div key={i} className="flex items-center gap-3">
                       <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
-                        {isComplete && (
-                          <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
-                        {isCurrent && (
+                        {isComplete ? (
+                          <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : isCurrent ? (
                           <div className="flex gap-1">
                             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
                             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                           </div>
-                        )}
-                        {!isComplete && !isCurrent && (
-                          <div className="w-5 h-5 rounded-full border-2 border-neutral-200" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-neutral-200" />
                         )}
                       </div>
                       <span className={
@@ -149,17 +147,16 @@ export function CopilotPage() {
                         "text-neutral-400 text-sm"
                       }>
                         {step}
-                        {isCurrent && <span className="animate-pulse">...</span>}
+                        {isCurrent && "..."}
                       </span>
                     </div>
                   );
                 })}
               </div>
               
-              {/* Streaming text preview */}
               {streamingText && (
                 <div className="border-t border-neutral-100 pt-4 mt-2">
-                  <div className="text-sm text-neutral-600 mb-2 text-xs font-medium">Generating response:</div>
+                  <div className="text-xs text-neutral-500 mb-2 font-medium">Generating response:</div>
                   <div className="text-sm whitespace-pre-wrap leading-relaxed text-neutral-800">
                     {streamingText}
                     <span className="inline-block w-2 h-4 bg-emerald-500 ml-1 animate-pulse" />
@@ -169,6 +166,7 @@ export function CopilotPage() {
             </div>
           </div>
         )}
+        <div />
       </div>
 
       <div className="border-t border-neutral-200 p-4 bg-white">
