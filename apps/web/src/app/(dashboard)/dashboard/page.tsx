@@ -28,6 +28,8 @@ export default function DashboardPage() {
   const [greeting, setGreeting] = useState("");
   const [subGreeting, setSubGreeting] = useState("");
   const [agentName, setAgentName] = useState("Sarah");
+  const [weather, setWeather] = useState({ temp: 22, condition: "sunny", location: "Sydney" });
+
 
   useEffect(() => {
     // Get agent's location for weather
@@ -53,7 +55,7 @@ export default function DashboardPage() {
           const city = geoData.city || "your location";
           
           setWeather({ temp, condition, location: city });
-          setAgentLocation({ city, temp, condition });
+          // Location updated in weather state
         } catch (err) {
           console.error("Weather fetch failed:", err);
         }
@@ -246,9 +248,17 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-base text-neutral-600"
+                className="text-base text-neutral-600 mb-1"
               >
                 {subGreeting}
+              </motion.p>
+              <motion.p
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.15 }}
+                className="text-sm text-neutral-500 font-medium"
+              >
+                {new Date().toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} at {new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })} {weather.location.includes("Sydney") || weather.location.includes("Melbourne") || weather.location.includes("Brisbane") || weather.location.includes("Canberra") ? "AEST" : weather.location.includes("Adelaide") ? "ACST" : weather.location.includes("Perth") ? "AWST" : "Local"}
               </motion.p>
             </div>
             <div className="flex items-center gap-2 text-sm text-neutral-500">
