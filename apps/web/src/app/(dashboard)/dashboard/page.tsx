@@ -52,13 +52,18 @@ export default function DashboardPage() {
           // Reverse geocode to get city name
           const geoRes = await fetch("https://api.bigdatacloud.net/v1/reverse-geocode?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=en");
           const geoData = await geoRes.json();
-          const city = geoData.city || "your location";
+          const city = geoData.city || geoData.locality || "Sydney";
           
+          console.log("Weather updated:", { temp, condition, location: city });
           setWeather({ temp, condition, location: city });
           // Location updated in weather state
         } catch (err) {
           console.error("Weather fetch failed:", err);
+          console.log("Using default weather: Sydney 22°C");
         }
+      }, () => {
+        console.log("Location permission denied or timeout");
+      }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
       }, () => {}, { enableHighAccuracy: true, timeout: 5000 });
     }
     
