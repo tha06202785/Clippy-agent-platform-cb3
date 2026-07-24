@@ -64,7 +64,6 @@ export default function DashboardPage() {
       }, () => {
         console.log("Location permission denied or timeout");
       }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-      }, () => {}, { enableHighAccuracy: true, timeout: 5000 });
     }
     
     const hour = new Date().getHours();
