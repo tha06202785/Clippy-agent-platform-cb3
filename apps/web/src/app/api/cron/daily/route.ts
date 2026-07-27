@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// POST with Bearer token auth — Vercel Cron uses POST
-export async function POST(req: NextRequest) {
+async function runDailyCron(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers.get("authorization");
   if (!cronSecret || !authHeader || authHeader !== `Bearer ${cronSecret}`) {
@@ -13,7 +12,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
+    const internalApiSecret = process.env.INTERNAL_API_SECRET;
+    if (!internalApiSecret) {
+      return NextResponse.json(
+        { error: "INTERNAL_API_SECRET is not configured" },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createAdminClient();
     const now = new Date().toISOString();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -32,9 +39,12 @@ export async function POST(req: NextRequest) {
     if (jobs) {
       for (const job of jobs) {
         try {
-          const aiRes = await fetch("https://useclippy.com/api/ai/message", {
+          const aiRes = await fetch(new URL("/api/ai/message", req.nextUrl.origin), {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-internal-secret": internalApiSecret,
+            },
             body: JSON.stringify({
               orgId: job.org_id,
               channel: job.conversations?.channel || "email",
@@ -44,6 +54,9 @@ export async function POST(req: NextRequest) {
               metadata: { isFollowUp: true, actionType: job.action_type },
             }),
           });
+          if (!aiRes.ok) {
+            throw new Error(`AI message request failed with ${aiRes.status}`);
+          }
           const aiData = await aiRes.json();
           await supabase.from("followup_queue").update({
             status: aiData.escalation ? "failed" : "sent",
@@ -148,4 +161,13 @@ export async function POST(req: NextRequest) {
     console.error("Daily cron error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+// Vercel Cron invokes GET. The external server trigger may continue using POST.
+export async function GET(req: NextRequest) {
+  return runDailyCron(req);
+}
+
+export async function POST(req: NextRequest) {
+  return runDailyCron(req);
 }
