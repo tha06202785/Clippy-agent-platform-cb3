@@ -1,7 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-const EMAIL = process.env.TEST_EMAIL ?? "kenoltha@gmail.com";
-const PASSWORD = process.env.TEST_PASSWORD ?? "22031980";
+const EMAIL = process.env.TEST_EMAIL;
+const PASSWORD = process.env.TEST_PASSWORD;
+
+if (!EMAIL || !PASSWORD) {
+  throw new Error("TEST_EMAIL and TEST_PASSWORD are required for authenticated E2E tests");
+}
 
 test.describe("Authenticated flows", () => {
   test("sign in and access dashboard", async ({ page }) => {
