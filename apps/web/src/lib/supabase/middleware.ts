@@ -24,10 +24,13 @@ export async function updateSession(request: NextRequest) {
 
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64").slice(0, 16);
 
+  // Temporary testing bypass. Set to false to restore sign-in enforcement.
+  const authDisabledForTesting = true;
+
   const protectedPaths = ["/dashboard", "/inbox", "/deals", "/copilot", "/team", "/integrations", "/import", "/analytics", "/admin", "/onboarding", "/briefing", "/monitoring", "/property"];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
-  if (isProtected && !user) {
+  if (isProtected && !user && !authDisabledForTesting) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     url.searchParams.set("redirect", pathname);
@@ -36,7 +39,7 @@ export async function updateSession(request: NextRequest) {
 
   const authPaths = ["/sign-in", "/signup"];
   const isAuthPage = authPaths.some((p) => pathname.startsWith(p));
-  if (isAuthPage && user) {
+  if (isAuthPage && (user || authDisabledForTesting)) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
