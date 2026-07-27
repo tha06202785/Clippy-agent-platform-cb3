@@ -1,0 +1,176 @@
+/** @import must precede all other statements */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /**
+   * Tailwind CSS theme
+   * tailwind.config.ts expects the following color variables to be expressed as HSL values.
+   * A different format will require also updating the theme in tailwind.config.ts.
+  */
+  :root {
+    /* Clippy Brand Colors - Professional Teal/Blue */
+    --clippy-50: 190 50% 97%;
+    --clippy-100: 190 46% 92%;
+    --clippy-200: 190 43% 85%;
+    --clippy-300: 190 40% 75%;
+    --clippy-400: 190 38% 62%;
+    --clippy-500: 190 35% 50%;
+    --clippy-600: 190 40% 42%;
+    --clippy-700: 190 45% 35%;
+    --clippy-800: 190 48% 28%;
+    --clippy-900: 190 50% 18%;
+
+    /* DARK MODE (Changed to dark-first approach) */
+    --background: 224 27% 12%;
+    --foreground: 0 0% 98%;
+
+    --card: 217 33% 17%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 217 33% 17%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 190 85% 44%;
+    --primary-foreground: 224 27% 12%;
+
+    --secondary: 217 32% 25%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 217 32% 30%;
+    --muted-foreground: 190 10% 65%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 224 27% 12%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 32% 25%;
+    --input: 217 32% 25%;
+    --ring: 190 85% 44%;
+
+    --radius: 0.625rem;
+
+    --sidebar-background: 217 33% 15%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 190 85% 44%;
+    --sidebar-primary-foreground: 224 27% 12%;
+    --sidebar-accent: 217 32% 25%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 217 32% 25%;
+    --sidebar-ring: 190 85% 44%;
+  }
+
+  .dark {
+    --clippy-50: 190 50% 97%;
+    --clippy-100: 190 46% 92%;
+    --clippy-200: 190 43% 85%;
+    --clippy-300: 190 40% 75%;
+    --clippy-400: 190 38% 62%;
+    --clippy-500: 190 35% 50%;
+    --clippy-600: 190 40% 42%;
+    --clippy-700: 190 45% 35%;
+    --clippy-800: 190 48% 28%;
+    --clippy-900: 190 50% 18%;
+
+    --background: 190 30% 12%;
+    --foreground: 0 0% 98%;
+
+    --card: 190 20% 18%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 190 20% 18%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 190 35% 55%;
+    --primary-foreground: 190 30% 12%;
+
+    --secondary: 190 20% 25%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 190 15% 30%;
+    --muted-foreground: 190 10% 65%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 190 30% 12%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 190 20% 25%;
+    --input: 190 20% 25%;
+    --ring: 190 35% 55%;
+
+    --sidebar-background: 190 25% 14%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 190 35% 55%;
+    --sidebar-primary-foreground: 190 30% 12%;
+    --sidebar-accent: 190 20% 25%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 190 20% 25%;
+    --sidebar-ring: 190 35% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label, td, th) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  h1 {
+    @apply text-3xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-2xl font-bold tracking-tight;
+  }
+
+  h3 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+
+  h4 {
+    @apply text-lg font-semibold;
+  }
+
+  h5 {
+    @apply text-base font-semibold;
+  }
+
+  h6 {
+    @apply text-sm font-semibold;
+  }
+
+  pre,
+  code {
+    overflow-x: auto;
+    white-space: pre;
+    font-family: "Fira Code", monospace;
+  }
+
+  @layer components {
+    .btn-primary {
+      @apply bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg font-semibold transition-colors;
+    }
+
+    .btn-secondary {
+      @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-lg font-semibold transition-colors;
+    }
+  }
+}
