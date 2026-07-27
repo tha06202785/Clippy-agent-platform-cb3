@@ -186,8 +186,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
 
-    // If no authenticated user, use default org (for webhooks)
+    // If no authenticated user, require internal service secret
     if (!orgId) {
+      const internalSecret = process.env.INTERNAL_API_SECRET;
+      const internalHeader = req.headers.get("x-internal-secret");
+      if (!internalSecret || !internalHeader || internalHeader !== internalSecret) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       const { data: orgs } = await supabase.from("orgs").select("id").limit(1);
       if (orgs && orgs.length > 0) orgId = orgs[0].id;
       else return NextResponse.json({ error: "No org found" }, { status: 500 });

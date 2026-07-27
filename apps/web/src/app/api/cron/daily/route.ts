@@ -4,7 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET(req: NextRequest) {
+// POST with Bearer token auth — Vercel Cron uses POST
+export async function POST(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.get("authorization");
+  if (!cronSecret || !authHeader || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const supabase = await createClient();
     const now = new Date().toISOString();
@@ -136,7 +143,7 @@ export async function GET(req: NextRequest) {
         hot_leads_identified: hotCount,
         escalations_count: escCount,
       },
-    });
+    }, { status: 200 });
   } catch (error: any) {
     console.error("Daily cron error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
