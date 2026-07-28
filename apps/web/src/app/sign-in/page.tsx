@@ -13,7 +13,6 @@ function safeNextPath(): string {
 
 export default function SignInPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,29 +23,42 @@ export default function SignInPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+
+      router.replace(safeNextPath());
+      router.refresh();
+    } catch {
+      setError("Authentication is not configured for this environment.");
       setLoading(false);
-      return;
     }
-
-    router.replace(safeNextPath());
-    router.refresh();
   };
 
   const handleGoogleSignIn = async () => {
     setError("");
-    const next = safeNextPath();
-    const callback = new URL("/api/auth/callback", window.location.origin);
-    callback.searchParams.set("next", next);
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: callback.toString() },
-    });
-    if (error) setError(error.message);
+    try {
+      const next = safeNextPath();
+      const callback = new URL("/api/auth/callback", window.location.origin);
+      callback.searchParams.set("next", next);
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: callback.toString() },
+      });
+      if (signInError) setError(signInError.message);
+    } catch {
+      setError("Authentication is not configured for this environment.");
+    }
   };
 
   return (

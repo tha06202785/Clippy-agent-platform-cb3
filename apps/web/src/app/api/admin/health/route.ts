@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin-access";
 
 export const dynamic = "force-dynamic";
 
@@ -19,41 +19,52 @@ export async function GET() {
   const checks: HealthCheck[] = [];
 
   try {
-    const supabase = await createClient();
     const authStarted = Date.now();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const context = await getAdminContext();
+    if (context.status === "unauthenticated") {
       return NextResponse.json(
         { error: "Unauthorized", checks: [] },
         { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     }
+    if (context.status === "unavailable") {
+      return NextResponse.json(
+        {
+          error: "Authentication is not configured for this environment",
+          checks: [],
+        },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    if (context.status === "forbidden") {
+      return NextResponse.json(
+        { error: "Admin access required", checks: [] },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    const { membership, supabase } = context;
 
     checks.push({
       key: "authentication",
       name: "Authentication",
       status: "healthy",
-      message: "Signed-in session verified",
+      message: "Owner or Admin session verified",
       latencyMs: elapsed(authStarted),
     });
 
     const dbStarted = Date.now();
-    const { data: memberships, error: membershipError } = await supabase
+    const { error: databaseError } = await supabase
       .from("user_org_roles")
-      .select("org_id, role")
-      .eq("user_id", user.id)
-      .limit(5);
+      .select("org_id", { head: true, count: "exact" })
+      .eq("org_id", membership.org_id);
 
-    if (membershipError) {
+    if (databaseError) {
       checks.push({
         key: "database",
         name: "Database",
         status: "error",
-        message: membershipError.message,
+        message: databaseError.message,
         latencyMs: elapsed(dbStarted),
       });
     } else {
@@ -66,7 +77,7 @@ export async function GET() {
       });
     }
 
-    const orgId = memberships?.[0]?.org_id;
+    const orgId = membership.org_id;
     checks.push({
       key: "organisation",
       name: "Organisation context",

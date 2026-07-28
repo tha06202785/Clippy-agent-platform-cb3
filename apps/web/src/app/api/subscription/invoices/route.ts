@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin-access";
 import {
-  getAppUrl,
   getBillingAccount,
   getBillingDataClient,
   getStripeClient,
@@ -10,7 +9,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(_req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const context = await getAdminContext();
   if (context.status === "unavailable") {
     return NextResponse.json(
@@ -37,36 +36,43 @@ export async function POST(_req: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  const stripe = getStripeClient();
-  if (!stripe) {
-    return NextResponse.json(
-      { error: "Billing is not configured" },
-      { status: 503 },
-    );
-  }
-
   try {
     const account = await getBillingAccount(
       getBillingDataClient(context.supabase),
       context.membership.org_id,
     );
     if (!account?.stripeCustomerId) {
+      return NextResponse.json({ invoices: [] });
+    }
+
+    const stripe = getStripeClient();
+    if (!stripe) {
       return NextResponse.json(
-        { error: "No billing account found. Please subscribe first." },
-        { status: 400 },
+        { error: "Billing is not configured" },
+        { status: 503 },
       );
     }
 
-    const session = await stripe.billingPortal.sessions.create({
+    const result = await stripe.invoices.list({
       customer: account.stripeCustomerId,
-      return_url: `${getAppUrl()}/admin/billing`,
+      limit: 20,
     });
 
-    return NextResponse.json({ url: session.url });
+    const invoices = result.data.map((invoice) => ({
+      id: invoice.id,
+      created: invoice.created,
+      hosted_invoice_url: invoice.hosted_invoice_url,
+      amount_paid: invoice.amount_paid,
+      currency: invoice.currency,
+      status: invoice.status,
+      description: invoice.description || invoice.lines.data[0]?.description || null,
+    }));
+
+    return NextResponse.json({ invoices });
   } catch (error) {
-    console.error("Stripe billing portal creation failed", error);
+    console.error("Stripe invoice lookup failed", error);
     return NextResponse.json(
-      { error: "Unable to open the billing portal" },
+      { error: "Unable to load invoices" },
       { status: 500 },
     );
   }

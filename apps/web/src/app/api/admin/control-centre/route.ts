@@ -1,28 +1,25 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin-access";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data: membership } = await supabase
-      .from("user_org_roles")
-      .select("org_id, role")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (!membership?.org_id) {
-      return NextResponse.json({ error: "No organisation membership" }, { status: 409 });
+    const context = await getAdminContext();
+    if (context.status === "unauthenticated") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (context.status === "unavailable") {
+      return NextResponse.json(
+        { error: "Authentication is not configured for this environment" },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    if (context.status === "forbidden") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
+    const { membership, supabase } = context;
     const orgId = membership.org_id;
     const monthStart = new Date();
     monthStart.setUTCDate(1);
