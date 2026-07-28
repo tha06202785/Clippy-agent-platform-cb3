@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  CURRENT_USER_PROFILE_FIELDS,
+  resolveCurrentUserName,
+} from "@/lib/current-user";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +32,11 @@ export async function GET() {
 
   const orgId = membership?.org_id ?? null;
   const [profileResult, agentResult, orgResult] = await Promise.all([
-    supabase.from("profiles").select("display_name, role, avatar_url").eq("user_id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select(CURRENT_USER_PROFILE_FIELDS)
+      .eq("user_id", user.id)
+      .maybeSingle(),
     orgId
       ? supabase.from("agent_profiles").select("*").eq("user_id", user.id).eq("org_id", orgId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -44,15 +52,12 @@ export async function GET() {
   const profile = profileResult.data as Record<string, unknown> | null;
   const agent = agentResult.data as Record<string, unknown> | null;
 
-  const name =
-    text(agent?.display_name) ??
-    text(agent?.full_name) ??
-    text(agent?.name) ??
-    text(profile?.display_name) ??
-    text(user.user_metadata?.full_name) ??
-    text(user.user_metadata?.name) ??
-    user.email?.split("@")[0] ??
-    "Agent";
+  const name = resolveCurrentUserName({
+    agent,
+    profile,
+    userMetadata: user.user_metadata,
+    email: user.email,
+  });
 
   return NextResponse.json({
     id: user.id,
