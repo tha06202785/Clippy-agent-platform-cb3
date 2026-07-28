@@ -2,7 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Calendar, CheckCircle, Clock, MessageCircle, Sparkles, TrendingUp, Users, Zap } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  Calendar,
+  CheckCircle,
+  Clock,
+  MessageCircle,
+  Sparkles,
+  TrendingUp,
+  Users,
+  Zap,
+} from "lucide-react";
 
 interface UserContext {
   name: string;
@@ -42,9 +53,7 @@ export default function DashboardPage() {
         }
 
         const identity = await identityResponse.json();
-        if (!identityResponse.ok) {
-          throw new Error(identity.error || "Unable to load your profile");
-        }
+        if (!identityResponse.ok) throw new Error(identity.error || "Unable to load your profile");
 
         const dashboardResponse = await fetch("/api/principal/dashboard", {
           cache: "no-store",
@@ -64,7 +73,6 @@ export default function DashboardPage() {
     };
 
     void loadDashboard();
-
     return () => {
       active = false;
     };
@@ -78,18 +86,59 @@ export default function DashboardPage() {
     return "Welcome back";
   }, []);
 
+  const replies = stats.repliesToday ?? stats.conversations?.today ?? 0;
+  const inspections = stats.inspections?.today ?? 0;
+  const hotLeads = stats.hotLeads?.length ?? 0;
+  const responseTime = stats.responseTime ?? 0;
+
   const cards = [
-    { label: "Replies today", value: stats.repliesToday ?? stats.conversations?.today ?? 0, icon: MessageCircle },
-    { label: "Inspections booked", value: stats.inspections?.today ?? 0, icon: Calendar },
-    { label: "Hot leads", value: stats.hotLeads?.length ?? 0, icon: Users },
-    { label: "Average response", value: `${stats.responseTime ?? 0}s`, icon: Clock },
-    { label: "AI productivity", value: `${stats.aiScore ?? 0}%`, icon: Sparkles },
-    { label: "Time saved", value: `${stats.timeSaved ?? 0}h`, icon: Zap },
+    { label: "Replies today", value: replies, icon: MessageCircle },
+    { label: "Inspections booked", value: inspections, icon: Calendar },
+    { label: "Hot leads", value: hotLeads, icon: Users },
+    { label: "Average response", value: `${responseTime}s`, icon: Clock },
+  ];
+
+  const recommendations = [
+    hotLeads > 0
+      ? {
+          title: `Follow up ${hotLeads} hot ${hotLeads === 1 ? "lead" : "leads"}`,
+          detail: "These leads are showing the strongest buying or selling intent.",
+          action: "Open inbox",
+          href: "/inbox",
+        }
+      : {
+          title: "Review new enquiries",
+          detail: "Check the inbox for conversations that may need qualification.",
+          action: "Open inbox",
+          href: "/inbox",
+        },
+    inspections > 0
+      ? {
+          title: `Prepare for ${inspections} ${inspections === 1 ? "inspection" : "inspections"}`,
+          detail: "Confirm attendance and let Clippy send timely reminders.",
+          action: "View deals",
+          href: "/deals",
+        }
+      : {
+          title: "Create an inspection opportunity",
+          detail: "Ask Clippy to identify engaged leads who may be ready to book.",
+          action: "Ask Clippy",
+          href: "/copilot",
+        },
+    {
+      title: responseTime > 60 ? "Improve response speed" : "Keep response momentum",
+      detail:
+        responseTime > 60
+          ? `Your average response is ${responseTime} seconds. Let Clippy draft and prioritise replies.`
+          : "Your response time is healthy. Keep Clippy active so no lead waits too long.",
+      action: "Open Copilot",
+      href: "/copilot",
+    },
   ];
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-6 pb-32 md:pb-6">
         <div className="h-40 animate-pulse rounded-2xl bg-muted" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((item) => (
@@ -102,7 +151,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-6 pb-32 md:pb-6">
         <div className="rounded-xl border border-red-200 bg-red-50 p-6">
           <h1 className="text-lg font-semibold text-red-900">Dashboard unavailable</h1>
           <p className="mt-2 text-sm text-red-700">{error}</p>
@@ -115,17 +164,15 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 bg-neutral-50 p-6">
-      <section className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 p-6 shadow-sm md:p-8">
+    <div className="space-y-6 bg-neutral-50 p-4 pb-32 sm:p-6 md:pb-6">
+      <section className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 p-5 shadow-sm md:p-8">
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500 shadow-md">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 shadow-md">
             <Sparkles className="h-7 w-7 text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-neutral-900 md:text-3xl">{greeting}, {user?.name ?? "Agent"}</h1>
-            <p className="mt-1 text-neutral-600">
-              {user?.agencyName ? `${user.agencyName} · ${user.role}` : user?.role}
-            </p>
+            <p className="mt-1 text-neutral-600">{user?.agencyName ? `${user.agencyName} · ${user.role}` : user?.role}</p>
             <p className="mt-3 text-sm text-neutral-500">
               {new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
             </p>
@@ -133,15 +180,38 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm md:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Clippy recommends</p>
+            <h2 className="mt-1 text-xl font-bold text-neutral-900">Your next best actions</h2>
+            <p className="mt-1 text-sm text-neutral-500">Prioritised from your live dashboard activity.</p>
+          </div>
+          <div className="rounded-xl bg-emerald-50 p-3"><Zap className="h-5 w-5 text-emerald-600" /></div>
+        </div>
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">
+          {recommendations.map((item, index) => (
+            <article key={item.title} className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">{index + 1}</div>
+              <h3 className="mt-3 font-semibold text-neutral-900">{item.title}</h3>
+              <p className="mt-1 min-h-10 text-sm text-neutral-600">{item.detail}</p>
+              <a href={item.href} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+                {item.action}<ArrowRight className="h-4 w-4" />
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map(({ label, value, icon: Icon }) => (
-          <article key={label} className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
+          <article key={label} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
+            <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-sm text-neutral-500">{label}</p>
+                <p className="text-xs text-neutral-500 md:text-sm">{label}</p>
                 <p className="mt-2 text-2xl font-bold text-neutral-900">{value}</p>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
                 <Icon className="h-5 w-5 text-emerald-600" />
               </div>
             </div>
@@ -153,21 +223,23 @@ export default function DashboardPage() {
         <article className="rounded-xl border border-neutral-200 bg-white p-5 lg:col-span-2">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-emerald-600" />
-            <h2 className="font-semibold text-neutral-900">Clippy activity</h2>
+            <h2 className="font-semibold text-neutral-900">What Clippy has done</h2>
           </div>
-          <div className="mt-4 space-y-3 text-sm text-neutral-600">
-            <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3"><CheckCircle className="h-4 w-4 text-emerald-600" />Authenticated profile and agency context loaded.</div>
-            <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3"><TrendingUp className="h-4 w-4 text-emerald-600" />Lead and pipeline metrics are scoped to your organisation.</div>
-            <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3"><Zap className="h-4 w-4 text-emerald-600" />Copilot is ready with your agency context.</div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3"><CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" /><span className="text-sm text-neutral-700">Handled or tracked <strong>{replies}</strong> replies today.</span></div>
+            <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3"><Calendar className="h-4 w-4 shrink-0 text-emerald-600" /><span className="text-sm text-neutral-700">Recorded <strong>{inspections}</strong> inspection bookings.</span></div>
+            <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3"><TrendingUp className="h-4 w-4 shrink-0 text-emerald-600" /><span className="text-sm text-neutral-700">Identified <strong>{hotLeads}</strong> high-priority leads.</span></div>
+            <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3"><Zap className="h-4 w-4 shrink-0 text-emerald-600" /><span className="text-sm text-neutral-700">Estimated time saved: <strong>{stats.timeSaved ?? 0} hours</strong>.</span></div>
           </div>
         </article>
 
         <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-          <h2 className="font-semibold text-neutral-900">Pipeline value</h2>
+          <h2 className="font-semibold text-neutral-900">Business opportunity</h2>
           <p className="mt-3 text-3xl font-bold text-emerald-700">${(stats.pipelineValue ?? 0).toLocaleString("en-AU")}</p>
-          <p className="mt-2 text-sm text-neutral-600">Potential commission: ${(stats.commissionGenerated ?? 0).toLocaleString("en-AU")}</p>
-          <a href="/copilot" className="mt-5 inline-flex rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-            Ask Clippy
+          <p className="mt-1 text-sm text-neutral-600">Current pipeline value</p>
+          <p className="mt-3 text-sm text-neutral-700">Potential commission: <strong>${(stats.commissionGenerated ?? 0).toLocaleString("en-AU")}</strong></p>
+          <a href="/copilot" className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+            Ask Clippy what to do next<ArrowRight className="h-4 w-4" />
           </a>
         </article>
       </section>
