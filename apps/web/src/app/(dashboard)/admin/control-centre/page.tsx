@@ -1,0 +1,192 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  Bot,
+  CreditCard,
+  Gauge,
+  LifeBuoy,
+  RefreshCw,
+  ShieldCheck,
+  Unplug,
+} from "lucide-react";
+
+type DashboardData = any;
+
+const money = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" });
+
+export default function ControlCentrePage() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/control-centre", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Unable to load Control Centre");
+      setData(payload);
+    } catch (err: any) {
+      setError(err?.message || "Unable to load Control Centre");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading && !data) {
+    return (
+      <div className="min-h-screen grid place-items-center">
+        <div className="text-center space-y-3">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading Clippy Control Centre...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const metrics = data?.metrics || {};
+  const plan = data?.subscription?.plans;
+  const balance = data?.balance;
+  const included = Number(balance?.credits_included || plan?.included_credits || 0) + Number(balance?.credits_bonus || 0);
+  const used = Number(balance?.credits_used || metrics.totalCredits || 0);
+  const usagePercent = included ? Math.min(Math.round((used / included) * 100), 100) : 0;
+
+  return (
+    <div className="min-h-screen bg-background p-4 pb-24 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-medium text-primary">Platform operations</p>
+            <h1 className="text-3xl font-bold tracking-tight">Clippy Control Centre</h1>
+            <p className="mt-1 text-muted-foreground">Subscriptions, AI cost, access, reliability and support in one place.</p>
+          </div>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-medium text-primary-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {error}. Run the Control Centre SQL migration in Supabase if these tables have not been created yet.
+          </div>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard icon={CreditCard} label="Subscription" value={plan?.name || "Starter fallback"} detail={data?.subscription?.status || "Not linked"} />
+          <MetricCard icon={Bot} label="AI requests this month" value={String(metrics.totalRequests || 0)} detail={`${metrics.failedRequests || 0} failed · ${metrics.blockedRequests || 0} blocked`} />
+          <MetricCard icon={Gauge} label="AI provider cost" value={money.format(metrics.totalCostAud || 0)} detail={`${metrics.averageLatencyMs || 0} ms average latency`} />
+          <MetricCard icon={ShieldCheck} label="Connected integrations" value={`${data?.integrations?.connected || 0}/${data?.integrations?.total || 0}`} detail={`${data?.incidents?.length || 0} open incidents`} />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <section className="rounded-2xl border bg-card p-6 lg:col-span-2">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="font-semibold">Monthly AI allowance</h2>
+                <p className="text-sm text-muted-foreground">Customer-friendly credits with exact provider cost tracked behind the scenes.</p>
+              </div>
+              <span className="rounded-full bg-muted px-3 py-1 text-sm font-medium">{usagePercent}% used</span>
+            </div>
+            <div className="mt-5 h-3 overflow-hidden rounded-full bg-muted">
+              <div className="h-full bg-primary transition-all" style={{ width: `${usagePercent}%` }} />
+            </div>
+            <div className="mt-3 flex justify-between text-sm">
+              <span>{used.toLocaleString("en-AU")} credits used</span>
+              <span>{included ? `${included.toLocaleString("en-AU")} included` : "Allowance not initialised"}</span>
+            </div>
+            {usagePercent >= 85 && (
+              <div className="mt-4 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <AlertTriangle className="h-5 w-5 shrink-0" />
+                Usage is high. Preserve lead replies and pause non-essential bulk generation before the allowance is exhausted.
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl border bg-card p-6">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Reliability</h2>
+            </div>
+            <div className="mt-5 space-y-4">
+              <StatusRow label="AI error rate" value={`${metrics.errorRate || 0}%`} healthy={(metrics.errorRate || 0) < 5} />
+              <StatusRow label="Open incidents" value={String(data?.incidents?.length || 0)} healthy={!data?.incidents?.length} />
+              <StatusRow label="Open support tickets" value={String((data?.tickets || []).filter((x: any) => x.status !== "resolved").length)} healthy={(data?.tickets || []).filter((x: any) => x.status !== "resolved").length < 3} />
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="rounded-2xl border bg-card p-6">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Usage by feature</h2>
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-muted-foreground">
+                  <tr><th className="pb-3">Feature</th><th className="pb-3">Requests</th><th className="pb-3">Credits</th><th className="pb-3">Cost</th><th className="pb-3">Failures</th></tr>
+                </thead>
+                <tbody>
+                  {(data?.usageByFeature || []).map((item: any) => (
+                    <tr key={item.feature} className="border-t">
+                      <td className="py-3 font-medium">{String(item.feature).replaceAll("_", " ")}</td>
+                      <td>{item.requests}</td><td>{item.credits}</td><td>{money.format(Number(item.costMicros || 0) / 1_000_000)}</td><td>{item.failures}</td>
+                    </tr>
+                  ))}
+                  {!data?.usageByFeature?.length && <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No metered AI usage yet.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border bg-card p-6">
+            <div className="flex items-center gap-2">
+              <Unplug className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Integration health</h2>
+            </div>
+            <div className="mt-4 space-y-3">
+              {(data?.integrations?.items || []).map((item: any) => (
+                <div key={item.provider} className="flex items-center justify-between rounded-xl border p-3">
+                  <div><p className="font-medium capitalize">{item.provider}</p><p className="text-xs text-muted-foreground">{item.last_sync_at ? `Last sync ${new Date(item.last_sync_at).toLocaleString("en-AU")}` : "Never synced"}</p></div>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${["connected", "healthy"].includes(item.status) ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{item.status || "unknown"}</span>
+                </div>
+              ))}
+              {!data?.integrations?.items?.length && <p className="py-8 text-center text-sm text-muted-foreground">No integrations registered.</p>}
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ListPanel icon={AlertTriangle} title="Open incidents" empty="No open incidents" items={(data?.incidents || []).map((x: any) => ({ title: x.title, detail: `${String(x.severity).toUpperCase()} · ${x.component} · ${x.occurrence_count} occurrence(s)` }))} />
+          <ListPanel icon={LifeBuoy} title="Support queue" empty="No support tickets" items={(data?.tickets || []).map((x: any) => ({ title: x.subject, detail: `${String(x.priority).toUpperCase()} · ${x.category} · ${x.status}` }))} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value, detail }: any) {
+  return <div className="rounded-2xl border bg-card p-5"><div className="flex items-center justify-between"><p className="text-sm text-muted-foreground">{label}</p><Icon className="h-5 w-5 text-primary" /></div><p className="mt-3 text-2xl font-bold">{value}</p><p className="mt-1 text-xs text-muted-foreground">{detail}</p></div>;
+}
+
+function StatusRow({ label, value, healthy }: any) {
+  return <div className="flex items-center justify-between"><span className="text-sm text-muted-foreground">{label}</span><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${healthy ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{value}</span></div>;
+}
+
+function ListPanel({ icon: Icon, title, items, empty }: any) {
+  return <section className="rounded-2xl border bg-card p-6"><div className="flex items-center gap-2"><Icon className="h-5 w-5 text-primary" /><h2 className="font-semibold">{title}</h2></div><div className="mt-4 space-y-3">{items.map((item: any, index: number) => <div key={`${item.title}-${index}`} className="rounded-xl border p-3"><p className="font-medium">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.detail}</p></div>)}{!items.length && <p className="py-8 text-center text-sm text-muted-foreground">{empty}</p>}</div></section>;
+}
