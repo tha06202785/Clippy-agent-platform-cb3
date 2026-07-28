@@ -7,6 +7,7 @@
 begin;
 
 alter table public.leads enable row level security;
+alter table public.conversations enable row level security;
 alter table public.messages enable row level security;
 alter table public.tasks enable row level security;
 alter table public.orgs enable row level security;
@@ -16,6 +17,10 @@ alter table public.user_org_roles enable row level security;
 drop policy if exists "Testing bypass for reads - leads" on public.leads;
 drop policy if exists "allow_org_access_leads" on public.leads;
 drop policy if exists "leads_select_policy" on public.leads;
+
+drop policy if exists "Testing bypass for reads - conversations" on public.conversations;
+drop policy if exists "allow_org_access_conversations" on public.conversations;
+drop policy if exists "conversations_select_policy" on public.conversations;
 
 drop policy if exists "Testing bypass for reads - messages" on public.messages;
 drop policy if exists "allow_org_access_messages" on public.messages;
@@ -36,6 +41,7 @@ drop policy if exists "Public profiles are viewable by everyone." on public.prof
 drop policy if exists "Users can insert their own org roles" on public.user_org_roles;
 drop policy if exists "Users can update their own org roles" on public.user_org_roles;
 drop policy if exists "Users can delete their own org roles" on public.user_org_roles;
+drop policy if exists "Users can view their own org roles" on public.user_org_roles;
 
 drop policy if exists "Users read their own organisation roles" on public.user_org_roles;
 create policy "Users read their own organisation roles"
@@ -55,6 +61,20 @@ using (
     from public.user_org_roles as membership
     where membership.user_id = (select auth.uid())
       and membership.org_id = leads.org_id::text
+  )
+);
+
+drop policy if exists "Members read organisation conversations" on public.conversations;
+create policy "Members read organisation conversations"
+on public.conversations
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.user_org_roles as membership
+    where membership.user_id = (select auth.uid())
+      and membership.org_id = conversations.org_id
   )
 );
 
@@ -111,6 +131,8 @@ create index if not exists user_org_roles_user_org_idx
   on public.user_org_roles (user_id, org_id);
 create index if not exists leads_org_id_idx
   on public.leads (org_id);
+create index if not exists conversations_org_id_idx
+  on public.conversations (org_id);
 create index if not exists messages_org_id_idx
   on public.messages (org_id);
 create index if not exists tasks_org_id_idx
@@ -125,6 +147,7 @@ from pg_policies
 where schemaname = 'public'
   and tablename in (
     'leads',
+    'conversations',
     'messages',
     'tasks',
     'orgs',

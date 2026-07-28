@@ -104,6 +104,9 @@ begin
   if (select count(*) from public.leads) <> 1 then
     raise exception 'Tenant isolation failed for leads';
   end if;
+  if (select count(*) from public.conversations) <> 1 then
+    raise exception 'Tenant isolation failed for conversations';
+  end if;
   if (select count(*) from public.messages) <> 1 then
     raise exception 'Tenant isolation failed for messages';
   end if;
