@@ -3,6 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 const ADMIN_ROLES = ["owner", "admin"] as const;
 
 export async function getAdminContext() {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return { status: "unavailable" as const };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

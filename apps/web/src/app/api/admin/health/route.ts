@@ -27,6 +27,15 @@ export async function GET() {
         { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     }
+    if (context.status === "unavailable") {
+      return NextResponse.json(
+        {
+          error: "Authentication is not configured for this environment",
+          checks: [],
+        },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (context.status === "forbidden") {
       return NextResponse.json(
         { error: "Admin access required", checks: [] },

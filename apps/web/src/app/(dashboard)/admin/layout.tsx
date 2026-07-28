@@ -15,6 +15,27 @@ export default async function AdminLayout({
     redirect("/sign-in?next=%2Fadmin%2Fcontrol-centre");
   }
 
+  if (context.status === "unavailable") {
+    return (
+      <div className="mx-auto max-w-2xl rounded-2xl border bg-card p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+          <ShieldX className="h-6 w-6 text-amber-700" />
+        </div>
+        <h1 className="mt-4 text-xl font-semibold">Admin environment unavailable</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Authentication has not been configured for this deployment environment.
+          Add the Supabase public URL and anonymous key to enable Admin access.
+        </p>
+        <Link
+          href="/"
+          className="mt-6 inline-flex rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground"
+        >
+          Return home
+        </Link>
+      </div>
+    );
+  }
+
   if (context.status === "forbidden") {
     return (
       <div className="mx-auto max-w-2xl rounded-2xl border bg-card p-8 text-center">

@@ -9,6 +9,12 @@ export async function GET() {
     if (context.status === "unauthenticated") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (context.status === "unavailable") {
+      return NextResponse.json(
+        { error: "Authentication is not configured for this environment" },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (context.status === "forbidden") {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
