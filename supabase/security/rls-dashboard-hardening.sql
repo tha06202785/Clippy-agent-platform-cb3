@@ -11,6 +11,7 @@ alter table public.messages enable row level security;
 alter table public.tasks enable row level security;
 alter table public.orgs enable row level security;
 alter table public.profiles enable row level security;
+alter table public.user_org_roles enable row level security;
 
 drop policy if exists "Testing bypass for reads - leads" on public.leads;
 drop policy if exists "allow_org_access_leads" on public.leads;
@@ -29,6 +30,19 @@ drop policy if exists "orgs_view_policy" on public.orgs;
 drop policy if exists "Enable read access for all authenticated users on orgs" on public.orgs;
 
 drop policy if exists "Public profiles are viewable by everyone." on public.profiles;
+
+-- Membership is an authorization boundary. End users must not be able to add
+-- themselves to another organisation or promote their own role.
+drop policy if exists "Users can insert their own org roles" on public.user_org_roles;
+drop policy if exists "Users can update their own org roles" on public.user_org_roles;
+drop policy if exists "Users can delete their own org roles" on public.user_org_roles;
+
+drop policy if exists "Users read their own organisation roles" on public.user_org_roles;
+create policy "Users read their own organisation roles"
+on public.user_org_roles
+for select
+to authenticated
+using ((select auth.uid()) = user_id);
 
 drop policy if exists "Members read organisation leads" on public.leads;
 create policy "Members read organisation leads"
@@ -109,7 +123,22 @@ commit;
 select schemaname, tablename, policyname, roles, cmd, qual
 from pg_policies
 where schemaname = 'public'
-  and tablename in ('leads', 'messages', 'tasks', 'orgs', 'profiles')
+  and tablename in (
+    'leads',
+    'messages',
+    'tasks',
+    'orgs',
+    'profiles',
+    'user_org_roles'
+  )
   and cmd in ('SELECT', 'ALL')
   and coalesce(qual, '') in ('true', '(true)')
 order by tablename, policyname;
+
+-- Membership writes should only be performed by a trusted server/admin path.
+select schemaname, tablename, policyname, roles, cmd, qual, with_check
+from pg_policies
+where schemaname = 'public'
+  and tablename = 'user_org_roles'
+  and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+order by policyname;
