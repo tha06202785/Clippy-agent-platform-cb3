@@ -54,7 +54,9 @@ export default function SignUpPage() {
             <span className="text-white font-bold text-lg">C</span>
           </div>
           <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Start your 14-day free trial. No card required.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Create a workspace account. No paid plan is selected on this screen.
+          </p>
         </div>
 
         {error && (

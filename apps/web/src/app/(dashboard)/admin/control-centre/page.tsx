@@ -86,7 +86,7 @@ export default function ControlCentrePage() {
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard icon={CreditCard} label="Subscription" value={plan?.name || "Starter fallback"} detail={data?.subscription?.status || "Not linked"} />
+          <MetricCard icon={CreditCard} label="Subscription" value={plan?.name || "Not configured"} detail={data?.subscription?.status || "Not linked"} />
           <MetricCard icon={Bot} label="AI requests this month" value={String(metrics.totalRequests || 0)} detail={`${metrics.failedRequests || 0} failed · ${metrics.blockedRequests || 0} blocked`} />
           <MetricCard icon={Gauge} label="AI provider cost" value={money.format(metrics.totalCostAud || 0)} detail={`${metrics.averageLatencyMs || 0} ms average latency`} />
           <MetricCard icon={ShieldCheck} label="Connected integrations" value={`${data?.integrations?.connected || 0}/${data?.integrations?.total || 0}`} detail={`${data?.incidents?.length || 0} open incidents`} />
