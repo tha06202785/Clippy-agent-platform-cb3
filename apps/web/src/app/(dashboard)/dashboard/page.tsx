@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Calendar, CheckCircle, Clock, DollarSign, MessageCircle, Sparkles, TrendingUp, Users, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Activity, Calendar, CheckCircle, Clock, MessageCircle, Sparkles, TrendingUp, Users, Zap } from "lucide-react";
 
 interface UserContext {
   name: string;
@@ -22,6 +23,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [user, setUser] = useState<UserContext | null>(null);
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
@@ -30,36 +32,43 @@ export default function DashboardPage() {
   useEffect(() => {
     let active = true;
 
-    Promise.all([
-      fetch("/api/me", { cache: "no-store" }).then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Unable to load your profile");
-        return data as UserContext;
-      }),
-      fetch("/api/principal/dashboard", { cache: "no-store" })
-        .then(async (response) => {
-          if (!response.ok) return {};
-          return (await response.json()) as DashboardStats;
-        })
-        .catch(() => ({})),
-    ])
-      .then(([identity, dashboard]) => {
+    const loadDashboard = async () => {
+      try {
+        const identityResponse = await fetch("/api/me", { cache: "no-store", credentials: "include" });
+
+        if (identityResponse.status === 401) {
+          router.replace("/sign-in?next=%2Fdashboard");
+          return;
+        }
+
+        const identity = await identityResponse.json();
+        if (!identityResponse.ok) {
+          throw new Error(identity.error || "Unable to load your profile");
+        }
+
+        const dashboardResponse = await fetch("/api/principal/dashboard", {
+          cache: "no-store",
+          credentials: "include",
+        });
+        const dashboard = dashboardResponse.ok ? await dashboardResponse.json() : {};
+
         if (!active) return;
-        setUser(identity);
-        setStats(dashboard);
-      })
-      .catch((reason: unknown) => {
+        setUser(identity as UserContext);
+        setStats(dashboard as DashboardStats);
+      } catch (reason: unknown) {
         if (!active) return;
         setError(reason instanceof Error ? reason.message : "Unable to load dashboard");
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    };
+
+    void loadDashboard();
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [router]);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
