@@ -9,32 +9,64 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll(); },
+        getAll() {
+          return request.cookies.getAll();
+        },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value, options }) =>
+            request.cookies.set(name, value),
+          );
           supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options));
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options),
+          );
         },
       },
-    }
+    },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
 
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64").slice(0, 16);
+  let user = null;
+  let authSessionInvalid = false;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+    authSessionInvalid = Boolean(result.error);
+  } catch (error) {
+    authSessionInvalid = true;
+    console.warn("Supabase session refresh failed", error);
+  }
 
-  // Temporary testing bypass. Set to false to restore sign-in enforcement.
-  const authDisabledForTesting = true;
+  // A test bypass must never be possible in a production deployment.
+  const authDisabledForTesting =
+    process.env.NODE_ENV !== "production" &&
+    process.env.ENABLE_TEST_AUTH_BYPASS === "true";
 
-  const protectedPaths = ["/dashboard", "/inbox", "/deals", "/copilot", "/team", "/integrations", "/import", "/analytics", "/admin", "/onboarding", "/briefing", "/monitoring", "/property"];
+  const protectedPaths = [
+    "/dashboard",
+    "/inbox",
+    "/deals",
+    "/copilot",
+    "/team",
+    "/integrations",
+    "/import",
+    "/analytics",
+    "/admin",
+    "/onboarding",
+    "/briefing",
+    "/monitoring",
+    "/property",
+  ];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
   if (isProtected && !user && !authDisabledForTesting) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
-    url.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(url);
+    url.searchParams.set("next", pathname);
+    const redirect = NextResponse.redirect(url);
+    if (authSessionInvalid) clearSupabaseAuthCookies(request, redirect);
+    return redirect;
   }
 
   const authPaths = ["/sign-in", "/signup"];
@@ -62,7 +94,23 @@ export async function updateSession(request: NextRequest) {
   supabaseResponse.headers.set("X-Frame-Options", "DENY");
   supabaseResponse.headers.set("X-Content-Type-Options", "nosniff");
   supabaseResponse.headers.set("X-XSS-Protection", "1; mode=block");
-  supabaseResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  supabaseResponse.headers.set(
+    "Referrer-Policy",
+    "strict-origin-when-cross-origin",
+  );
+  if (authSessionInvalid) clearSupabaseAuthCookies(request, supabaseResponse);
 
   return supabaseResponse;
+}
+
+function clearSupabaseAuthCookies(
+  request: NextRequest,
+  response: NextResponse,
+) {
+  request.cookies
+    .getAll()
+    .filter(
+      ({ name }) => name.startsWith("sb-") && name.includes("-auth-token"),
+    )
+    .forEach(({ name }) => response.cookies.delete(name));
 }
