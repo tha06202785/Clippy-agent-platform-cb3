@@ -76,9 +76,8 @@ export const qualifyLeadSchema = z.object({
 
 // Subscription schemas
 export const checkoutSchema = z.object({
-  plan: z.enum(["starter", "team", "office", "agency"]),
-  orgId: z.string().optional(),
-});
+  plan: z.enum(["starter", "professional", "agency"]),
+}).strict();
 
 // Compliance schema
 export const complianceCheckSchema = z.object({

@@ -23,12 +23,13 @@ test("health API returns ok", async ({ request }) => {
   expect(data.status).toBe("ok");
 });
 
-test("subscription plans API returns plans", async ({ request }) => {
+test("subscription plans API returns honest rollout status", async ({ request }) => {
   const response = await request.get("/api/subscription/plans");
   expect(response.ok()).toBeTruthy();
   const data = await response.json();
   expect(Array.isArray(data.plans)).toBeTruthy();
-  expect(data.plans.length).toBeGreaterThan(0);
+  expect(["pilot", "checkout_ready"]).toContain(data.pricingStatus);
+  expect(data.plans.every((plan: object) => !("priceId" in plan))).toBeTruthy();
 });
 
 test("leads API returns 401 without auth", async ({ request }) => {
