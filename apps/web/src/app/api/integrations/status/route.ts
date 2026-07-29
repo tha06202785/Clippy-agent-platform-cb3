@@ -1,40 +1,81 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/integrations/status - Get all integration statuses
-export async function GET(req: NextRequest) {
+async function authenticatedOrg() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: membership } = await supabase
+    .from("user_org_roles")
+    .select("org_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+
+  return membership?.org_id ? { orgId: membership.org_id } : null;
+}
+
+// GET /api/integrations/status - returns status metadata, never OAuth credentials.
+export async function GET(_req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await authenticatedOrg();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const { data: orgMember } = await supabase
-      .from("user_org_roles")
-      .select("org_id")
-      .eq("user_id", user.id)
-      .single();
+    const admin = createAdminClient();
+    const [{ data: integrations, error: integrationsError }, { data: health }] =
+      await Promise.all([
+        admin
+          .from("integrations")
+          .select(
+            "id,provider,status,settings_json,connected_at,created_at,updated_at",
+          )
+          .eq("org_id", auth.orgId),
+        admin
+          .from("integration_health")
+          .select(
+            "provider,status,last_sync_at,items_indexed,activity_summary",
+          )
+          .eq("org_id", auth.orgId),
+      ]);
 
-    if (!orgMember) return NextResponse.json([]);
+    if (integrationsError) {
+      console.error(
+        "Failed to load integration status",
+        integrationsError.code,
+      );
+      return NextResponse.json(
+        { error: "Unable to load integrations" },
+        { status: 500 },
+      );
+    }
 
-    const { data: integrations } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("org_id", orgMember.org_id);
+    const merged = (integrations || []).map((integration) => {
+      const healthData = (health || []).find(
+        (item) => item.provider === integration.provider,
+      );
+      const settings =
+        integration.settings_json &&
+        typeof integration.settings_json === "object" &&
+        !Array.isArray(integration.settings_json)
+          ? integration.settings_json
+          : {};
 
-    // Also get health status
-    const { data: health } = await supabase
-      .from("integration_health")
-      .select("*")
-      .eq("org_id", orgMember.org_id);
-
-    // Merge data
-    const merged = (integrations || []).map((integration: any) => {
-      const healthData = (health || []).find((h: any) => h.provider === integration.provider);
       return {
-        ...integration,
+        id: integration.id,
+        provider: integration.provider,
         status: healthData?.status || integration.status,
+        connected_at: integration.connected_at,
+        created_at: integration.created_at,
+        updated_at: integration.updated_at,
+        email: "email" in settings ? settings.email : undefined,
         last_sync_at: healthData?.last_sync_at,
         items_indexed: healthData?.items_indexed || 0,
         activity_summary: healthData?.activity_summary || {},
@@ -42,49 +83,71 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(merged);
-  } catch (error: any) {
-    return NextResponse.json([]);
+  } catch (error) {
+    console.error("Integration status load failed", error);
+    return NextResponse.json(
+      { error: "Unable to load integrations" },
+      { status: 500 },
+    );
   }
 }
 
-// POST /api/integrations/status - Update integration health
+// POST /api/integrations/status - updates health metadata for the caller's org.
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data: orgMember } = await supabase
-      .from("user_org_roles")
-      .select("org_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
+    const auth = await authenticatedOrg();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const body = await req.json();
-    const { provider, status, items_indexed, activity_summary } = body;
+    const provider =
+      typeof body.provider === "string" ? body.provider.trim() : "";
+    const status = typeof body.status === "string" ? body.status.trim() : "";
+    if (!provider || !status) {
+      return NextResponse.json(
+        { error: "provider and status are required" },
+        { status: 400 },
+      );
+    }
 
-    const { data, error } = await supabase
+    const admin = createAdminClient();
+    const { data, error } = await admin
       .from("integration_health")
       .upsert({
-        org_id: orgMember.org_id,
+        org_id: auth.orgId,
         provider,
         status,
-        items_indexed,
-        activity_summary,
+        items_indexed:
+          typeof body.items_indexed === "number" ? body.items_indexed : 0,
+        activity_summary:
+          body.activity_summary &&
+          typeof body.activity_summary === "object" &&
+          !Array.isArray(body.activity_summary)
+            ? body.activity_summary
+            : {},
         last_sync_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .select()
+      .select(
+        "provider,status,last_sync_at,items_indexed,activity_summary,updated_at",
+      )
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Failed to update integration health", error.code);
+      return NextResponse.json(
+        { error: "Unable to update integration health" },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json(data);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error("Integration health update failed", error);
+    return NextResponse.json(
+      { error: "Unable to update integration health" },
+      { status: 500 },
+    );
   }
 }
