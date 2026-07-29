@@ -64,6 +64,15 @@ create table if not exists public.ai_summaries (
   unique (org_id, date)
 );
 
+create index if not exists inspection_slots_listing_idx on public.inspection_time_slots(listing_id);
+create index if not exists inspection_bookings_slot_idx on public.inspection_bookings(slot_id);
+create index if not exists inspection_bookings_listing_idx on public.inspection_bookings(listing_id);
+create index if not exists inspection_bookings_lead_idx on public.inspection_bookings(lead_id);
+create index if not exists inspection_bookings_conversation_idx on public.inspection_bookings(conversation_id);
+create index if not exists scheduled_comms_lead_idx on public.scheduled_communications(lead_id);
+create index if not exists scheduled_comms_conversation_idx on public.scheduled_communications(conversation_id);
+create index if not exists scheduled_comms_booking_idx on public.scheduled_communications(inspection_booking_id);
+
 create index if not exists inspection_slots_org_start_idx on public.inspection_time_slots(org_id, starts_at);
 create index if not exists inspection_bookings_org_created_idx on public.inspection_bookings(org_id, created_at desc);
 create index if not exists scheduled_comms_due_idx on public.scheduled_communications(status, scheduled_for);
