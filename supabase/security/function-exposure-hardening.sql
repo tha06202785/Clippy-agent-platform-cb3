@@ -18,14 +18,20 @@ alter function public.upsert_integration(uuid, text, text, jsonb, timestamptz, t
   set search_path = pg_catalog, public;
 
 -- PUBLIC grants are inherited by anon and authenticated. Revoke both the
--- inherited and any explicit grants so PostgREST cannot expose these RPCs.
+-- inherited and any explicit grants from functions that are strictly internal.
 revoke all on function public.execute_sql(text) from public, anon, authenticated;
 revoke all on function public.get_user_org_ids() from public, anon, authenticated;
 revoke all on function public.set_updated_at() from public, anon, authenticated;
 revoke all on function public.trigger_outbound_message_sender() from public, anon, authenticated;
 revoke all on function public.trigger_process_message_ai() from public, anon, authenticated;
+
+-- Facebook's current OAuth callback still invokes this RPC with the signed-in
+-- user's session. Remove anonymous/public access now, but retain authenticated
+-- execution until that callback is migrated to a server-only write path.
 revoke all on function public.upsert_integration(uuid, text, text, jsonb, timestamptz, text)
-  from public, anon, authenticated;
+  from public, anon;
+grant execute on function public.upsert_integration(uuid, text, text, jsonb, timestamptz, text)
+  to authenticated;
 
 -- Backend maintenance may still call the administrative helpers explicitly.
 -- Trigger functions do not require callers to hold EXECUTE when fired by their
