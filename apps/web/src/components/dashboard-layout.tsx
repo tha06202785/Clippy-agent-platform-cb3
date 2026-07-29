@@ -25,6 +25,7 @@ import {
   Building2,
   Plug,
   UserRound,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile-nav";
@@ -91,6 +92,12 @@ const workspaceNav: NavItem[] = [
     color: "text-blue-500",
   },
   { href: "/team", label: "Team", icon: Users, color: "text-blue-500" },
+  {
+    href: "/admin",
+    label: "Admin Console",
+    icon: ShieldCheck,
+    color: "text-indigo-500",
+  },
 ];
 
 const pageTitles: Array<[string, string]> = [

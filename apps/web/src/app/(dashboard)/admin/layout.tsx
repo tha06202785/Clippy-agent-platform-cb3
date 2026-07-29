@@ -59,7 +59,7 @@ export default async function AdminLayout({
 
   return (
     <div className="space-y-6">
-      <AdminNav />
+      <AdminNav isPlatformAdmin={context.isPlatformAdmin} />
       <div className="border-t border-border pt-4">{children}</div>
     </div>
   );

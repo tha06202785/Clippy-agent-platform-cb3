@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Building2,
   ChevronRight,
   CreditCard,
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const adminNav = [
+  { href: "/admin/platform", label: "Platform", icon: Building2, platformOnly: true },
   { href: "/admin/control-centre", label: "Operations", icon: Activity },
   { href: "/admin/qa", label: "Diagnostics", icon: ShieldCheck },
   { href: "/admin/agents", label: "Team access", icon: Users },
@@ -21,9 +23,10 @@ const adminNav = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-export function AdminNav() {
+export function AdminNav({ isPlatformAdmin = false }: { isPlatformAdmin?: boolean }) {
   const pathname = usePathname();
-  const activeItem = adminNav.find(
+  const visibleItems = adminNav.filter((item) => !item.platformOnly || isPlatformAdmin);
+  const activeItem = visibleItems.find(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
   );
 
@@ -40,7 +43,7 @@ export function AdminNav() {
         )}
       </div>
       <nav aria-label="Admin" className="flex flex-wrap gap-1">
-        {adminNav.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`);

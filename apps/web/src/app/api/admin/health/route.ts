@@ -44,6 +44,12 @@ export async function GET() {
     }
 
     const { membership, supabase } = context;
+    if (!membership?.org_id) {
+      return NextResponse.json(
+        { error: "Organisation admin access required", checks: [] },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+    }
 
     checks.push({
       key: "authentication",
