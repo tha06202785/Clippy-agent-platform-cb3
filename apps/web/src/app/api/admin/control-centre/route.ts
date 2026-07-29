@@ -20,6 +20,12 @@ export async function GET() {
     }
 
     const { membership, supabase } = context;
+    if (!membership?.org_id) {
+      return NextResponse.json(
+        { error: "Organisation admin access required" },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     const orgId = membership.org_id;
     const monthStart = new Date();
     monthStart.setUTCDate(1);
