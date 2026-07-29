@@ -1,13 +1,14 @@
 import { test, expect } from "@playwright/test";
 
-const EMAIL = process.env.TEST_EMAIL;
-const PASSWORD = process.env.TEST_PASSWORD;
-
-if (!EMAIL || !PASSWORD) {
-  throw new Error("TEST_EMAIL and TEST_PASSWORD are required for authenticated E2E tests");
-}
+const EMAIL = process.env.TEST_EMAIL || "";
+const PASSWORD = process.env.TEST_PASSWORD || "";
+const HAS_AUTH_CREDENTIALS = Boolean(EMAIL && PASSWORD);
 
 test.describe("Authenticated flows", () => {
+  test.skip(
+    !HAS_AUTH_CREDENTIALS,
+    "TEST_EMAIL and TEST_PASSWORD are required for authenticated E2E tests",
+  );
   test("sign in and access dashboard", async ({ page }) => {
     await page.goto("/sign-in");
     await page.fill("input[type=\"email\"]", EMAIL);

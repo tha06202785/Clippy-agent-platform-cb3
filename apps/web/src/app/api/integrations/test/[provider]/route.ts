@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { decryptIntegrationCredentials } from "@/lib/integration-credentials";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -28,15 +30,18 @@ export async function GET(
     const orgId = orgMember.org_id;
     const { provider } = await context.params;
 
-    // Get integration
-    const { data: integration } = await supabase
+    // Credentials are available only to this authenticated server route.
+    const admin = createAdminClient();
+    const { data: storedIntegration } = await admin
       .from("integrations")
-      .select("*")
+      .select(
+        "id,org_id,provider,status,credentials_encrypted,settings_json,connected_at,created_at,updated_at",
+      )
       .eq("org_id", orgId)
       .eq("provider", provider)
-      .single();
+      .maybeSingle();
 
-    if (!integration) {
+    if (!storedIntegration) {
       return NextResponse.json({
         success: false,
         provider,
@@ -46,6 +51,37 @@ export async function GET(
         actionUrl: "/api/integrations/" + provider,
       });
     }
+
+    let credentials: Record<string, unknown> = {};
+    if (storedIntegration.credentials_encrypted) {
+      try {
+        credentials = decryptIntegrationCredentials(
+          storedIntegration.credentials_encrypted,
+        );
+      } catch (error) {
+        console.error("Integration credential decryption failed", provider);
+        return NextResponse.json({
+          success: false,
+          provider,
+          status: "credential_error",
+          message: "Stored credentials could not be decrypted",
+          action: "reconnect",
+          humanMessage: "This connection must be reconnected securely.",
+        });
+      }
+    }
+
+    const settings =
+      storedIntegration.settings_json &&
+      typeof storedIntegration.settings_json === "object" &&
+      !Array.isArray(storedIntegration.settings_json)
+        ? storedIntegration.settings_json
+        : {};
+    const integration = {
+      ...storedIntegration,
+      ...credentials,
+      metadata: settings,
+    };
 
     // Test based on provider
     let testResult: any = {
@@ -81,7 +117,7 @@ export async function GET(
     }
 
     // Update health status
-    await supabase.from("integration_health").upsert({
+    await admin.from("integration_health").upsert({
       org_id: orgId,
       provider,
       status: testResult.success ? "healthy" : "error",

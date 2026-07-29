@@ -3,6 +3,7 @@ import {
   FACEBOOK_OAUTH_STATE_COOKIE,
   matchesOAuthState,
 } from "@/lib/oauth-state";
+import { encryptIntegrationCredentials } from "@/lib/integration-credentials";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -105,7 +106,7 @@ export async function GET(req: NextRequest) {
         org_id: membership.org_id,
         provider: "facebook",
         status: "connected",
-        credentials_encrypted: JSON.stringify(tokens),
+        credentials_encrypted: encryptIntegrationCredentials(tokens),
         settings_json: pageId ? { facebook_page_id: pageId } : {},
         connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

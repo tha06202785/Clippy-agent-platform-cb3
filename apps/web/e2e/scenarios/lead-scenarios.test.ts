@@ -1,17 +1,18 @@
 import { test, expect } from "@playwright/test";
 
 const BASE = process.env.E2E_BASE_URL || "http://localhost:3000";
-const EMAIL = process.env.TEST_EMAIL;
-const PASSWORD = process.env.TEST_PASSWORD;
-const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET;
-
-if (!EMAIL || !PASSWORD || !INTERNAL_SECRET) {
-  throw new Error(
-    "TEST_EMAIL, TEST_PASSWORD and INTERNAL_API_SECRET are required for lead scenario E2E tests",
-  );
-}
+const EMAIL = process.env.TEST_EMAIL || "";
+const PASSWORD = process.env.TEST_PASSWORD || "";
+const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET || "";
+const HAS_SCENARIO_CREDENTIALS = Boolean(
+  EMAIL && PASSWORD && INTERNAL_SECRET,
+);
 
 test.describe("End-to-end lead scenarios", () => {
+  test.skip(
+    !HAS_SCENARIO_CREDENTIALS,
+    "TEST_EMAIL, TEST_PASSWORD and INTERNAL_API_SECRET are required",
+  );
   // Helper: sign in
   async function signIn(page: any) {
     await page.goto("/sign-in");
