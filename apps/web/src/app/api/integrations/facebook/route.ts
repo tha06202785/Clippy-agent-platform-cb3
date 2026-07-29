@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { FACEBOOK_OAUTH_STATE_COOKIE } from "@/lib/oauth-state";
+import { getAppOrigin } from "@/lib/app-origin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
     if (!orgMember) return NextResponse.json({ error: "No org found" }, { status: 400 });
 
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com";
+    const origin = getAppOrigin();
     const appId = process.env.FACEBOOK_APP_ID;
     if (!appId) return NextResponse.json({ error: "Facebook OAuth not configured" }, { status: 500 });
 

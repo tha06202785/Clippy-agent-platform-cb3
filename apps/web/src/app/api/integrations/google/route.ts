@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { GOOGLE_OAUTH_STATE_COOKIE } from "@/lib/oauth-state";
+import { getAppOrigin } from "@/lib/app-origin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export async function GET(_req: NextRequest) {
       );
     }
 
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com";
+    const origin = getAppOrigin();
     const state = randomUUID();
     const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     authUrl.searchParams.set("client_id", clientId);

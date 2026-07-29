@@ -71,9 +71,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    const validation = validate(createListingSchema, body);
+    if (!validation.success || !validation.data) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+
     const { data: newListing, error } = await supabase
       .from("listings")
-      .insert({ ...body, org_id: orgMember.org_id })
+      .insert({ ...validation.data, org_id: orgMember.org_id })
       .select()
       .single();
 
