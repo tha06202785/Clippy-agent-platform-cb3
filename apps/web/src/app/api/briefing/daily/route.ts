@@ -25,7 +25,7 @@ export async function GET() {
 
     const [conversationsResult, messagesResult, leadsResult, inspectionsResult, tasksResult] = await Promise.all([
       supabase.from("conversations").select("id").eq("org_id", orgId).gte("last_message_at", from).lt("last_message_at", to),
-      supabase.from("messages").select("id, direction, sender_type").eq("org_id", orgId).gte("created_at", from).lt("created_at", to),
+      supabase.from("messages").select("id, direction_in_out").eq("org_id", orgId).gte("created_at", from).lt("created_at", to),
       supabase.from("leads").select("id, full_name, stage, ai_score, source").eq("org_id", orgId).gte("created_at", from).lt("created_at", to).order("ai_score", { ascending: false }),
       supabase.from("inspection_bookings").select("id, booking_status, attendance_status").eq("org_id", orgId).gte("created_at", from).lt("created_at", to),
       supabase.from("tasks").select("id, status").eq("org_id", orgId).gte("created_at", from).lt("created_at", to),
