@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { FACEBOOK_OAUTH_STATE_COOKIE } from "@/lib/oauth-state";\nimport { getAppOrigin } from "@/lib/app-origin";
+import { FACEBOOK_OAUTH_STATE_COOKIE } from "@/lib/oauth-state";
+import { getAppOrigin } from "@/lib/app-origin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
