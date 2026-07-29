@@ -1,78 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { cosineSimilarity, embedKnowledge } from "@/lib/knowledge-indexing";
 
 export const dynamic = "force-dynamic";
 
-// POST /api/knowledge/search - Semantic search across knowledge layers
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data: orgMember } = await supabase
-      .from("user_org_roles")
-      .select("org_id, role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
+    const { data: membership, error: membershipError } = await supabase.from("user_org_roles")
+      .select("org_id").eq("user_id", user.id).limit(1).maybeSingle();
+    if (membershipError || !membership) return NextResponse.json({ error: "No organisation" }, { status: 400 });
 
     const body = await req.json();
-    const { query, layer, client_id, top_k = 5 } = body;
+    const query = typeof body.query === "string" ? body.query.trim() : "";
+    const topK = Math.min(Math.max(Number(body.top_k || 5), 1), 20);
+    if (!query) return NextResponse.json({ error: "Query required" }, { status: 400 });
 
-    if (!query) {
-      return NextResponse.json({ error: "Query required" }, { status: 400 });
-    }
+    const [queryEmbedding] = await embedKnowledge([query]);
+    let chunksQuery = supabase.from("knowledge_chunks").select(
+      "id,content,embedding,metadata,knowledge_documents!inner(id,title,layer,source,org_id,status)"
+    ).eq("knowledge_documents.org_id", membership.org_id).eq("knowledge_documents.status", "indexed").limit(500);
+    if (body.layer) chunksQuery = chunksQuery.eq("knowledge_documents.layer", body.layer);
+    const { data: chunks, error: chunksError } = await chunksQuery;
+    if (chunksError) throw chunksError;
 
-    // In production, generate embedding for the query
-    // For now, we'll do a text-based search as a placeholder
-    // This would use OpenAI embeddings or similar in production
-    
-    // Priority order: Client Memory > Agent Profile > Agency > Shared
-    let knowledgeQuery = supabase
-      .from("knowledge_documents")
-      .select("*, knowledge_chunks(content, metadata)")
-      .eq("org_id", orgMember.org_id)
-      .eq("status", "indexed");
+    const results = (chunks || []).map((chunk: any) => ({
+      chunk_id: chunk.id,
+      content: chunk.content,
+      metadata: chunk.metadata,
+      document: chunk.knowledge_documents,
+      similarity: cosineSimilarity(queryEmbedding, Array.isArray(chunk.embedding) ? chunk.embedding : []),
+    })).filter(item => item.similarity > 0).sort((a, b) => b.similarity - a.similarity).slice(0, topK);
 
-    if (layer) {
-      knowledgeQuery = knowledgeQuery.eq("layer", layer);
-    }
-
-    // Text-based search (replace with vector similarity in production)
-    knowledgeQuery = knowledgeQuery.or(`layer.ilike.%`);
-
-    const { data: documents } = await knowledgeQuery.limit(top_k);
-
-    // Also search client memory if client_id provided
     let clientMemory = null;
-    if (client_id) {
-      const { data: memory } = await supabase
-        .from("client_memories")
-        .select("*")
-        .eq("lead_id", client_id)
-        .eq("org_id", orgMember.org_id)
-        .single();
-      clientMemory = memory;
+    if (body.client_id) {
+      const { data, error } = await supabase.from("client_memories").select("*")
+        .eq("lead_id", body.client_id).eq("org_id", membership.org_id).maybeSingle();
+      if (error) throw error;
+      clientMemory = data;
     }
+    const { data: agentProfile, error: profileError } = await supabase.from("agent_profiles")
+      .select("*").eq("user_id", user.id).eq("org_id", membership.org_id).maybeSingle();
+    if (profileError) throw profileError;
 
-    // Get agent profile for personalization
-    const { data: agentProfile } = await supabase
-      .from("agent_profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("org_id", orgMember.org_id)
-      .single();
-
-    return NextResponse.json({
-      results: documents || [],
-      client_memory: clientMemory,
-      agent_profile: agentProfile,
-      query,
-      search_type: "text", // Would be "vector" in production
-    });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ results, client_memory: clientMemory, agent_profile: agentProfile, query, search_type: "vector" });
+  } catch (error) {
+    console.error("Knowledge search failed", error);
+    return NextResponse.json({ error: "Knowledge search is unavailable" }, { status: 500 });
   }
 }
