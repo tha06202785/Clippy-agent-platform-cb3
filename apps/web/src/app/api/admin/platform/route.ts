@@ -42,10 +42,11 @@ export async function GET() {
       integrations,
       communications,
       incidents,
+      auditLog,
     ] = await Promise.all([
       admin
         .from("orgs")
-        .select("id,name,created_at")
+        .select("id,name,created_at,platform_status,platform_suspension_reason")
         .order("created_at", { ascending: false })
         .limit(250),
       admin.from("user_org_roles").select("org_id,user_id,role").limit(5000),
@@ -60,10 +61,10 @@ export async function GET() {
         .select("org_id,credits_used,cost_micros,status,created_at")
         .gte("created_at", monthStart.toISOString())
         .limit(10000),
-      admin.from("integrations").select("org_id,provider,status,last_sync_at").limit(5000),
+      admin.from("integrations").select("id,org_id,provider,status,last_sync_at").limit(5000),
       admin
         .from("scheduled_communications")
-        .select("org_id,status,scheduled_for,sent_at,created_at")
+        .select("id,org_id,status,scheduled_for,sent_at,created_at,last_error")
         .order("created_at", { ascending: false })
         .limit(5000),
       admin
@@ -72,6 +73,11 @@ export async function GET() {
         .neq("status", "resolved")
         .order("last_seen_at", { ascending: false })
         .limit(100),
+      admin
+        .from("platform_admin_audit_log")
+        .select("id,actor_email,action,target_org_id,target_type,target_id,reason,outcome,error_message,created_at,completed_at")
+        .order("created_at", { ascending: false })
+        .limit(50),
     ]);
 
     const orgRows = organisations.data || [];
@@ -136,6 +142,9 @@ export async function GET() {
         subscriptionStatus: subscription?.status || "inactive",
         currentPeriodEnd: subscription?.current_period_end || null,
         cancelAtPeriodEnd: Boolean(subscription?.cancel_at_period_end),
+        platformStatus: org.platform_status || "active",
+        suspensionReason: org.platform_suspension_reason || null,
+        stripeCustomerId: subscription?.stripe_customer_id || null,
         stripeLinked: Boolean(
           subscription?.stripe_customer_id && subscription?.stripe_subscription_id,
         ),
@@ -151,6 +160,7 @@ export async function GET() {
       warning("Integrations", integrations),
       warning("Scheduled communications", communications),
       warning("Incidents", incidents),
+      warning("Platform audit log", auditLog),
     ].filter(Boolean);
 
     return NextResponse.json(
@@ -174,6 +184,7 @@ export async function GET() {
         unhealthyIntegrations: unhealthyIntegrations.slice(0, 50),
         failedCommunications: failedCommunications.slice(0, 50),
         incidents: incidents.data || [],
+        auditLog: auditLog.data || [],
         warnings,
         checkedAt: new Date().toISOString(),
       },

@@ -1,6 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const suspensionExemptPaths = [
+  "/admin/platform",
+  "/api/admin/platform",
+  "/api/subscription",
+  "/admin/billing",
+  "/api/webhooks",
+  "/sign-out",
+  "/account-suspended",
+];
+
 const protectedPaths = [
   "/dashboard",
   "/inbox",
@@ -81,6 +91,38 @@ export async function updateSession(request: NextRequest) {
     const redirect = NextResponse.redirect(url);
     if (authSessionInvalid) clearSupabaseAuthCookies(request, redirect);
     return applySecurityHeaders(redirect);
+  }
+
+  const suspensionExempt = suspensionExemptPaths.some((path) =>
+    pathname.startsWith(path),
+  );
+  if (user && !suspensionExempt) {
+    const { data: memberships } = await supabase
+      .from("user_org_roles")
+      .select("org_id")
+      .eq("user_id", user.id);
+    const orgIds = (memberships || []).map((membership: any) => membership.org_id);
+    const { data: organisations } = orgIds.length
+      ? await supabase.from("orgs").select("platform_status").in("id", orgIds)
+      : { data: [] };
+    const suspended = (organisations || []).some(
+      (organisation: any) => organisation.platform_status === "suspended",
+    );
+
+    if (suspended) {
+      if (pathname.startsWith("/api/")) {
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: "Organisation access is suspended" },
+            { status: 423 },
+          ),
+        );
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = "/account-suspended";
+      url.search = "";
+      return applySecurityHeaders(NextResponse.redirect(url));
+    }
   }
 
   const authPaths = ["/sign-in", "/signup"];

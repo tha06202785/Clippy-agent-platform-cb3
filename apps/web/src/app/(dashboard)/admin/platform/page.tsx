@@ -22,6 +22,7 @@ export default function PlatformAdminPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [acting, setActing] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,6 +42,40 @@ export default function PlatformAdminPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const runAction = async (
+    action: "suspend_account" | "resume_account" | "retry_communication" | "reset_integration",
+    orgId: string,
+    targetId?: string,
+  ) => {
+    const confirmation = {
+      suspend_account: "SUSPEND",
+      resume_account: "RESUME",
+      retry_communication: "RETRY",
+      reset_integration: "RESET",
+    }[action];
+    const reason = window.prompt(`Reason for this action (minimum 8 characters):`);
+    if (!reason) return;
+    if (!window.confirm(`Confirm ${confirmation}? This action will be permanently audited.`)) return;
+
+    const key = `${action}-${targetId || orgId}`;
+    setActing(key);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/platform/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, orgId, targetId, reason, confirmation }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Platform action failed");
+      await load();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Platform action failed");
+    } finally {
+      setActing("");
+    }
+  };
 
   if (loading && !data) {
     return (
@@ -101,7 +136,7 @@ export default function PlatformAdminPage() {
       <section className="overflow-hidden rounded-2xl border bg-card">
         <div className="border-b p-5">
           <h2 className="font-semibold">Customers and subscriptions</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Read-only operational view. Billing changes remain in Stripe.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Operational changes require confirmation and are permanently audited. Billing changes remain in Stripe.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
@@ -113,6 +148,7 @@ export default function PlatformAdminPage() {
                 <th className="p-4">Subscription</th>
                 <th className="p-4">Integrations</th>
                 <th className="p-4">Joined</th>
+                <th className="p-4">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -126,13 +162,15 @@ export default function PlatformAdminPage() {
                   <td className="p-4">{customer.plan}</td>
                   <td className="p-4">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      ["active", "trialing"].includes(customer.subscriptionStatus)
+                      customer.platformStatus === "suspended"
+                        ? "bg-red-100 text-red-800"
+                        : ["active", "trialing"].includes(customer.subscriptionStatus)
                         ? "bg-emerald-100 text-emerald-800"
                         : customer.subscriptionStatus === "past_due"
                           ? "bg-red-100 text-red-800"
                           : "bg-muted text-muted-foreground"
                     }`}>
-                      {customer.subscriptionStatus}
+                      {customer.platformStatus === "suspended" ? "suspended" : customer.subscriptionStatus}
                     </span>
                     {!customer.stripeLinked && <p className="mt-1 text-xs text-amber-700">Stripe not linked</p>}
                   </td>
@@ -142,10 +180,34 @@ export default function PlatformAdminPage() {
                   <td className="p-4">
                     {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-AU") : "Unknown"}
                   </td>
+                  <td className="p-4">
+                    <div className="flex flex-wrap gap-2">
+                      {customer.stripeCustomerId && (
+                        <a
+                          className="rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
+                          href={`https://dashboard.stripe.com/customers/${customer.stripeCustomerId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Stripe
+                        </a>
+                      )}
+                      <button
+                        className="rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50"
+                        disabled={Boolean(acting)}
+                        onClick={() => runAction(
+                          customer.platformStatus === "suspended" ? "resume_account" : "suspend_account",
+                          customer.id,
+                        )}
+                      >
+                        {customer.platformStatus === "suspended" ? "Resume" : "Suspend"}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!data?.customers?.length && (
-                <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">No customer agencies found.</td></tr>
+                <tr><td colSpan={7} className="p-10 text-center text-muted-foreground">No customer agencies found.</td></tr>
               )}
             </tbody>
           </table>
@@ -159,6 +221,8 @@ export default function PlatformAdminPage() {
           items={(data?.unhealthyIntegrations || []).map((item: any) => ({
             title: item.provider || "Unknown provider",
             detail: `${item.status || "unknown"} · agency ${item.org_id}`,
+            actionLabel: "Require reconnect",
+            onAction: () => runAction("reset_integration", item.org_id, item.id),
           }))}
         />
         <IssueList
@@ -166,10 +230,50 @@ export default function PlatformAdminPage() {
           empty="No failed communications."
           items={(data?.failedCommunications || []).map((item: any) => ({
             title: item.status || "failed",
-            detail: `Agency ${item.org_id} · ${item.scheduled_for ? new Date(item.scheduled_for).toLocaleString("en-AU") : "No schedule"}`,
+            detail: `Agency ${item.org_id} · ${item.last_error || (item.scheduled_for ? new Date(item.scheduled_for).toLocaleString("en-AU") : "No schedule")}`,
+            actionLabel: "Retry now",
+            onAction: () => runAction("retry_communication", item.org_id, item.id),
           }))}
         />
       </div>
+
+      <section className="overflow-hidden rounded-2xl border bg-card">
+        <div className="border-b p-5">
+          <h2 className="font-semibold">Administrator audit trail</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Permanent record of platform-level customer actions.</p>
+        </div>
+        <div className="divide-y">
+          {(data?.auditLog || []).map((entry: any) => (
+            <div key={entry.id} className="grid gap-2 p-4 text-sm md:grid-cols-[180px_1fr_auto]">
+              <div>
+                <p className="font-medium capitalize">{entry.action.replaceAll("_", " ")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(entry.created_at).toLocaleString("en-AU")}
+                </p>
+              </div>
+              <div>
+                <p>{entry.reason}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {entry.actor_email || "Unknown administrator"} · agency {entry.target_org_id || "deleted"}
+                </p>
+                {entry.error_message && <p className="mt-1 text-xs text-red-700">{entry.error_message}</p>}
+              </div>
+              <span className={`h-fit rounded-full px-2.5 py-1 text-xs font-medium ${
+                entry.outcome === "completed"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : entry.outcome === "failed"
+                    ? "bg-red-100 text-red-800"
+                    : "bg-amber-100 text-amber-800"
+              }`}>
+                {entry.outcome}
+              </span>
+            </div>
+          ))}
+          {!data?.auditLog?.length && (
+            <p className="p-8 text-center text-sm text-muted-foreground">No administrator actions recorded yet.</p>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
@@ -194,8 +298,17 @@ function IssueList({ title, items, empty }: any) {
       <div className="mt-4 space-y-3">
         {items.map((item: any, index: number) => (
           <div key={`${item.title}-${index}`} className="rounded-xl border p-3">
-            <p className="font-medium capitalize">{item.title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium capitalize">{item.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+              </div>
+              {item.onAction && (
+                <button className="shrink-0 rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-muted" onClick={item.onAction}>
+                  {item.actionLabel}
+                </button>
+              )}
+            </div>
           </div>
         ))}
         {!items.length && <p className="py-8 text-center text-sm text-muted-foreground">{empty}</p>}
