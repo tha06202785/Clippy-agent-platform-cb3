@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  getGoogleOAuthConfig,
+  getGoogleOAuthRedirectUri,
+  GoogleOAuthConfigurationError,
+} from "@/lib/google-oauth-config";
 import { GOOGLE_OAUTH_STATE_COOKIE } from "@/lib/oauth-state";
 import { getAppOrigin } from "@/lib/app-origin";
 import { createClient } from "@/lib/supabase/server";
@@ -26,28 +31,21 @@ export async function GET(_req: NextRequest) {
       return NextResponse.json({ error: "No org found" }, { status: 400 });
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      return NextResponse.json(
-        { error: "Google OAuth not configured" },
-        { status: 500 },
-      );
-    }
+    const { clientId } = getGoogleOAuthConfig();
 
     const origin = getAppOrigin();
     const state = randomUUID();
     const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     authUrl.searchParams.set("client_id", clientId);
-    authUrl.searchParams.set(
-      "redirect_uri",
-      origin + "/api/integrations/google/callback",
-    );
+    authUrl.searchParams.set("redirect_uri", getGoogleOAuthRedirectUri());
     authUrl.searchParams.set("response_type", "code");
     authUrl.searchParams.set(
       "scope",
       "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.events",
     );
     authUrl.searchParams.set("access_type", "offline");
+    authUrl.searchParams.set("include_granted_scopes", "true");
+    authUrl.searchParams.set("prompt", "consent");
     authUrl.searchParams.set("state", state);
 
     const response = NextResponse.redirect(authUrl.toString());
@@ -60,6 +58,17 @@ export async function GET(_req: NextRequest) {
     });
     return response;
   } catch (error) {
+    if (error instanceof GoogleOAuthConfigurationError) {
+      console.error("Google OAuth configuration is invalid", error.message);
+      return NextResponse.json(
+        {
+          error:
+            "Google OAuth is not configured correctly. Check the Google credentials in Vercel.",
+          detail: error.message,
+        },
+        { status: 503 },
+      );
+    }
     console.error("Google OAuth start failed", error);
     return NextResponse.json(
       { error: "Google OAuth could not start" },

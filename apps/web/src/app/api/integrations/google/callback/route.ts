@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  getGoogleOAuthConfig,
+  getGoogleOAuthRedirectUri,
+  GoogleOAuthConfigurationError,
+} from "@/lib/google-oauth-config";
 import { encryptIntegrationCredentials } from "@/lib/integration-credentials";
 import {
   GOOGLE_OAUTH_STATE_COOKIE,
@@ -30,11 +35,16 @@ export async function GET(req: NextRequest) {
 
   if (providerError) {
     return redirectAndClearState(
-      new URL("/integrations?error=" + encodeURIComponent(providerError), origin),
+      new URL(
+        "/integrations?error=" + encodeURIComponent(providerError),
+        origin,
+      ),
     );
   }
   if (!code) {
-    return redirectAndClearState(new URL("/integrations?error=no_code", origin));
+    return redirectAndClearState(
+      new URL("/integrations?error=no_code", origin),
+    );
   }
   if (!matchesOAuthState(expectedState, returnedState)) {
     return redirectAndClearState(
@@ -65,16 +75,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    if (!clientId || !clientSecret) {
-      return redirectAndClearState(
-        new URL("/integrations?error=not_configured", origin),
-      );
-    }
-
-    const configuredOrigin =
-      process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com";
+    const { clientId, clientSecret } = getGoogleOAuthConfig();
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -82,8 +83,7 @@ export async function GET(req: NextRequest) {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri:
-          configuredOrigin + "/api/integrations/google/callback",
+        redirect_uri: getGoogleOAuthRedirectUri(),
         grant_type: "authorization_code",
       }),
     });
@@ -122,6 +122,12 @@ export async function GET(req: NextRequest) {
       new URL("/integrations?connected=gmail", origin),
     );
   } catch (error) {
+    if (error instanceof GoogleOAuthConfigurationError) {
+      console.error("Google OAuth configuration is invalid", error.message);
+      return redirectAndClearState(
+        new URL("/integrations?error=not_configured", origin),
+      );
+    }
     console.error("Google OAuth callback failed", error);
     return redirectAndClearState(
       new URL("/integrations?error=callback_failed", origin),
