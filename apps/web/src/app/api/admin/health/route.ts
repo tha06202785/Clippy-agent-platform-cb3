@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin-access";
+import {
+  getGoogleOAuthConfig,
+  getGoogleOAuthRedirectUri,
+} from "@/lib/google-oauth-config";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +92,9 @@ export async function GET() {
       key: "organisation",
       name: "Organisation context",
       status: orgId ? "healthy" : "warning",
-      message: orgId ? "Organisation membership found" : "No organisation membership found",
+      message: orgId
+        ? "Organisation membership found"
+        : "No organisation membership found",
     });
 
     if (orgId) {
@@ -101,7 +107,11 @@ export async function GET() {
       checks.push({
         key: "knowledge",
         name: "Knowledge base",
-        status: knowledgeError ? "error" : knowledgeCount ? "healthy" : "warning",
+        status: knowledgeError
+          ? "error"
+          : knowledgeCount
+            ? "healthy"
+            : "warning",
         message: knowledgeError
           ? knowledgeError.message
           : `${knowledgeCount || 0} knowledge item${knowledgeCount === 1 ? "" : "s"} available`,
@@ -115,14 +125,19 @@ export async function GET() {
         .eq("org_id", orgId)
         .limit(50);
 
-      const connected = integrations?.filter((item: any) =>
-        ["connected", "healthy"].includes(item.status),
-      ).length || 0;
+      const connected =
+        integrations?.filter((item: any) =>
+          ["connected", "healthy"].includes(item.status),
+        ).length || 0;
 
       checks.push({
         key: "integrations",
         name: "Integrations",
-        status: integrationError ? "error" : connected > 0 ? "healthy" : "warning",
+        status: integrationError
+          ? "error"
+          : connected > 0
+            ? "healthy"
+            : "warning",
         message: integrationError
           ? integrationError.message
           : `${connected} of ${integrations?.length || 0} integrations healthy`,
@@ -145,26 +160,51 @@ export async function GET() {
 
     const aiConfigured = Boolean(
       process.env.OPENAI_API_KEY ||
-        process.env.ANTHROPIC_API_KEY ||
-        process.env.OLLAMA_API_KEY ||
-        process.env.OLLAMA_BASE_URL,
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.OLLAMA_API_KEY ||
+      process.env.OLLAMA_BASE_URL,
     );
     checks.push({
       key: "ai",
       name: "AI provider",
       status: aiConfigured ? "healthy" : "error",
-      message: aiConfigured ? "AI provider configuration detected" : "No AI provider configuration detected",
+      message: aiConfigured
+        ? "AI provider configuration detected"
+        : "No AI provider configuration detected",
     });
 
     checks.push({
       key: "automation",
       name: "Automation security",
-      status: process.env.CRON_SECRET && process.env.INTERNAL_API_SECRET ? "healthy" : "warning",
+      status:
+        process.env.CRON_SECRET && process.env.INTERNAL_API_SECRET
+          ? "healthy"
+          : "warning",
       message:
         process.env.CRON_SECRET && process.env.INTERNAL_API_SECRET
           ? "Cron and internal API secrets configured"
           : "One or more automation secrets are missing",
     });
+
+    try {
+      getGoogleOAuthConfig();
+      checks.push({
+        key: "google-oauth",
+        name: "Google OAuth",
+        status: "healthy",
+        message: `Credentials validated for ${getGoogleOAuthRedirectUri()}`,
+      });
+    } catch (error) {
+      checks.push({
+        key: "google-oauth",
+        name: "Google OAuth",
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Google OAuth configuration is invalid",
+      });
+    }
 
     const score = Math.round(
       (checks.reduce((sum, check) => {
@@ -176,7 +216,9 @@ export async function GET() {
         100,
     );
 
-    const overall: HealthState = checks.some((check) => check.status === "error")
+    const overall: HealthState = checks.some(
+      (check) => check.status === "error",
+    )
       ? "error"
       : checks.some((check) => check.status === "warning")
         ? "warning"

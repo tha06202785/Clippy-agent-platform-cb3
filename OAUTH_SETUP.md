@@ -13,8 +13,23 @@
 9. Add Authorized redirect URI:
    https://useclippy.com/api/integrations/google/callback
 10. Copy Client ID and Client Secret
-11. Run: vercel env add GOOGLE_CLIENT_ID (paste value)
-12. Run: vercel env add GOOGLE_CLIENT_SECRET (paste value)
+11. In Vercel → Clippy → Settings → Environment Variables, add
+    `GOOGLE_CLIENT_ID` to Production. Paste only the value ending in
+    `.apps.googleusercontent.com` — do not paste the variable name, quotes, or
+    the `GOCSPX-...` client secret.
+12. Add `GOOGLE_CLIENT_SECRET` to Production. Paste only the client secret.
+13. Confirm `NEXT_PUBLIC_APP_URL=https://useclippy.com` in Production.
+14. Redeploy the latest `main` deployment after saving the variables.
+
+For a Preview deployment, add the same credentials to Preview and set
+`NEXT_PUBLIC_APP_URL` to a stable preview or branch alias. Add that exact
+`https://.../api/integrations/google/callback` URL in Google Cloud as another
+Authorized redirect URI before testing.
+
+`Error 401: invalid_client` happens before Clippy's callback. It means
+`GOOGLE_CLIENT_ID` is not a current Google OAuth Web application client ID
+(commonly the secret was pasted into the ID field, quotes were included, or
+the credential was deleted in Google Cloud).
 
 ## Facebook OAuth (Messenger)
 
