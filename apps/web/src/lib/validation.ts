@@ -36,7 +36,8 @@ export const createListingSchema = z.object({
   bathrooms: z.number().int().positive().optional(),
   parking: z.number().int().positive().optional(),
   property_type: z.string().optional(),
-  status: z.enum(["available", "active", "pending", "sold", "expired", "draft"]).optional(),\n  stage: z.enum(["inquiry", "contacted", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"]).optional(),
+  status: z.enum(["available", "active", "pending", "sold", "expired", "draft"]).optional(),
+  stage: z.enum(["inquiry", "contacted", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"]).optional(),
   description: z.string().optional(),
 });
 
