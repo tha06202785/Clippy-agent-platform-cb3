@@ -6,6 +6,12 @@ alter table public.orgs
   add column if not exists platform_suspended_by uuid,
   add column if not exists platform_suspension_reason text;
 
+-- Bring older production queues up to the retry-aware application schema.
+alter table public.scheduled_communications
+  add column if not exists attempt_count integer not null default 0,
+  add column if not exists max_attempts integer not null default 3,
+  add column if not exists last_error text;
+
 alter table public.orgs
   drop constraint if exists orgs_platform_status_check;
 

@@ -45,4 +45,3 @@ export function expectedPlatformConfirmation(
     reset_integration: "RESET",
   }[action];
 }
-
