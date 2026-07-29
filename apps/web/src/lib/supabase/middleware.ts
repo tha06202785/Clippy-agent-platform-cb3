@@ -7,6 +7,7 @@ const suspensionExemptPaths = [
   "/api/subscription",
   "/admin/billing",
   "/api/webhooks",
+  "/api/auth/logout",
   "/sign-out",
   "/account-suspended",
 ];

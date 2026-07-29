@@ -56,7 +56,13 @@ export default function PlatformAdminPage() {
     }[action];
     const reason = window.prompt(`Reason for this action (minimum 8 characters):`);
     if (!reason) return;
-    if (!window.confirm(`Confirm ${confirmation}? This action will be permanently audited.`)) return;
+    const enteredConfirmation = window.prompt(
+      `Type ${confirmation} to confirm. This action will be permanently audited.`,
+    );
+    if (enteredConfirmation !== confirmation) {
+      setError(`Action cancelled: confirmation must exactly match ${confirmation}.`);
+      return;
+    }
 
     const key = `${action}-${targetId || orgId}`;
     setActing(key);
@@ -65,7 +71,13 @@ export default function PlatformAdminPage() {
       const response = await fetch("/api/admin/platform/actions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, orgId, targetId, reason, confirmation }),
+        body: JSON.stringify({
+          action,
+          orgId,
+          targetId,
+          reason,
+          confirmation: enteredConfirmation,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Platform action failed");

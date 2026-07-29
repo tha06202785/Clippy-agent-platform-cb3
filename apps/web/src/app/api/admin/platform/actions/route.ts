@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { getPlatformAdminContext } from "@/lib/admin-access";
-import { platformActionSchema } from "@/lib/platform-actions";
+import {
+  isTrustedPlatformActionOrigin,
+  platformActionSchema,
+} from "@/lib/platform-actions";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (!isTrustedPlatformActionOrigin(request.headers.get("origin"), request.url)) {
+    return NextResponse.json({ error: "Invalid request origin" }, { status: 403 });
+  }
+
   const context = await getPlatformAdminContext();
   if (context.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

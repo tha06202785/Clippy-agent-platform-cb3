@@ -45,3 +45,15 @@ export function expectedPlatformConfirmation(
     reset_integration: "RESET",
   }[action];
 }
+
+export function isTrustedPlatformActionOrigin(
+  origin: string | null,
+  requestUrl: string,
+): boolean {
+  if (!origin) return false;
+  try {
+    return new URL(origin).origin === new URL(requestUrl).origin;
+  } catch {
+    return false;
+  }
+}

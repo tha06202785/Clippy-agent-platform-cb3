@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   expectedPlatformConfirmation,
+  isTrustedPlatformActionOrigin,
   platformActionSchema,
 } from "@/lib/platform-actions";
 
@@ -13,6 +14,27 @@ describe("platform administrator actions", () => {
       confirmation: "suspend",
     });
     expect(result.success).toBe(false);
+  });
+
+  it("accepts only the request URL's exact origin", () => {
+    expect(
+      isTrustedPlatformActionOrigin(
+        "https://useclippy.com",
+        "https://useclippy.com/api/admin/platform/actions",
+      ),
+    ).toBe(true);
+    expect(
+      isTrustedPlatformActionOrigin(
+        "https://evil.example",
+        "https://useclippy.com/api/admin/platform/actions",
+      ),
+    ).toBe(false);
+    expect(
+      isTrustedPlatformActionOrigin(
+        null,
+        "https://useclippy.com/api/admin/platform/actions",
+      ),
+    ).toBe(false);
   });
 
   it("requires a target for retry and integration reset", () => {
