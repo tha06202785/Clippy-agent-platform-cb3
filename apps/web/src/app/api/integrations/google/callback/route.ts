@@ -96,19 +96,29 @@ export async function GET(req: NextRequest) {
 
     const tokens = await tokenResponse.json();
     const admin = createAdminClient();
-    const { error: saveError } = await admin.from("integrations").upsert(
-      {
-        org_id: membership.org_id,
-        provider: "gmail",
-        status: "connected",
-        credentials_encrypted: encryptIntegrationCredentials(tokens),
-        settings_json: {
-          scope: tokens.scope || null,
-          token_type: tokens.token_type || null,
-        },
-        connected_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+    const credentialsEncrypted = encryptIntegrationCredentials(tokens);
+    const connection = {
+      org_id: membership.org_id,
+      status: "connected",
+      credentials_encrypted: credentialsEncrypted,
+      settings_json: {
+        scope: tokens.scope || null,
+        token_type: tokens.token_type || null,
       },
+      connected_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const { error: saveError } = await admin.from("integrations").upsert(
+      [
+        {
+          ...connection,
+          provider: "gmail",
+        },
+        {
+          ...connection,
+          provider: "google-calendar",
+        },
+      ],
       { onConflict: "org_id,provider" },
     );
     if (saveError) {
@@ -119,7 +129,7 @@ export async function GET(req: NextRequest) {
     }
 
     return redirectAndClearState(
-      new URL("/integrations?connected=gmail", origin),
+      new URL("/integrations?connected=google", origin),
     );
   } catch (error) {
     if (error instanceof GoogleOAuthConfigurationError) {
