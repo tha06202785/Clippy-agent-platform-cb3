@@ -14,6 +14,9 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
+  Clipboard,
+  ExternalLink,
+  Mail,
   MessageCircle,
   Search,
   Send,
@@ -23,6 +26,10 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import {
+  buildDraftLaunchUrl,
+  type ProposedDraftAction,
+} from "@/lib/copilot-actions";
 import {
   resolveInitialCopilotContextItem,
   type CopilotContextItem,
@@ -59,6 +66,14 @@ type ChatMessage = {
   role: "assistant" | "user";
   content: string;
   contextLabel?: string;
+  draftAction?: DraftActionState;
+};
+
+type DraftActionState = ProposedDraftAction & {
+  context: CopilotContextSelection;
+  status: "draft" | "approving" | "approved";
+  error?: string;
+  approvedAt?: string;
 };
 
 const contextGroups = [
@@ -125,6 +140,178 @@ function updateContextUrl(context?: CopilotContextSelection) {
   window.history.replaceState({}, "", `${url.pathname}${url.search}`);
 }
 
+function DraftApprovalCard({
+  action,
+  onChange,
+  onApprove,
+}: {
+  action: DraftActionState;
+  onChange: (patch: Partial<DraftActionState>) => void;
+  onApprove: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const launchUrl = buildDraftLaunchUrl(action);
+  const channelLabel =
+    action.channel === "sms"
+      ? "Text"
+      : action.channel === "whatsapp"
+        ? "WhatsApp"
+        : action.channel === "email"
+          ? "Email"
+          : "Copy";
+
+  const copyDraft = async () => {
+    await navigator.clipboard.writeText(action.content);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const openDraft = () => {
+    if (!launchUrl) return;
+    if (launchUrl.startsWith("https://")) {
+      window.open(launchUrl, "_blank", "noopener,noreferrer");
+    } else {
+      window.location.href = launchUrl;
+    }
+  };
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/70">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 px-4 py-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-amber-700" />
+            <h3 className="text-sm font-bold text-neutral-900">
+              {action.title}
+            </h3>
+          </div>
+          <p className="mt-0.5 text-[11px] text-neutral-500">
+            {action.status === "approved"
+              ? "Approved and ready for your final send"
+              : "Review and edit before approval"}
+          </p>
+        </div>
+        <span
+          className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+            action.status === "approved"
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          {action.status === "approved" ? "Approved" : "Approval required"}
+        </span>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+              Channel
+            </span>
+            <p className="mt-1 text-xs font-semibold text-neutral-800">
+              {channelLabel}
+            </p>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+              Recipient
+            </span>
+            <p className="mt-1 truncate text-xs font-semibold text-neutral-800">
+              {action.recipient.name ||
+                action.recipient.email ||
+                action.recipient.phone ||
+                "No recipient selected"}
+            </p>
+          </div>
+        </div>
+
+        {action.channel === "email" && (
+          <label className="block">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+              Subject
+            </span>
+            <input
+              value={action.subject || ""}
+              onChange={(event) => onChange({ subject: event.target.value })}
+              disabled={action.status === "approved"}
+              className="mt-1 h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:bg-neutral-50"
+            />
+          </label>
+        )}
+
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+            Draft
+          </span>
+          <textarea
+            value={action.content}
+            onChange={(event) => onChange({ content: event.target.value })}
+            disabled={action.status === "approved"}
+            rows={7}
+            className="mt-1 w-full resize-y rounded-xl border border-neutral-200 bg-white p-3 text-sm leading-6 text-neutral-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:bg-neutral-50"
+          />
+        </label>
+
+        {action.error && (
+          <p
+            role="alert"
+            className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700"
+          >
+            {action.error}
+          </p>
+        )}
+
+        {action.status === "approved" ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {launchUrl && (
+                <button
+                  type="button"
+                  onClick={openDraft}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Open {channelLabel}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void copyDraft()}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 transition hover:bg-neutral-50"
+              >
+                <Clipboard className="h-4 w-4" />
+                {copied ? "Copied" : "Copy approved text"}
+              </button>
+            </div>
+            <p className="text-center text-[11px] text-neutral-500">
+              Approval is recorded. Opening the channel does not mean the
+              message has been sent.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={onApprove}
+              disabled={action.status === "approving" || !action.content.trim()}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {action.status === "approving"
+                ? "Recording approval…"
+                : "Approve this draft"}
+            </button>
+            <p className="text-center text-[11px] text-neutral-500">
+              Nothing is sent when you approve. You choose the final send in
+              your email or messaging app.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function CopilotPage({
   contextItems,
   initialContext,
@@ -181,6 +368,56 @@ export function CopilotPage({
     updateContextUrl();
   };
 
+  const updateDraftAction = (
+    messageId: string,
+    patch: Partial<DraftActionState>,
+  ) => {
+    setMessages((previous) =>
+      previous.map((message) =>
+        message.id === messageId && message.draftAction
+          ? {
+              ...message,
+              draftAction: { ...message.draftAction, ...patch },
+            }
+          : message,
+      ),
+    );
+  };
+
+  const approveDraft = async (messageId: string, action: DraftActionState) => {
+    updateDraftAction(messageId, { status: "approving", error: undefined });
+    try {
+      const response = await fetch("/api/copilot/actions/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draft_id: action.id,
+          channel: action.channel,
+          subject: action.subject,
+          content: action.content,
+          ...contextRequest(action.context),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || "The draft could not be approved.");
+      }
+      updateDraftAction(messageId, {
+        status: "approved",
+        approvedAt: result.approved_at,
+        recipient: result.recipient || action.recipient,
+      });
+    } catch (error) {
+      updateDraftAction(messageId, {
+        status: "draft",
+        error:
+          error instanceof Error
+            ? error.message
+            : "The draft could not be approved.",
+      });
+    }
+  };
+
   const sendMessage = async (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
@@ -228,19 +465,32 @@ export function CopilotPage({
       window.clearInterval(stepInterval);
       setThinkingStep(thinkingSteps.length);
 
-      const content =
+      const reply =
         typeof data.reply === "string" && data.reply.trim()
           ? data.reply
           : "I received your message but don't have a response. Please try again.";
+      const proposedAction =
+        data.proposed_action?.type === "message_draft"
+          ? (data.proposed_action as ProposedDraftAction)
+          : null;
 
       setMessages((previous) => [
         ...previous,
         {
           id: `${Date.now()}-assistant`,
           role: "assistant",
-          content,
+          content: proposedAction
+            ? "I prepared an editable draft below. Review it carefully—nothing will be sent automatically."
+            : reply,
           contextLabel: activeContext
             ? `${activeContext.label} · ${activeContext.description}`
+            : undefined,
+          draftAction: proposedAction
+            ? {
+                ...proposedAction,
+                context: activeContext?.context || {},
+                status: "draft",
+              }
             : undefined,
         },
       ]);
@@ -458,6 +708,15 @@ export function CopilotPage({
               <div className="whitespace-pre-wrap text-sm leading-relaxed">
                 {message.content}
               </div>
+              {message.draftAction && (
+                <DraftApprovalCard
+                  action={message.draftAction}
+                  onChange={(patch) => updateDraftAction(message.id, patch)}
+                  onApprove={() =>
+                    void approveDraft(message.id, message.draftAction!)
+                  }
+                />
+              )}
             </div>
             {message.role === "user" && (
               <div className="ml-3 mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-500 shadow-md">
