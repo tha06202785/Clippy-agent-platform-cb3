@@ -46,6 +46,12 @@ type NavItem = {
 const primaryNav: NavItem[] = [
   { href: "/dashboard", label: "Today", icon: Home, color: "text-emerald-500" },
   {
+    href: "/calendar",
+    label: "Calendar",
+    icon: Calendar,
+    color: "text-indigo-500",
+  },
+  {
     href: "/inbox",
     label: "Conversations",
     icon: Inbox,
@@ -108,6 +114,7 @@ const workspaceNav: NavItem[] = [
 
 const pageTitles: Array<[string, string]> = [
   ["/dashboard", "Today"],
+  ["/calendar", "Calendar"],
   ["/inbox", "Conversations"],
   ["/clients", "Clients"],
   ["/deals", "Opportunities"],
