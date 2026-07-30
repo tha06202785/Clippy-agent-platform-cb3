@@ -1,14 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Inbox, UserRound, Bot, Building2 } from "lucide-react";
+import { Home, Inbox, UserRound, Bot, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/dashboard", label: "Today", icon: Home },
   { href: "/inbox", label: "Conversations", icon: Inbox },
   { href: "/clients", label: "Clients", icon: UserRound },
-  { href: "/inspections", label: "Properties", icon: Building2 },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/copilot", label: "Clippy", icon: Bot },
 ];
 
