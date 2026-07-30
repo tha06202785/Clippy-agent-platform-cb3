@@ -4,6 +4,10 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  embedKnowledge,
+  KNOWLEDGE_EMBEDDING_MODEL,
+} from "@/lib/knowledge-indexing";
 
 export interface EmbeddingRequest {
   texts: string[];
@@ -31,43 +35,16 @@ export interface SearchResult {
   layer: string;
 }
 
-// Generate embeddings using OpenAI (or compatible) API
+// Generate embeddings using the same Ollama model used for indexing.
 export async function generateEmbeddings(
   texts: string[],
-  model = "text-embedding-3-small",
+  _model = KNOWLEDGE_EMBEDDING_MODEL,
 ): Promise<EmbeddingResponse> {
-  const apiKey = process.env.OPENAI_API_KEY || process.env.OLLAMA_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("Embedding API key not configured");
-  }
-
-  // Use OpenAI-compatible endpoint
-  const endpoint =
-    process.env.EMBEDDING_ENDPOINT || "https://api.openai.com/v1/embeddings";
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      input: texts,
-      encoding_format: "float",
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error();
-  }
-
-  const data = await response.json();
+  const embeddings = await embedKnowledge(texts);
   return {
-    embeddings: data.data.map((d: any) => d.embedding),
-    model: data.model,
-    usage: data.usage,
+    embeddings,
+    model: KNOWLEDGE_EMBEDDING_MODEL,
+    usage: { total_tokens: 0 },
   };
 }
 
