@@ -1,16 +1,85 @@
-import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, doublePrecision, pgEnum } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  integer,
+  jsonb,
+  boolean,
+  doublePrecision,
+  pgEnum,
+} from "drizzle-orm/pg-core";
 
 // ─── Existing enums ───
-export const planEnum = pgEnum("plan", ["free", "starter", "professional", "agency", "enterprise"]);
+export const planEnum = pgEnum("plan", [
+  "free",
+  "starter",
+  "professional",
+  "agency",
+  "enterprise",
+]);
 export const roleEnum = pgEnum("role", ["owner", "admin", "manager", "agent"]);
-export const leadStatusEnum = pgEnum("lead_status", ["new", "contacted", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"]);
-export const listingStatusEnum = pgEnum("listing_status", ["draft", "active", "pending", "sold", "expired", "withdrawn"]);
+export const leadStatusEnum = pgEnum("lead_status", [
+  "new",
+  "contacted",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "closed_won",
+  "closed_lost",
+]);
+export const listingStatusEnum = pgEnum("listing_status", [
+  "draft",
+  "active",
+  "pending",
+  "sold",
+  "expired",
+  "withdrawn",
+]);
 
 // ─── New enums for AI brain ───
-export const leadStageEnum = pgEnum("lead_stage", ["unknown", "new", "warm", "hot", "inspection_booked", "offer", "negotiation", "contract", "won", "lost", "nurture"]);
-export const channelEnum = pgEnum("channel", ["website", "facebook", "facebook_comment", "whatsapp", "email", "sms", "instagram", "realestate", "domain", "phone", "manual"]);
-export const sentimentEnum = pgEnum("sentiment", ["positive", "neutral", "negative", "angry"]);
-export const aiActionTypeEnum = pgEnum("ai_action_type", ["reply", "escalate", "follow_up", "book_inspection", "schedule_call", "collect_info", "nurture", "stop"]);
+export const leadStageEnum = pgEnum("lead_stage", [
+  "unknown",
+  "new",
+  "warm",
+  "hot",
+  "inspection_booked",
+  "offer",
+  "negotiation",
+  "contract",
+  "won",
+  "lost",
+  "nurture",
+]);
+export const channelEnum = pgEnum("channel", [
+  "website",
+  "facebook",
+  "facebook_comment",
+  "whatsapp",
+  "email",
+  "sms",
+  "instagram",
+  "realestate",
+  "domain",
+  "phone",
+  "manual",
+]);
+export const sentimentEnum = pgEnum("sentiment", [
+  "positive",
+  "neutral",
+  "negative",
+  "angry",
+]);
+export const aiActionTypeEnum = pgEnum("ai_action_type", [
+  "reply",
+  "escalate",
+  "follow_up",
+  "book_inspection",
+  "schedule_call",
+  "collect_info",
+  "nurture",
+  "stop",
+]);
 
 // ─── Existing tables ───
 export const orgs = pgTable("orgs", {
@@ -27,7 +96,9 @@ export const orgs = pgTable("orgs", {
 
 export const org_members = pgTable("org_members", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   user_id: uuid("user_id").notNull(),
   role: text("role").default("agent").notNull(),
   created_at: timestamp("created_at").defaultNow(),
@@ -35,7 +106,9 @@ export const org_members = pgTable("org_members", {
 
 export const leads = pgTable("leads", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   full_name: text("full_name"),
   email: text("email"),
   phone: text("phone"),
@@ -58,7 +131,9 @@ export const leads = pgTable("leads", {
 
 export const listings = pgTable("listings", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   address: text("address").notNull(),
   price: text("price"),
   bedrooms: integer("bedrooms"),
@@ -74,7 +149,9 @@ export const listings = pgTable("listings", {
 
 export const briefings = pgTable("briefings", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   title: text("title").notNull(),
   date: timestamp("date").defaultNow(),
   status: text("status").default("pending"),
@@ -83,7 +160,9 @@ export const briefings = pgTable("briefings", {
 
 export const integrations = pgTable("integrations", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   provider: text("provider").notNull(),
   status: text("status").default("disconnected"),
   credentials_encrypted: text("credentials_encrypted"),
@@ -95,7 +174,9 @@ export const integrations = pgTable("integrations", {
 
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   plan: text("plan").notNull(),
   status: text("status").default("active"),
   stripe_subscription_id: text("stripe_subscription_id"),
@@ -116,15 +197,38 @@ export const profiles = pgTable("profiles", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// One client may enquire about many properties and every property may have
+// many interested clients. Conversations are scoped through this relationship.
+export const property_enquiries = pgTable("property_enquiries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: text("org_id").notNull(),
+  lead_id: uuid("lead_id")
+    .references(() => leads.id)
+    .notNull(),
+  listing_id: uuid("listing_id").references(() => listings.id),
+  source: text("source").default("manual").notNull(),
+  external_enquiry_id: text("external_enquiry_id"),
+  status: text("status").default("active").notNull(),
+  assigned_to_user_id: uuid("assigned_to_user_id"),
+  first_enquired_at: timestamp("first_enquired_at").defaultNow().notNull(),
+  last_activity_at: timestamp("last_activity_at").defaultNow().notNull(),
+  metadata: jsonb("metadata").default({}).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ─── NEW: AI Brain Tables ───
 
-// Conversations - one per lead per channel
+// Conversations - one per property enquiry per channel when property context
+// is known; unscoped conversations remain supported for backwards compatibility.
 export const conversations = pgTable("conversations", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: text("org_id").notNull(),
   lead_id: uuid("lead_id").references(() => leads.id),
+  enquiry_id: uuid("enquiry_id").references(() => property_enquiries.id),
+  listing_id: uuid("listing_id").references(() => listings.id),
   channel: text("channel").notNull(),
-  external_conversation_id: text("external_conversation_id"),
+  external_thread_id: text("external_thread_id"),
   status: text("status").default("active"),
   lead_stage: text("lead_stage").default("unknown"),
   automation_mode: text("automation_mode").default("autonomous"),
@@ -141,7 +245,9 @@ export const conversations = pgTable("conversations", {
 // Individual messages in a conversation
 export const conversation_messages = pgTable("conversation_messages", {
   id: uuid("id").defaultRandom().primaryKey(),
-  conversation_id: uuid("conversation_id").references(() => conversations.id).notNull(),
+  conversation_id: uuid("conversation_id")
+    .references(() => conversations.id)
+    .notNull(),
   role: text("role").notNull(), // "lead", "ai", "agent"
   content: text("content").notNull(),
   channel: text("channel"),
@@ -157,7 +263,10 @@ export const conversation_messages = pgTable("conversation_messages", {
 // Lead memory - enriched CRM data extracted by AI
 export const lead_memory = pgTable("lead_memory", {
   id: uuid("id").defaultRandom().primaryKey(),
-  lead_id: uuid("lead_id").references(() => leads.id).notNull().unique(),
+  lead_id: uuid("lead_id")
+    .references(() => leads.id)
+    .notNull()
+    .unique(),
   budget_min: doublePrecision("budget_min"),
   budget_max: doublePrecision("budget_max"),
   bedrooms_min: integer("bedrooms_min"),
@@ -184,7 +293,9 @@ export const lead_memory = pgTable("lead_memory", {
 // Lead stage history
 export const lead_stage_history = pgTable("lead_stage_history", {
   id: uuid("id").defaultRandom().primaryKey(),
-  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  lead_id: uuid("lead_id")
+    .references(() => leads.id)
+    .notNull(),
   from_stage: text("from_stage"),
   to_stage: text("to_stage").notNull(),
   reason: text("reason"),
@@ -195,7 +306,10 @@ export const lead_stage_history = pgTable("lead_stage_history", {
 // Lead scores computed by AI
 export const lead_scores = pgTable("lead_scores", {
   id: uuid("id").defaultRandom().primaryKey(),
-  lead_id: uuid("lead_id").references(() => leads.id).notNull().unique(),
+  lead_id: uuid("lead_id")
+    .references(() => leads.id)
+    .notNull()
+    .unique(),
   buying_readiness: doublePrecision("buying_readiness"),
   likelihood_to_inspect: doublePrecision("likelihood_to_inspect"),
   probability_of_purchase: doublePrecision("probability_of_purchase"),
@@ -208,8 +322,12 @@ export const lead_scores = pgTable("lead_scores", {
 // Follow-up queue
 export const followup_queue = pgTable("followup_queue", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
-  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
+  lead_id: uuid("lead_id")
+    .references(() => leads.id)
+    .notNull(),
   conversation_id: uuid("conversation_id").references(() => conversations.id),
   action_type: text("action_type").notNull(),
   scheduled_for: timestamp("scheduled_for").notNull(),
@@ -222,7 +340,9 @@ export const followup_queue = pgTable("followup_queue", {
 // AI actions log
 export const ai_actions = pgTable("ai_actions", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   lead_id: uuid("lead_id").references(() => leads.id),
   conversation_id: uuid("conversation_id").references(() => conversations.id),
   action_type: text("action_type").notNull(),
@@ -239,7 +359,9 @@ export const ai_actions = pgTable("ai_actions", {
 // Escalations to human agents
 export const escalations = pgTable("escalations", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   lead_id: uuid("lead_id").references(() => leads.id),
   conversation_id: uuid("conversation_id").references(() => conversations.id),
   reason: text("reason").notNull(),
@@ -253,7 +375,10 @@ export const escalations = pgTable("escalations", {
 // Agent voice profiles
 export const agent_voice = pgTable("agent_voice", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull().unique(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull()
+    .unique(),
   name: text("name").default("Professional"),
   tone: text("tone").default("warm"),
   style_guide: text("style_guide"),
@@ -266,7 +391,9 @@ export const agent_voice = pgTable("agent_voice", {
 // Daily AI summaries for agents
 export const ai_summaries = pgTable("ai_summaries", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   date: timestamp("date").notNull(),
   conversations_handled: integer("conversations_handled").default(0),
   inspections_booked: integer("inspections_booked").default(0),
@@ -280,7 +407,9 @@ export const ai_summaries = pgTable("ai_summaries", {
 // Compliance logs
 export const compliance_logs = pgTable("compliance_logs", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   message_id: uuid("message_id").references(() => conversation_messages.id),
   check_type: text("check_type").notNull(),
   passed: boolean("passed").notNull(),
@@ -291,8 +420,12 @@ export const compliance_logs = pgTable("compliance_logs", {
 // Lead identities - cross-channel identity resolution
 export const lead_identities = pgTable("lead_identities", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
-  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
+  lead_id: uuid("lead_id")
+    .references(() => leads.id)
+    .notNull(),
   channel: text("channel").notNull(),
   external_id: text("external_id"),
   email_normalized: text("email_normalized"),
@@ -324,7 +457,10 @@ export const webhook_events = pgTable("webhook_events", {
 // Authoritative listing facts - AI source of truth
 export const listing_facts = pgTable("listing_facts", {
   id: uuid("id").defaultRandom().primaryKey(),
-  listing_id: uuid("listing_id").references(() => listings.id).notNull().unique(),
+  listing_id: uuid("listing_id")
+    .references(() => listings.id)
+    .notNull()
+    .unique(),
   verified_price: text("verified_price"),
   verified_bedrooms: integer("verified_bedrooms"),
   verified_bathrooms: integer("verified_bathrooms"),
@@ -343,7 +479,9 @@ export const listing_facts = pgTable("listing_facts", {
 // Opt-outs - prevent messaging unsubscribed leads
 export const opt_outs = pgTable("opt_outs", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   lead_id: uuid("lead_id").references(() => leads.id),
   channel: text("channel"),
   email: text("email"),
@@ -356,7 +494,9 @@ export const opt_outs = pgTable("opt_outs", {
 // Consent events - track when/how consent was given
 export const consent_events = pgTable("consent_events", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   lead_id: uuid("lead_id").references(() => leads.id),
   channel: text("channel").notNull(),
   consent_type: text("consent_type").notNull(),
@@ -369,7 +509,9 @@ export const consent_events = pgTable("consent_events", {
 // Message delivery attempts - retry tracking
 export const message_delivery_attempts = pgTable("message_delivery_attempts", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   message_id: uuid("message_id").references(() => conversation_messages.id),
   channel: text("channel").notNull(),
   status: text("status").default("pending"),
@@ -385,15 +527,17 @@ export const message_delivery_attempts = pgTable("message_delivery_attempts", {
 
 // Inspection bookings
 
-
-
 // ─── RENTAL INSPECTION PIPELINE ───
 
 // Inspection time slots - agent-defined available times
 export const inspection_time_slots = pgTable("inspection_time_slots", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
-  listing_id: uuid("listing_id").references(() => listings.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
+  listing_id: uuid("listing_id")
+    .references(() => listings.id)
+    .notNull(),
   starts_at: timestamp("starts_at").notNull(),
   ends_at: timestamp("ends_at").notNull(),
   timezone: text("timezone").default("Australia/Sydney"),
@@ -410,10 +554,16 @@ export const inspection_time_slots = pgTable("inspection_time_slots", {
 // Inspection bookings - one per lead per slot
 export const inspection_bookings = pgTable("inspection_bookings", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   slot_id: uuid("slot_id").references(() => inspection_time_slots.id),
-  listing_id: uuid("listing_id").references(() => listings.id).notNull(),
-  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
+  listing_id: uuid("listing_id")
+    .references(() => listings.id)
+    .notNull(),
+  lead_id: uuid("lead_id")
+    .references(() => leads.id)
+    .notNull(),
   conversation_id: uuid("conversation_id").references(() => conversations.id),
   booking_status: text("booking_status").default("reserved"),
   attendance_status: text("attendance_status").default("unknown"),
@@ -430,10 +580,18 @@ export const inspection_bookings = pgTable("inspection_bookings", {
 // Rental applications - separate from inspection_bookings
 export const rental_applications = pgTable("rental_applications", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
-  listing_id: uuid("listing_id").references(() => listings.id).notNull(),
-  lead_id: uuid("lead_id").references(() => leads.id).notNull(),
-  inspection_booking_id: uuid("inspection_booking_id").references(() => inspection_bookings.id),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
+  listing_id: uuid("listing_id")
+    .references(() => listings.id)
+    .notNull(),
+  lead_id: uuid("lead_id")
+    .references(() => leads.id)
+    .notNull(),
+  inspection_booking_id: uuid("inspection_booking_id").references(
+    () => inspection_bookings.id,
+  ),
   external_provider: text("external_provider"),
   external_application_id: text("external_application_id"),
   application_url: text("application_url"),
@@ -448,10 +606,14 @@ export const rental_applications = pgTable("rental_applications", {
 // Scheduled communications - durable job queue for reminders
 export const scheduled_communications = pgTable("scheduled_communications", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
   lead_id: uuid("lead_id").references(() => leads.id),
   conversation_id: uuid("conversation_id").references(() => conversations.id),
-  inspection_booking_id: uuid("inspection_booking_id").references(() => inspection_bookings.id),
+  inspection_booking_id: uuid("inspection_booking_id").references(
+    () => inspection_bookings.id,
+  ),
   type: text("type").notNull(),
   channel: text("channel").default("email"),
   scheduled_for: timestamp("scheduled_for").notNull(),
@@ -469,8 +631,13 @@ export const scheduled_communications = pgTable("scheduled_communications", {
 // Lead channel preferences - opt-out, quiet hours, consent
 export const lead_channel_preferences = pgTable("lead_channel_preferences", {
   id: uuid("id").defaultRandom().primaryKey(),
-  org_id: uuid("org_id").references(() => orgs.id).notNull(),
-  lead_id: uuid("lead_id").references(() => leads.id).notNull().unique(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
+  lead_id: uuid("lead_id")
+    .references(() => leads.id)
+    .notNull()
+    .unique(),
   email_consent: boolean("email_consent").default(true),
   sms_consent: boolean("sms_consent").default(true),
   whatsapp_consent: boolean("whatsapp_consent").default(true),
