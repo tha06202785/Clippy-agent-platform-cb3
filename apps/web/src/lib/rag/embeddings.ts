@@ -32,21 +32,25 @@ export interface SearchResult {
 }
 
 // Generate embeddings using OpenAI (or compatible) API
-export async function generateEmbeddings(texts: string[], model = "text-embedding-3-small"): Promise<EmbeddingResponse> {
+export async function generateEmbeddings(
+  texts: string[],
+  model = "text-embedding-3-small",
+): Promise<EmbeddingResponse> {
   const apiKey = process.env.OPENAI_API_KEY || process.env.OLLAMA_API_KEY;
-  
+
   if (!apiKey) {
     throw new Error("Embedding API key not configured");
   }
 
   // Use OpenAI-compatible endpoint
-  const endpoint = process.env.EMBEDDING_ENDPOINT || "https://api.openai.com/v1/embeddings";
+  const endpoint =
+    process.env.EMBEDDING_ENDPOINT || "https://api.openai.com/v1/embeddings";
 
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
@@ -68,17 +72,21 @@ export async function generateEmbeddings(texts: string[], model = "text-embeddin
 }
 
 // Chunk text for RAG (split into ~500 token chunks)
-export function chunkText(content: string, chunkSize = 500, overlap = 50): string[] {
+export function chunkText(
+  content: string,
+  chunkSize = 500,
+  overlap = 50,
+): string[] {
   const chunks: string[] = [];
   const words = content.split(/\s+/);
-  
+
   for (let i = 0; i < words.length; i += chunkSize - overlap) {
     const chunk = words.slice(i, i + chunkSize).join(" ");
     if (chunk.trim()) {
       chunks.push(chunk);
     }
   }
-  
+
   return chunks.length > 0 ? chunks : [content];
 }
 
@@ -87,7 +95,7 @@ export async function storeKnowledgeChunks(
   supabase: any,
   documentId: string,
   chunks: string[],
-  embeddings: number[][]
+  embeddings: number[][],
 ) {
   const chunkRecords = chunks.map((content, index) => ({
     document_id: documentId,
@@ -110,6 +118,7 @@ export async function storeKnowledgeChunks(
 
 // Vector similarity search (cosine similarity)
 function cosineSimilarity(a: number[], b: number[]): number {
+  if (!a.length || a.length !== b.length) return 0;
   const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
   const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
   const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
@@ -121,14 +130,16 @@ export async function searchKnowledge(
   supabase: any,
   queryEmbedding: number[],
   orgId: string,
-  options: { layer?: string; clientId?: string; topK?: number } = {}
+  options: { layer?: string; clientId?: string; topK?: number } = {},
 ): Promise<SearchResult[]> {
   const { layer, clientId, topK = 5 } = options;
 
   // Get all chunks for the org
   let query = supabase
     .from("knowledge_chunks")
-    .select("*, knowledge_documents(layer, client_id, is_public)")
+    .select(
+      "*, knowledge_documents!inner(layer, client_id, is_public, org_id, status)",
+    )
     .eq("knowledge_documents.org_id", orgId)
     .eq("knowledge_documents.status", "indexed");
 
@@ -138,7 +149,7 @@ export async function searchKnowledge(
 
   if (clientId) {
     // Prioritize client memory for this specific client
-    query = query.or();
+    query = query.eq("knowledge_documents.client_id", clientId);
   }
 
   const { data: chunks } = await query.limit(100);
@@ -150,7 +161,9 @@ export async function searchKnowledge(
   // Calculate similarity scores
   const results: SearchResult[] = chunks
     .map((chunk: any) => {
-      const storedEmbedding = JSON.parse(chunk.embedding);
+      const storedEmbedding = Array.isArray(chunk.embedding)
+        ? chunk.embedding
+        : JSON.parse(chunk.embedding);
       const score = cosineSimilarity(queryEmbedding, storedEmbedding);
       return {
         document: chunk.knowledge_documents,
@@ -173,7 +186,7 @@ export async function retrieveForAIResponse(
   query: string,
   orgId: string,
   userId: string,
-  clientId?: string
+  clientId?: string,
 ): Promise<string> {
   // Generate query embedding
   const { embeddings } = await generateEmbeddings([query]);
@@ -184,11 +197,16 @@ export async function retrieveForAIResponse(
 
   // 1. Client Memory (highest priority)
   if (clientId) {
-    const clientResults = await searchKnowledge(supabase, queryEmbedding, orgId, {
-      clientId,
-      layer: "client_memory",
-      topK: 3,
-    });
+    const clientResults = await searchKnowledge(
+      supabase,
+      queryEmbedding,
+      orgId,
+      {
+        clientId,
+        layer: "client_memory",
+        topK: 3,
+      },
+    );
     results.push(...clientResults);
   }
 
@@ -215,11 +233,13 @@ export async function retrieveForAIResponse(
 
   // Build context from results
   const contextParts: string[] = [];
-  
+
   if (results.length > 0) {
     contextParts.push("Relevant knowledge:");
     results.forEach((result, i) => {
-      contextParts.push(`[${i + 1}] ${result.chunk?.content || result.document?.content || ""}`);
+      contextParts.push(
+        `[${i + 1}] ${result.chunk?.content || result.document?.content || ""}`,
+      );
     });
   }
 
@@ -232,7 +252,7 @@ export async function autoLearnFromSource(
   orgId: string,
   source: string,
   content: string,
-  metadata: any = {}
+  metadata: any = {},
 ) {
   // Determine layer based on source
   const layerMap: Record<string, string> = {
@@ -254,7 +274,7 @@ export async function autoLearnFromSource(
 
   // Chunk content
   const chunks = chunkText(content);
-  
+
   // Generate embeddings
   const { embeddings } = await generateEmbeddings(chunks);
 
