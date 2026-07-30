@@ -260,7 +260,38 @@ async function googleJson<T>(url: URL, accessToken: string): Promise<T> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!response.ok) {
-    throw new Error(`Google API request failed (${response.status})`);
+    const service = url.hostname.startsWith("gmail")
+      ? "Gmail"
+      : "Google Calendar";
+    const responseText = await response.text();
+    let reason = "";
+    let message = "";
+
+    try {
+      const payload = JSON.parse(responseText) as {
+        error?: {
+          message?: string;
+          status?: string;
+          errors?: Array<{ reason?: string }>;
+          details?: Array<{ reason?: string }>;
+        };
+      };
+      reason =
+        payload.error?.status ||
+        payload.error?.errors?.[0]?.reason ||
+        payload.error?.details?.[0]?.reason ||
+        "";
+      message = payload.error?.message || "";
+    } catch {
+      message = responseText.slice(0, 200);
+    }
+
+    const detail = [reason && `[${reason}]`, message]
+      .filter(Boolean)
+      .join(" ");
+    throw new Error(
+      `${service} API request failed (${response.status})${detail ? `: ${detail}` : ""}`,
+    );
   }
   return (await response.json()) as T;
 }
