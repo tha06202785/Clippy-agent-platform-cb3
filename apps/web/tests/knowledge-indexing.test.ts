@@ -8,6 +8,7 @@ describe("Ollama knowledge embeddings", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     delete process.env.OLLAMA_BASE_URL;
+    delete process.env.OLLAMA_EMBEDDING_ENDPOINT;
     delete process.env.OLLAMA_API_KEY;
   });
 
@@ -17,9 +18,9 @@ describe("Ollama knowledge embeddings", () => {
       new Response(
         JSON.stringify({
           model: "embeddinggemma",
-          embeddings: [
-            [0.1, 0.2],
-            [0.3, 0.4],
+          data: [
+            { index: 1, embedding: [0.3, 0.4] },
+            { index: 0, embedding: [0.1, 0.2] },
           ],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -34,7 +35,7 @@ describe("Ollama knowledge embeddings", () => {
     expect(KNOWLEDGE_EMBEDDING_MODEL).toBe("ollama:embeddinggemma");
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://ollama.com/api/embed");
+    expect(url).toBe("https://ollama.com/v1/embeddings");
     expect(init.method).toBe("POST");
     expect(init.headers).toMatchObject({
       Authorization: "Bearer ollama-test-key",
@@ -43,8 +44,29 @@ describe("Ollama knowledge embeddings", () => {
     expect(JSON.parse(String(init.body))).toEqual({
       model: "embeddinggemma",
       input: ["first", "second"],
-      truncate: true,
+      encoding_format: "float",
     });
+  });
+
+  it("normalizes an Ollama API base URL to the compatible v1 endpoint", async () => {
+    process.env.OLLAMA_BASE_URL = "https://ollama.com/api/";
+    process.env.OLLAMA_API_KEY = "ollama-test-key";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [{ index: 0, embedding: [0.1, 0.2] }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await embedKnowledge(["test"]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://ollama.com/v1/embeddings",
+      expect.any(Object),
+    );
   });
 
   it("surfaces a bounded Ollama API error", async () => {

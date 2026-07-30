@@ -3,12 +3,17 @@ const CHUNK_SIZE = 1200;
 const OVERLAP = 150;
 
 function ollamaEmbedEndpoint(): string {
+  const configuredEndpoint = process.env.OLLAMA_EMBEDDING_ENDPOINT?.trim();
+  if (configuredEndpoint) return configuredEndpoint;
+
   const baseUrl = (process.env.OLLAMA_BASE_URL || "https://ollama.com")
     .trim()
     .replace(/\/+$/, "");
-  return baseUrl.endsWith("/api")
-    ? `${baseUrl}/embed`
-    : `${baseUrl}/api/embed`;
+  if (baseUrl.endsWith("/v1")) return `${baseUrl}/embeddings`;
+  if (baseUrl.endsWith("/api")) {
+    return `${baseUrl.slice(0, -4)}/v1/embeddings`;
+  }
+  return `${baseUrl}/v1/embeddings`;
 }
 
 export function chunkKnowledge(content: string): string[] {
@@ -47,7 +52,7 @@ export async function embedKnowledge(inputs: string[]): Promise<number[][]> {
     body: JSON.stringify({
       model: MODEL,
       input: inputs,
-      truncate: true,
+      encoding_format: "float",
     }),
   });
 
@@ -73,17 +78,23 @@ export async function embedKnowledge(inputs: string[]): Promise<number[][]> {
     );
   }
 
-  const payload = (await response.json()) as { embeddings?: number[][] };
+  const payload = (await response.json()) as {
+    data?: Array<{ embedding?: number[]; index?: number }>;
+  };
+  const embeddings = payload.data
+    ?.slice()
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+    .map((item) => item.embedding);
   if (
-    !Array.isArray(payload.embeddings) ||
-    payload.embeddings.length !== inputs.length ||
-    payload.embeddings.some(
+    !Array.isArray(embeddings) ||
+    embeddings.length !== inputs.length ||
+    embeddings.some(
       (embedding) => !Array.isArray(embedding) || embedding.length === 0,
     )
   ) {
     throw new Error("Ollama embedding response was incomplete");
   }
-  return payload.embeddings;
+  return embeddings as number[][];
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {
