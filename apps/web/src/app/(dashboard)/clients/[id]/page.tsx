@@ -330,8 +330,19 @@ export default async function Client360Page({
                       {enquiry.conversations?.length || 0} conversation
                       {(enquiry.conversations?.length || 0) === 1 ? "" : "s"}
                     </p>
-                    <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-3 text-xs text-neutral-500">
+                    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
                       <span>Active {formatDate(enquiry.last_activity_at)}</span>
+                      <Link
+                        href={`/copilot?lead_id=${client.id}&enquiry_id=${enquiry.id}${
+                          enquiry.listings
+                            ? `&listing_id=${enquiry.listings.id}`
+                            : ""
+                        }`}
+                        className="ml-auto inline-flex items-center gap-1 font-bold text-blue-700"
+                      >
+                        Ask Clippy
+                        <Sparkles className="h-3.5 w-3.5" />
+                      </Link>
                       {enquiry.listings && (
                         <Link
                           href={`/property/${enquiry.listings.id}?client_id=${client.id}`}
@@ -409,8 +420,8 @@ export default async function Client360Page({
             </h2>
             <p className="mt-2 text-sm leading-6 text-neutral-600">
               Use this as the next follow-up focus for{" "}
-              {client.full_name || "this client"}. Visible Copilot context is
-              the next dedicated milestone.
+              {client.full_name || "this client"}. Clippy opens with this client
+              visibly selected and verified.
             </p>
             <Link
               href={`/copilot?lead_id=${client.id}`}

@@ -458,6 +458,15 @@ export default async function Property360Page({
                         )}
                         {client && (
                           <Link
+                            href={`/copilot?lead_id=${client.id}&listing_id=${listing.id}&enquiry_id=${enquiry.id}`}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700"
+                          >
+                            Ask Clippy
+                            <Sparkles className="h-3.5 w-3.5" />
+                          </Link>
+                        )}
+                        {client && (
+                          <Link
                             href={`/clients/${client.id}`}
                             className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-blue-700"
                           >
@@ -591,8 +600,8 @@ export default async function Property360Page({
             </h2>
             <p className="mt-2 text-sm leading-6 text-neutral-600">
               This recommendation is calculated from this property&apos;s
-              enquiries, inspections and pending reminders. Visible Copilot
-              context is the next dedicated milestone.
+              enquiries, inspections and pending reminders. Clippy opens with
+              this property visibly selected and verified.
             </p>
             <Link
               href={`/copilot?listing_id=${listing.id}`}

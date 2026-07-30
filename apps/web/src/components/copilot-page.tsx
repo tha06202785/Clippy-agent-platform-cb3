@@ -1,18 +1,53 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
-import { Send, Bot, User } from "lucide-react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Bot,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  MessageCircle,
+  Search,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  User,
+  UserRound,
+  X,
+} from "lucide-react";
+import {
+  resolveInitialCopilotContextItem,
+  type CopilotContextItem,
+  type CopilotContextSelection,
+} from "@/lib/copilot-context";
 
 const quickActions = [
   { label: "Draft follow-up", prompt: "Draft a follow-up email" },
-  { label: "Generate captions", prompt: "Generate 3 property captions" },
-  { label: "Compliance", prompt: "NSW strata disclosure requirements" },
-  { label: "Schedule tour", prompt: "Schedule tour for tomorrow 2pm" },
+  {
+    label: "Summarise context",
+    prompt: "Summarise this context and the latest activity",
+  },
+  {
+    label: "Suggest next step",
+    prompt: "What is the best next action and why?",
+  },
+  {
+    label: "Prepare call",
+    prompt: "Prepare concise talking points for my next call",
+  },
 ];
 
 const thinkingSteps = [
   "Reading your message",
-  "Understanding context",
+  "Validating selected context",
   "Checking your knowledge base",
   "Reviewing compliance requirements",
   "Drafting response",
@@ -23,28 +58,143 @@ type ChatMessage = {
   id: string;
   role: "assistant" | "user";
   content: string;
+  contextLabel?: string;
 };
 
-export function CopilotPage() {
+const contextGroups = [
+  {
+    kind: "conversation" as const,
+    label: "Conversations",
+    description: "Exact client, property and channel",
+    icon: MessageCircle,
+  },
+  {
+    kind: "enquiry" as const,
+    label: "Property enquiries",
+    description: "One client’s interest in one property",
+    icon: Sparkles,
+  },
+  {
+    kind: "calendar" as const,
+    label: "Calendar",
+    description: "Meetings and inspections",
+    icon: CalendarDays,
+  },
+  {
+    kind: "client" as const,
+    label: "Clients",
+    description: "Client-only context",
+    icon: UserRound,
+  },
+  {
+    kind: "property" as const,
+    label: "Properties",
+    description: "Property-only context",
+    icon: Building2,
+  },
+];
+
+function contextRequest(context: CopilotContextSelection | undefined) {
+  if (!context) return {};
+  return {
+    lead_id: context.leadId,
+    listing_id: context.listingId,
+    enquiry_id: context.enquiryId,
+    conversation_id: context.conversationId,
+    calendar_event_id: context.calendarEventId,
+    calendar_source: context.calendarSource,
+  };
+}
+
+function updateContextUrl(context?: CopilotContextSelection) {
+  const url = new URL(window.location.href);
+  const keys = [
+    "lead_id",
+    "listing_id",
+    "enquiry_id",
+    "conversation_id",
+    "calendar_event_id",
+    "calendar_source",
+  ];
+  keys.forEach((key) => url.searchParams.delete(key));
+
+  const values = contextRequest(context);
+  Object.entries(values).forEach(([key, value]) => {
+    if (value) url.searchParams.set(key, value);
+  });
+  window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+}
+
+export function CopilotPage({
+  contextItems,
+  initialContext,
+}: {
+  contextItems: CopilotContextItem[];
+  initialContext: CopilotContextSelection;
+}) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "1", role: "assistant", content: "G'day! I'm Clippy. How can I help today?" },
+    {
+      id: "1",
+      role: "assistant",
+      content:
+        "G'day! I'm Clippy. Choose the client, property, enquiry or conversation I should work with, then tell me what you need.",
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [contextSearch, setContextSearch] = useState("");
+  const [activeContext, setActiveContext] = useState<CopilotContextItem | null>(
+    () => resolveInitialCopilotContextItem(contextItems, initialContext),
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  useEffect(() => {
+    if (contextOpen) searchRef.current?.focus();
+  }, [contextOpen]);
+
+  const visibleContextItems = useMemo(() => {
+    const query = contextSearch.trim().toLocaleLowerCase();
+    if (!query) return contextItems;
+    return contextItems.filter((item) =>
+      `${item.label} ${item.description}`.toLocaleLowerCase().includes(query),
+    );
+  }, [contextItems, contextSearch]);
+
+  const chooseContext = (item: CopilotContextItem) => {
+    setActiveContext(item);
+    setContextOpen(false);
+    setContextSearch("");
+    updateContextUrl(item.context);
+  };
+
+  const clearContext = () => {
+    setActiveContext(null);
+    setContextOpen(false);
+    setContextSearch("");
+    updateContextUrl();
+  };
+
   const sendMessage = async (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
 
-    setMessages((prev) => [
-      ...prev,
-      { id: `${Date.now()}-user`, role: "user", content: msg },
+    setMessages((previous) => [
+      ...previous,
+      {
+        id: `${Date.now()}-user`,
+        role: "user",
+        content: msg,
+        contextLabel: activeContext
+          ? `${activeContext.label} · ${activeContext.description}`
+          : undefined,
+      },
     ]);
     setInput("");
     setLoading(true);
@@ -61,15 +211,18 @@ export function CopilotPage() {
     }, 400);
 
     try {
-      const res = await fetch("/api/copilot/chat", {
+      const response = await fetch("/api/copilot/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({
+          message: msg,
+          ...contextRequest(activeContext?.context),
+        }),
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || `Request failed (${res.status})`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `Request failed (${response.status})`);
       }
 
       window.clearInterval(stepInterval);
@@ -80,19 +233,29 @@ export function CopilotPage() {
           ? data.reply
           : "I received your message but don't have a response. Please try again.";
 
-      setMessages((prev) => [
-        ...prev,
-        { id: `${Date.now()}-assistant`, role: "assistant", content },
+      setMessages((previous) => [
+        ...previous,
+        {
+          id: `${Date.now()}-assistant`,
+          role: "assistant",
+          content,
+          contextLabel: activeContext
+            ? `${activeContext.label} · ${activeContext.description}`
+            : undefined,
+        },
       ]);
     } catch (error) {
       console.error("Copilot error:", error);
       const message = error instanceof Error ? error.message : "Unknown error";
-      setMessages((prev) => [
-        ...prev,
+      setMessages((previous) => [
+        ...previous,
         {
           id: `${Date.now()}-error`,
           role: "assistant",
           content: `I couldn't send that message: ${message}. Please try again.`,
+          contextLabel: activeContext
+            ? `${activeContext.label} · ${activeContext.description}`
+            : undefined,
         },
       ]);
     } finally {
@@ -116,26 +279,189 @@ export function CopilotPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-neutral-50">
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.map((msg) => (
-          <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : "flex justify-start"}>
-            {msg.role === "assistant" && (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mr-3 mt-1 shadow-md flex-shrink-0">
-                <Bot className="w-5 h-5 text-white" />
+      <section className="relative z-20 border-b border-neutral-200 bg-white px-4 py-3 sm:px-6">
+        <div className="mx-auto max-w-4xl">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                Working context
+              </div>
+              {activeContext ? (
+                <div className="mt-1 flex min-w-0 items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-neutral-900">
+                      {activeContext.label}
+                    </p>
+                    <p className="truncate text-xs text-neutral-500">
+                      {activeContext.description}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-1">
+                  <p className="text-sm font-bold text-neutral-800">
+                    No client or property selected
+                  </p>
+                  <p className="text-xs text-neutral-500">
+                    Clippy will answer generally and ask before assuming a
+                    record.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              {activeContext && (
+                <button
+                  type="button"
+                  onClick={clearContext}
+                  disabled={loading}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-neutral-200 px-3 text-xs font-bold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
+                >
+                  <X className="h-4 w-4" />
+                  Clear
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setContextOpen((open) => !open)}
+                disabled={loading}
+                aria-expanded={contextOpen}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-neutral-800 disabled:opacity-50"
+              >
+                {activeContext ? "Change context" : "Choose context"}
+                <ChevronDown
+                  className={`h-4 w-4 transition ${contextOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {contextOpen && (
+            <div className="absolute left-1/2 top-[calc(100%+8px)] max-h-[min(68vh,620px)] w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-2xl">
+              <div className="border-b border-neutral-100 p-4">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    ref={searchRef}
+                    value={contextSearch}
+                    onChange={(event) => setContextSearch(event.target.value)}
+                    placeholder="Search client, property, channel or event"
+                    aria-label="Search Copilot contexts"
+                    className="h-11 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                  />
+                </label>
+                <p className="mt-2 text-xs text-neutral-500">
+                  Conversation and enquiry results keep the exact
+                  client–property relationship together.
+                </p>
+              </div>
+
+              <div className="max-h-[min(52vh,470px)] overflow-y-auto p-3">
+                {contextGroups.map((group) => {
+                  const groupItems = visibleContextItems
+                    .filter((item) => item.kind === group.kind)
+                    .slice(0, 12);
+                  if (groupItems.length === 0) return null;
+                  const Icon = group.icon;
+                  return (
+                    <div key={group.kind} className="mb-4 last:mb-0">
+                      <div className="flex items-center gap-2 px-2 pb-2">
+                        <Icon className="h-4 w-4 text-emerald-600" />
+                        <div>
+                          <h3 className="text-xs font-bold text-neutral-800">
+                            {group.label}
+                          </h3>
+                          <p className="text-[11px] text-neutral-400">
+                            {group.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid gap-1 sm:grid-cols-2">
+                        {groupItems.map((item) => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => chooseContext(item)}
+                            className={`min-w-0 rounded-xl border px-3 py-2.5 text-left transition ${
+                              activeContext?.key === item.key
+                                ? "border-emerald-300 bg-emerald-50"
+                                : "border-transparent hover:border-neutral-200 hover:bg-neutral-50"
+                            }`}
+                          >
+                            <span className="block truncate text-sm font-bold text-neutral-900">
+                              {item.label}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-neutral-500">
+                              {item.description}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {visibleContextItems.length === 0 && (
+                  <div className="px-4 py-10 text-center">
+                    <Search className="mx-auto h-7 w-7 text-neutral-300" />
+                    <p className="mt-3 text-sm font-bold text-neutral-800">
+                      No matching context
+                    </p>
+                    <p className="mt-1 text-xs text-neutral-500">
+                      Try a client name, property address, channel or event.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={
+              message.role === "user"
+                ? "flex justify-end"
+                : "flex justify-start"
+            }
+          >
+            {message.role === "assistant" && (
+              <div className="mr-3 mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md">
+                <Bot className="h-5 w-5 text-white" />
               </div>
             )}
             <div
               className={
-                msg.role === "user"
-                  ? "max-w-2xl px-5 py-3 rounded-2xl bg-emerald-500 text-white rounded-br-none shadow-md"
-                  : "max-w-2xl px-5 py-3 rounded-2xl bg-white border border-neutral-200 rounded-bl-none shadow-sm"
+                message.role === "user"
+                  ? "max-w-2xl rounded-2xl rounded-br-none bg-emerald-500 px-5 py-3 text-white shadow-md"
+                  : "max-w-2xl rounded-2xl rounded-bl-none border border-neutral-200 bg-white px-5 py-3 shadow-sm"
               }
             >
-              <div className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+              {message.contextLabel && (
+                <div
+                  className={`mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider ${
+                    message.role === "user"
+                      ? "text-white/70"
+                      : "text-emerald-700"
+                  }`}
+                >
+                  <ShieldCheck className="h-3 w-3" />
+                  {message.contextLabel}
+                </div>
+              )}
+              <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                {message.content}
+              </div>
             </div>
-            {msg.role === "user" && (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center ml-3 mt-1 shadow-md flex-shrink-0">
-                <User className="w-5 h-5 text-white" />
+            {message.role === "user" && (
+              <div className="ml-3 mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-500 shadow-md">
+                <User className="h-5 w-5 text-white" />
               </div>
             )}
           </div>
@@ -143,39 +469,40 @@ export function CopilotPage() {
 
         {loading && (
           <div className="flex justify-start">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mr-3 mt-1 shadow-md flex-shrink-0">
-              <Bot className="w-5 h-5 text-white" />
+            <div className="mr-3 mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md">
+              <Bot className="h-5 w-5 text-white" />
             </div>
-            <div className="max-w-2xl bg-white border border-neutral-200 rounded-2xl rounded-bl-none p-5 shadow-sm flex-1">
+            <div className="max-w-2xl flex-1 rounded-2xl rounded-bl-none border border-neutral-200 bg-white p-5 shadow-sm">
               <div className="space-y-3">
-                {thinkingSteps.map((step, i) => {
-                  const isComplete = i < thinkingStep;
-                  const isCurrent = i === thinkingStep;
-
+                {thinkingSteps.map((step, index) => {
+                  const isComplete = index < thinkingStep;
+                  const isCurrent = index === thinkingStep;
                   return (
                     <div key={step} className="flex items-center gap-3">
-                      <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center">
                         {isComplete ? (
-                          <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         ) : isCurrent ? (
                           <div className="flex gap-1">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                            {[0, 150, 300].map((delay) => (
+                              <div
+                                key={delay}
+                                className="h-2 w-2 animate-bounce rounded-full bg-emerald-500"
+                                style={{ animationDelay: `${delay}ms` }}
+                              />
+                            ))}
                           </div>
                         ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-neutral-200" />
+                          <div className="h-4 w-4 rounded-full border-2 border-neutral-200" />
                         )}
                       </div>
                       <span
                         className={
                           isComplete
-                            ? "text-emerald-600 font-medium text-sm"
+                            ? "text-sm font-medium text-emerald-600"
                             : isCurrent
-                              ? "text-neutral-800 font-medium text-sm"
-                              : "text-neutral-400 text-sm"
+                              ? "text-sm font-medium text-neutral-800"
+                              : "text-sm text-neutral-400"
                         }
                       >
                         {step}
@@ -191,8 +518,8 @@ export function CopilotPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-neutral-200 p-4 bg-white">
-        <div className="max-w-4xl mx-auto space-y-3">
+      <div className="border-t border-neutral-200 bg-white p-4">
+        <div className="mx-auto max-w-4xl space-y-3">
           <div className="flex flex-wrap gap-2">
             {quickActions.map((action) => (
               <button
@@ -200,7 +527,7 @@ export function CopilotPage() {
                 type="button"
                 onClick={() => void sendMessage(action.prompt)}
                 disabled={loading}
-                className="text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
               >
                 {action.label}
               </button>
@@ -211,22 +538,29 @@ export function CopilotPage() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Clippy anything..."
+              placeholder={
+                activeContext
+                  ? `Ask Clippy about ${activeContext.label}...`
+                  : "Ask Clippy a general question..."
+              }
               aria-label="Message Clippy"
               rows={1}
-              className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-neutral-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-neutral-200 px-4 py-2.5 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
               disabled={loading}
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
               aria-label="Send message"
-              className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+              className="rounded-xl bg-emerald-500 px-5 py-2.5 text-white shadow-md transition-all hover:bg-emerald-600 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Send className="w-4 h-4" />
+              <Send className="h-4 w-4" />
             </button>
           </form>
-          <p className="text-center text-xs text-neutral-400">Enter to send · Shift+Enter for a new line</p>
+          <p className="text-center text-xs text-neutral-400">
+            Context is checked against your organisation · Enter to send ·
+            Shift+Enter for a new line
+          </p>
         </div>
       </div>
     </div>
