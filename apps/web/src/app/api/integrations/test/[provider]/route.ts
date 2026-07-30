@@ -8,11 +8,13 @@ export const dynamic = "force-dynamic";
 // GET /api/integrations/test/:provider - Test integration connection
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<{ provider: string }> }
+  context: { params: Promise<{ provider: string }> },
 ) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -24,7 +26,10 @@ export async function GET(
       .single();
 
     if (!orgMember) {
-      return NextResponse.json({ error: "No organization found" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No organization found" },
+        { status: 400 },
+      );
     }
 
     const orgId = orgMember.org_id;
@@ -99,7 +104,11 @@ export async function GET(
         testResult = await testGoogleConnection(supabase, integration, orgId);
         break;
       case "google-calendar":
-        testResult = await testGoogleCalendarConnection(supabase, integration, orgId);
+        testResult = await testGoogleCalendarConnection(
+          supabase,
+          integration,
+          orgId,
+        );
         break;
       case "facebook":
         testResult = await testFacebookConnection(supabase, integration, orgId);
@@ -112,7 +121,8 @@ export async function GET(
           success: integration.status === "connected",
           provider,
           status: integration.status,
-          message: integration.status === "connected" ? "Connected" : "Disconnected",
+          message:
+            integration.status === "connected" ? "Connected" : "Disconnected",
         };
     }
 
@@ -132,17 +142,24 @@ export async function GET(
 
     return NextResponse.json(testResult);
   } catch (error: any) {
-    return NextResponse.json({
-      success: false,
-      provider: (await context.params).provider,
-      status: "error",
-      message: "Connection test failed: " + error.message,
-      errorType: "test_error",
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        provider: (await context.params).provider,
+        status: "error",
+        message: "Connection test failed: " + error.message,
+        errorType: "test_error",
+      },
+      { status: 500 },
+    );
   }
 }
 
-async function testGoogleConnection(supabase: any, integration: any, orgId: string) {
+async function testGoogleConnection(
+  supabase: any,
+  integration: any,
+  orgId: string,
+) {
   try {
     if (!integration.access_token) {
       return {
@@ -153,11 +170,14 @@ async function testGoogleConnection(supabase: any, integration: any, orgId: stri
         action: "reconnect",
         actionUrl: "/api/integrations/google",
         errorType: "auth_error",
-        humanMessage: "Your Gmail connection needs to be refreshed. Click Reconnect to sign in again.",
+        humanMessage:
+          "Your Gmail connection needs to be refreshed. Click Reconnect to sign in again.",
       };
     }
 
-    const expiresAt = integration.expires_at ? new Date(integration.expires_at) : null;
+    const expiresAt = integration.expires_at
+      ? new Date(integration.expires_at)
+      : null;
     if (expiresAt && expiresAt < new Date()) {
       if (integration.refresh_token) {
         return {
@@ -168,7 +188,8 @@ async function testGoogleConnection(supabase: any, integration: any, orgId: stri
           action: "refresh",
           canAutoRefresh: true,
           errorType: "token_expired",
-          humanMessage: "Your Gmail session expired. We can refresh it automatically or you can reconnect.",
+          humanMessage:
+            "Your Gmail session expired. We can refresh it automatically or you can reconnect.",
         };
       } else {
         return {
@@ -179,18 +200,18 @@ async function testGoogleConnection(supabase: any, integration: any, orgId: stri
           action: "reconnect",
           actionUrl: "/api/integrations/google",
           errorType: "auth_error",
-          humanMessage: "Your Gmail connection expired. Please reconnect to continue.",
+          humanMessage:
+            "Your Gmail connection expired. Please reconnect to continue.",
         };
       }
     }
 
     const scopes = integration.scope?.split(" ") || [];
-    const requiredScopes = [
-      "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/gmail.readonly",
-    ];
+    const requiredScopes = ["https://www.googleapis.com/auth/gmail.modify"];
 
-    const missingScopes = requiredScopes.filter((s: string) => !scopes.includes(s));
+    const missingScopes = requiredScopes.filter(
+      (s: string) => !scopes.includes(s),
+    );
     if (missingScopes.length > 0) {
       return {
         success: false,
@@ -201,7 +222,8 @@ async function testGoogleConnection(supabase: any, integration: any, orgId: stri
         action: "reconnect",
         actionUrl: "/api/integrations/google",
         errorType: "permission_error",
-        humanMessage: "Clippy needs permission to read your Gmail. Please reconnect and grant all permissions.",
+        humanMessage:
+          "Clippy needs permission to read your Gmail. Please reconnect and grant all permissions.",
         permissions: {
           granted: scopes.length,
           required: requiredScopes.length,
@@ -228,12 +250,17 @@ async function testGoogleConnection(supabase: any, integration: any, orgId: stri
       status: "connection_error",
       message: error.message,
       errorType: "api_error",
-      humanMessage: "Unable to connect to Gmail. Please check your internet connection and try again.",
+      humanMessage:
+        "Unable to connect to Gmail. Please check your internet connection and try again.",
     };
   }
 }
 
-async function testGoogleCalendarConnection(supabase: any, integration: any, orgId: string) {
+async function testGoogleCalendarConnection(
+  supabase: any,
+  integration: any,
+  orgId: string,
+) {
   try {
     if (!integration.access_token) {
       return {
@@ -243,7 +270,8 @@ async function testGoogleCalendarConnection(supabase: any, integration: any, org
         message: "Calendar not connected",
         action: "connect",
         actionUrl: "/api/integrations/google",
-        humanMessage: "Connect your Google Calendar to schedule inspections automatically.",
+        humanMessage:
+          "Connect your Google Calendar to schedule inspections automatically.",
       };
     }
 
@@ -259,7 +287,8 @@ async function testGoogleCalendarConnection(supabase: any, integration: any, org
         action: "reconnect",
         actionUrl: "/api/integrations/google",
         errorType: "permission_error",
-        humanMessage: "Clippy needs calendar access to schedule inspections. Please reconnect.",
+        humanMessage:
+          "Clippy needs calendar access to schedule inspections. Please reconnect.",
       };
     }
 
@@ -268,7 +297,8 @@ async function testGoogleCalendarConnection(supabase: any, integration: any, org
       provider: "google-calendar",
       status: "healthy",
       message: "Calendar connected",
-      humanMessage: "Google Calendar is connected and ready to schedule inspections!",
+      humanMessage:
+        "Google Calendar is connected and ready to schedule inspections!",
       itemsIndexed: integration.items_indexed || 0,
     };
   } catch (error: any) {
@@ -282,7 +312,11 @@ async function testGoogleCalendarConnection(supabase: any, integration: any, org
   }
 }
 
-async function testFacebookConnection(supabase: any, integration: any, orgId: string) {
+async function testFacebookConnection(
+  supabase: any,
+  integration: any,
+  orgId: string,
+) {
   try {
     if (!integration.access_token) {
       return {
@@ -292,20 +326,22 @@ async function testFacebookConnection(supabase: any, integration: any, orgId: st
         message: "Facebook not connected",
         action: "connect",
         actionUrl: "/api/integrations/facebook",
-        humanMessage: "Connect Facebook to import leads from Messenger and Ads.",
+        humanMessage:
+          "Connect Facebook to import leads from Messenger and Ads.",
       };
     }
 
     const connectedPages = integration.metadata?.pages || [];
-    
+
     return {
       success: true,
       provider: "facebook",
       status: "healthy",
       message: "Facebook connected",
-      humanMessage: connectedPages.length > 0 
-        ? "Facebook connected with " + connectedPages.length + " page(s)" 
-        : "Facebook is connected!",
+      humanMessage:
+        connectedPages.length > 0
+          ? "Facebook connected with " + connectedPages.length + " page(s)"
+          : "Facebook is connected!",
       pages: connectedPages,
       itemsIndexed: integration.items_indexed || 0,
     };
@@ -320,7 +356,11 @@ async function testFacebookConnection(supabase: any, integration: any, orgId: st
   }
 }
 
-async function testWhatsAppConnection(supabase: any, integration: any, orgId: string) {
+async function testWhatsAppConnection(
+  supabase: any,
+  integration: any,
+  orgId: string,
+) {
   try {
     if (!integration.access_token || !integration.phone_number_id) {
       return {
@@ -330,12 +370,13 @@ async function testWhatsAppConnection(supabase: any, integration: any, orgId: st
         message: "WhatsApp not configured",
         action: "connect",
         actionUrl: "/api/integrations/whatsapp",
-        humanMessage: "Connect WhatsApp Cloud API to message leads automatically.",
+        humanMessage:
+          "Connect WhatsApp Cloud API to message leads automatically.",
       };
     }
 
     const phoneNumberStatus = integration.metadata?.phone_status || "unknown";
-    
+
     if (phoneNumberStatus !== "connected") {
       return {
         success: false,
@@ -343,7 +384,8 @@ async function testWhatsAppConnection(supabase: any, integration: any, orgId: st
         status: "phone_not_verified",
         message: "Phone number not verified",
         action: "verify",
-        humanMessage: "Your WhatsApp phone number needs verification. Check your Meta Business Manager.",
+        humanMessage:
+          "Your WhatsApp phone number needs verification. Check your Meta Business Manager.",
       };
     }
 
