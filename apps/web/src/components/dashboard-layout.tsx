@@ -52,6 +52,12 @@ const primaryNav: NavItem[] = [
     color: "text-blue-500",
   },
   {
+    href: "/clients",
+    label: "Clients",
+    icon: UserRound,
+    color: "text-cyan-600",
+  },
+  {
     href: "/deals",
     label: "Opportunities",
     icon: FileText,
@@ -103,6 +109,7 @@ const workspaceNav: NavItem[] = [
 const pageTitles: Array<[string, string]> = [
   ["/dashboard", "Today"],
   ["/inbox", "Conversations"],
+  ["/clients", "Clients"],
   ["/deals", "Opportunities"],
   ["/inspections", "Properties"],
   ["/copilot", "Clippy"],
