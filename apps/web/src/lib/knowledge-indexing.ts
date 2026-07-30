@@ -9,11 +9,8 @@ function ollamaEmbedEndpoint(): string {
   const baseUrl = (process.env.OLLAMA_BASE_URL || "https://ollama.com")
     .trim()
     .replace(/\/+$/, "");
-  if (baseUrl.endsWith("/v1")) return `${baseUrl}/embeddings`;
-  if (baseUrl.endsWith("/api")) {
-    return `${baseUrl.slice(0, -4)}/v1/embeddings`;
-  }
-  return `${baseUrl}/v1/embeddings`;
+  const hostUrl = baseUrl.replace(/\/(?:api|v1)$/, "");
+  return `${hostUrl}/api/embed`;
 }
 
 export function chunkKnowledge(content: string): string[] {
@@ -52,7 +49,7 @@ export async function embedKnowledge(inputs: string[]): Promise<number[][]> {
     body: JSON.stringify({
       model: MODEL,
       input: inputs,
-      encoding_format: "float",
+      truncate: true,
     }),
   });
 
@@ -78,13 +75,8 @@ export async function embedKnowledge(inputs: string[]): Promise<number[][]> {
     );
   }
 
-  const payload = (await response.json()) as {
-    data?: Array<{ embedding?: number[]; index?: number }>;
-  };
-  const embeddings = payload.data
-    ?.slice()
-    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
-    .map((item) => item.embedding);
+  const payload = (await response.json()) as { embeddings?: number[][] };
+  const embeddings = payload.embeddings;
   if (
     !Array.isArray(embeddings) ||
     embeddings.length !== inputs.length ||
