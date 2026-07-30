@@ -157,6 +157,11 @@ export async function POST(req: NextRequest) {
     systemPrompt += `- Role: ${agentRole}\n`;
     if (agencyName) systemPrompt += `- Agency: ${agencyName}\n`;
     systemPrompt += `- Communication style: ${communicationTone}\n\n`;
+    systemPrompt += `CURRENT DATE AND TIME:\n- ${new Intl.DateTimeFormat("en-AU", {
+      dateStyle: "full",
+      timeStyle: "long",
+      timeZone: "Australia/Melbourne",
+    }).format(new Date())} (Australia/Melbourne)\n\n`;
     if (ragContext) systemPrompt += `RELEVANT KNOWLEDGE:\n${ragContext}\n\n`;
     if (clientMemory) systemPrompt += `CLIENT MEMORY:\n${JSON.stringify(clientMemory)}\n\n`;
     systemPrompt +=
@@ -212,7 +217,11 @@ export async function POST(req: NextRequest) {
       costMicros: estimateCostMicros(inputTokens, outputTokens),
       latencyMs: Date.now() - startedAt,
       status: "success",
-      metadata: { lead_id: lead_id || null, conversation_id: conversation_id || null },
+      metadata: {
+        lead_id: lead_id || null,
+        conversation_id: conversation_id || null,
+        rag_context_used: Boolean(ragContext),
+      },
     });
 
     if (lead_id && conversation_id) {
