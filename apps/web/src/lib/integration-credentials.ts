@@ -1,6 +1,7 @@
 import {
   createCipheriv,
   createDecipheriv,
+  createHash,
   randomBytes,
 } from "node:crypto";
 
@@ -8,14 +9,32 @@ const VERSION = "v1";
 const IV_BYTES = 12;
 const KEY_BYTES = 32;
 
-function decodeKey(encoded = process.env.INTEGRATION_ENCRYPTION_KEY): Buffer {
-  if (!encoded) {
-    throw new Error("INTEGRATION_ENCRYPTION_KEY is required");
+function decodeKey(encoded?: string): Buffer {
+  const configuredKey =
+    encoded === undefined ? process.env.INTEGRATION_ENCRYPTION_KEY : encoded;
+  if (!configuredKey) {
+    if (encoded !== undefined) {
+      throw new Error("INTEGRATION_ENCRYPTION_KEY is required");
+    }
+
+    const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!googleClientSecret) {
+      throw new Error(
+        "INTEGRATION_ENCRYPTION_KEY or GOOGLE_CLIENT_SECRET is required",
+      );
+    }
+
+    return createHash("sha256")
+      .update("clippy:integration-credentials:v1\0", "utf8")
+      .update(googleClientSecret, "utf8")
+      .digest();
   }
 
-  const key = Buffer.from(encoded, "base64");
+  const key = Buffer.from(configuredKey, "base64");
   if (key.length !== KEY_BYTES) {
-    throw new Error("INTEGRATION_ENCRYPTION_KEY must be a base64-encoded 32-byte key");
+    throw new Error(
+      "INTEGRATION_ENCRYPTION_KEY must be a base64-encoded 32-byte key",
+    );
   }
   return key;
 }
