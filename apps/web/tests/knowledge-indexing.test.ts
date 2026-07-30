@@ -1,88 +1,41 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
+  cosineSimilarity,
   embedKnowledge,
   KNOWLEDGE_EMBEDDING_MODEL,
 } from "@/lib/knowledge-indexing";
 
-describe("Ollama knowledge embeddings", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    delete process.env.OLLAMA_BASE_URL;
-    delete process.env.OLLAMA_EMBEDDING_ENDPOINT;
-    delete process.env.OLLAMA_API_KEY;
-  });
-
-  it("uses Ollama Cloud and returns embeddings in input order", async () => {
-    process.env.OLLAMA_API_KEY = "ollama-test-key";
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          model: "embeddinggemma",
-          embeddings: [
-            [0.1, 0.2],
-            [0.3, 0.4],
-          ],
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(embedKnowledge(["first", "second"])).resolves.toEqual([
-      [0.1, 0.2],
-      [0.3, 0.4],
+describe("Local knowledge embeddings", () => {
+  it("returns deterministic, normalized vectors without an API request", async () => {
+    const [first, repeat] = await embedKnowledge([
+      "Inspection booked for Collins Street",
+      "Inspection booked for Collins Street",
     ]);
-    expect(KNOWLEDGE_EMBEDDING_MODEL).toBe("ollama:embeddinggemma");
 
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://ollama.com/api/embed");
-    expect(init.method).toBe("POST");
-    expect(init.headers).toMatchObject({
-      Authorization: "Bearer ollama-test-key",
-      "Content-Type": "application/json",
-    });
-    expect(JSON.parse(String(init.body))).toEqual({
-      model: "embeddinggemma",
-      input: ["first", "second"],
-      truncate: true,
-    });
+    expect(first).toEqual(repeat);
+    expect(first).toHaveLength(768);
+    expect(
+      Math.sqrt(first.reduce((sum, value) => sum + value * value, 0)),
+    ).toBeCloseTo(1);
+    expect(KNOWLEDGE_EMBEDDING_MODEL).toBe("local:feature-hash-v1");
   });
 
-  it("normalizes an Ollama v1 base URL to the native embed endpoint", async () => {
-    process.env.OLLAMA_BASE_URL = "https://ollama.com/v1/";
-    process.env.OLLAMA_API_KEY = "ollama-test-key";
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          embeddings: [[0.1, 0.2]],
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+  it("scores related real-estate text above unrelated text", async () => {
+    const [query, related, unrelated] = await embedKnowledge([
+      "Collins Street property inspection",
+      "Property inspection booked on Collins Street",
+      "Team lunch menu for Friday",
+    ]);
 
-    await embedKnowledge(["test"]);
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://ollama.com/api/embed",
-      expect.any(Object),
+    expect(cosineSimilarity(query, related)).toBeGreaterThan(
+      cosineSimilarity(query, unrelated),
     );
   });
 
-  it("surfaces a bounded Ollama API error", async () => {
-    process.env.OLLAMA_API_KEY = "ollama-test-key";
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ error: "model is not available" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        }),
-      ),
-    );
-
-    await expect(embedKnowledge(["test"])).rejects.toThrow(
-      "Ollama embedding request failed (404): model is not available",
-    );
+  it("handles empty batches and blank text", async () => {
+    await expect(embedKnowledge([])).resolves.toEqual([]);
+    const [blank] = await embedKnowledge([""]);
+    expect(blank).toHaveLength(768);
+    expect(blank.every((value) => value === 0)).toBe(true);
   });
 });
