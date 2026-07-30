@@ -1,13 +1,14 @@
-import OpenAI from "openai";
-
-const MODEL = "text-embedding-3-small";
+const MODEL = process.env.OLLAMA_EMBED_MODEL?.trim() || "embeddinggemma";
 const CHUNK_SIZE = 1200;
 const OVERLAP = 150;
 
-function openai() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY is required for knowledge indexing");
-  return new OpenAI({ apiKey });
+function ollamaEmbedEndpoint(): string {
+  const baseUrl = (process.env.OLLAMA_BASE_URL || "https://ollama.com")
+    .trim()
+    .replace(/\/+$/, "");
+  return baseUrl.endsWith("/api")
+    ? `${baseUrl}/embed`
+    : `${baseUrl}/api/embed`;
 }
 
 export function chunkKnowledge(content: string): string[] {
@@ -30,8 +31,59 @@ export function chunkKnowledge(content: string): string[] {
 
 export async function embedKnowledge(inputs: string[]): Promise<number[][]> {
   if (!inputs.length) return [];
-  const response = await openai().embeddings.create({ model: MODEL, input: inputs, encoding_format: "float" });
-  return response.data.sort((a, b) => a.index - b.index).map(item => item.embedding);
+
+  const endpoint = ollamaEmbedEndpoint();
+  const apiKey = process.env.OLLAMA_API_KEY?.trim();
+  if (endpoint.startsWith("https://ollama.com/") && !apiKey) {
+    throw new Error("OLLAMA_API_KEY is required for Ollama Cloud embeddings");
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      input: inputs,
+      truncate: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    let detail = responseText.slice(0, 300);
+    try {
+      const payload = JSON.parse(responseText) as {
+        error?: string | { message?: string };
+        message?: string;
+      };
+      detail =
+        (typeof payload.error === "string"
+          ? payload.error
+          : payload.error?.message) ||
+        payload.message ||
+        detail;
+    } catch {
+      // Keep the bounded response text for diagnostics.
+    }
+    throw new Error(
+      `Ollama embedding request failed (${response.status})${detail ? `: ${detail}` : ""}`,
+    );
+  }
+
+  const payload = (await response.json()) as { embeddings?: number[][] };
+  if (
+    !Array.isArray(payload.embeddings) ||
+    payload.embeddings.length !== inputs.length ||
+    payload.embeddings.some(
+      (embedding) => !Array.isArray(embedding) || embedding.length === 0,
+    )
+  ) {
+    throw new Error("Ollama embedding response was incomplete");
+  }
+  return payload.embeddings;
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {
@@ -43,4 +95,4 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return normA && normB ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
 }
 
-export const KNOWLEDGE_EMBEDDING_MODEL = MODEL;
+export const KNOWLEDGE_EMBEDDING_MODEL = `ollama:${MODEL}`;
