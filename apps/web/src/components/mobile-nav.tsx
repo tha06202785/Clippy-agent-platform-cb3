@@ -1,13 +1,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Inbox, FileText, Bot, Building2 } from "lucide-react";
+import { Home, Inbox, UserRound, Bot, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/dashboard", label: "Today", icon: Home },
   { href: "/inbox", label: "Conversations", icon: Inbox },
-  { href: "/deals", label: "Opportunities", icon: FileText },
+  { href: "/clients", label: "Clients", icon: UserRound },
   { href: "/inspections", label: "Properties", icon: Building2 },
   { href: "/copilot", label: "Clippy", icon: Bot },
 ];
