@@ -451,7 +451,7 @@ export function CalendarWorkspace({
                       </div>
 
                       <Link
-                        href={`/copilot?calendar_event_id=${event.id}`}
+                        href={`/copilot?calendar_event_id=${event.id}&calendar_source=${event.source === "google" ? "google" : "inspection"}`}
                         className="inline-flex items-center justify-center gap-1 rounded-xl bg-neutral-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
                       >
                         <Sparkles className="h-3.5 w-3.5" />
