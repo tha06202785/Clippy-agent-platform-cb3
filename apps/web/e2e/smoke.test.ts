@@ -68,15 +68,19 @@ test("terms page loads", async ({ page }) => {
   await expect(page.locator("text=Terms of Service")).toBeVisible();
 });
 
-test.each([
+for (const path of [
   "/analytics",
   "/calendar",
   "/clients",
   "/inspections",
   "/knowledge",
-])("%s redirects to sign-in when not authenticated", async (path, { page }) => {
-  await page.goto(path);
-  await expect(page).toHaveURL(
-    new RegExp(`/sign-in\\?next=%2F${path.slice(1)}`),
-  );
-});
+]) {
+  test(`${path} redirects to sign-in when not authenticated`, async ({
+    page,
+  }) => {
+    await page.goto(path);
+    await expect(page).toHaveURL(
+      new RegExp(`/sign-in\\?next=%2F${path.slice(1)}`),
+    );
+  });
+}
