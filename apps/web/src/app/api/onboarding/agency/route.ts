@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { User } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { CRM_IDS, crmName } from "@/lib/crm-catalog";
+import { buildPersonalWorkspaceSeed } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,91 @@ const setupSchema = z
     }
   });
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+type Membership = { org_id: string; role: string };
+
+async function findMembership(
+  admin: AdminClient,
+  userId: string,
+): Promise<Membership | null> {
+  const { data, error } = await admin
+    .from("user_org_roles")
+    .select("org_id,role")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Onboarding membership lookup failed", error.code);
+    throw new Error("membership_lookup_failed");
+  }
+
+  return data;
+}
+
+async function ensureMembership(
+  admin: AdminClient,
+  user: User,
+  agencyName: string,
+): Promise<{ membership: Membership; created: boolean }> {
+  const existing = await findMembership(admin, user.id);
+  if (existing) return { membership: existing, created: false };
+
+  const fullName =
+    typeof user.user_metadata?.full_name === "string"
+      ? user.user_metadata.full_name
+      : null;
+  const seed = buildPersonalWorkspaceSeed({
+    userId: user.id,
+    fullName,
+    agencyName,
+  });
+
+  const { error: organisationError } = await admin
+    .from("orgs")
+    .upsert(seed.organisation, {
+      onConflict: "id",
+      ignoreDuplicates: true,
+    });
+  if (organisationError) {
+    console.error(
+      "Onboarding organisation provisioning failed",
+      organisationError.code,
+    );
+    throw new Error("organisation_provisioning_failed");
+  }
+
+  const { error: profileError } = await admin
+    .from("profiles")
+    .upsert(seed.profile, {
+      onConflict: "user_id",
+      ignoreDuplicates: true,
+    });
+  if (profileError) {
+    console.error("Onboarding profile provisioning failed", profileError.code);
+    throw new Error("profile_provisioning_failed");
+  }
+
+  const { error: membershipError } = await admin
+    .from("user_org_roles")
+    .upsert(seed.membership, {
+      onConflict: "user_id,org_id",
+      ignoreDuplicates: true,
+    });
+  if (membershipError) {
+    console.error(
+      "Onboarding membership provisioning failed",
+      membershipError.code,
+    );
+    throw new Error("membership_provisioning_failed");
+  }
+
+  const membership = await findMembership(admin, user.id);
+  if (!membership) throw new Error("membership_provisioning_incomplete");
+
+  return { membership, created: true };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -46,19 +133,6 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-    }
-
-    const { data: membership, error: membershipError } = await supabase
-      .from("user_org_roles")
-      .select("org_id,role")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
-    if (membershipError || !membership?.org_id) {
-      return NextResponse.json(
-        { error: "No organisation is linked to this account" },
-        { status: 409 },
-      );
     }
 
     const parsed = setupSchema.safeParse(await request.json());
@@ -70,6 +144,12 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createAdminClient();
+    const { membership, created } = await ensureMembership(
+      admin,
+      user,
+      parsed.data.agencyName,
+    );
+
     const { data: existingOrg, error: orgLookupError } = await admin
       .from("orgs")
       .select("settings_json")
@@ -147,27 +227,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await admin.from("clippy_activity_log").insert({
-      org_id: membership.org_id,
-      user_id: user.id,
-      action: "primary_crm_selected",
-      category: "onboarding",
-      title: `${selectedCrmName} selected as primary CRM`,
-      metadata: {
-        provider_key: parsed.data.primaryCrm,
-        provider_name: selectedCrmName,
-      },
-      impact_summary:
-        "CRM connection preference captured for integration setup",
-      completed_at: new Date().toISOString(),
-    });
+    const { error: activityError } = await admin
+      .from("clippy_activity_log")
+      .insert({
+        org_id: membership.org_id,
+        user_id: user.id,
+        action: "primary_crm_selected",
+        category: "onboarding",
+        title: `${selectedCrmName} selected as primary CRM`,
+        metadata: {
+          provider_key: parsed.data.primaryCrm,
+          provider_name: selectedCrmName,
+          workspace_created: created,
+        },
+        impact_summary:
+          "CRM connection preference captured for integration setup",
+        completed_at: new Date().toISOString(),
+      });
+    if (activityError) {
+      console.warn("Onboarding activity logging failed", activityError.code);
+    }
 
     return NextResponse.json({
       success: true,
+      workspace_created: created,
       crm: {
         key: parsed.data.primaryCrm,
         name: selectedCrmName,
-        status: parsed.data.primaryCrm === "none" ? "not_required" : "selected",
+        status:
+          parsed.data.primaryCrm === "none" ? "not_required" : "selected",
       },
     });
   } catch (error) {
