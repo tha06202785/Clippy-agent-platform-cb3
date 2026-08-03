@@ -2,13 +2,21 @@ import { test, expect } from "@playwright/test";
 
 test("landing page loads", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Turn every enquiry into a clear next action." })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Create a workspace" }).first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Turn every enquiry into a clear next action.",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Create a workspace" }).first(),
+  ).toBeVisible();
 });
 
 test("pricing page loads", async ({ page }) => {
   await page.goto("/pricing");
-  await expect(page.getByRole("heading", { name: "Pilot scope before published pricing." })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Pilot scope before published pricing." }),
+  ).toBeVisible();
 });
 
 test("sign-in page loads", async ({ page }) => {
@@ -23,7 +31,9 @@ test("health API returns ok", async ({ request }) => {
   expect(data.status).toBe("ok");
 });
 
-test("subscription plans API returns honest rollout status", async ({ request }) => {
+test("subscription plans API returns honest rollout status", async ({
+  request,
+}) => {
   const response = await request.get("/api/subscription/plans");
   expect(response.ok()).toBeTruthy();
   const data = await response.json();
@@ -39,12 +49,18 @@ test("leads API returns 401 without auth", async ({ request }) => {
 
 test("security page loads", async ({ page }) => {
   await page.goto("/security");
-  await expect(page.getByRole("heading", { name: "Controls we can explain and verify." })).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Controls we can explain and verify.",
+    }),
+  ).toBeVisible();
 });
 
 test("privacy page loads", async ({ page }) => {
   await page.goto("/privacy");
-  await expect(page.getByRole("heading", { name: "Privacy notice" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Privacy Policy" }),
+  ).toBeVisible();
 });
 
 test("terms page loads", async ({ page }) => {
@@ -52,7 +68,7 @@ test("terms page loads", async ({ page }) => {
   await expect(page.locator("text=Terms of Service")).toBeVisible();
 });
 
-test("analytics page redirects to sign-in when not authenticated", async ({ page }) => {
+test("analytics redirects to sign-in when not authenticated", async ({ page }) => {
   await page.goto("/analytics");
   await expect(page).toHaveURL(/sign-in/);
 });

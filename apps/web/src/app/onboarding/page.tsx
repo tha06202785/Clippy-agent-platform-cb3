@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { CRM_OPTIONS, crmName } from "@/lib/crm-catalog";
+import { buildOnboardingSummary } from "@/lib/onboarding";
 
 const agencyTypes = [
   { id: "residential_sales", label: "Residential Sales", icon: "🏠" },
@@ -58,6 +59,7 @@ export default function OnboardingWizard() {
   ]);
   const [loading, setLoading] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [importError, setImportError] = useState("");
   const [crmSearch, setCrmSearch] = useState("");
 
   const [formData, setFormData] = useState({
@@ -95,33 +97,40 @@ export default function OnboardingWizard() {
 
   const handleImport = async () => {
     setImporting(true);
+    setImportError("");
     try {
       const response = await fetch("/api/import", { method: "POST" });
-      const data = await response.json();
-
-      if (data.success) {
-        setImportResults(data.results);
-        setImportProgress([
-          {
-            name: "Contacts & Leads",
-            count: data.results.contacts,
-            done: true,
-          },
-          { name: "Listings", count: data.results.listings, done: true },
-          { name: "Inspections", count: data.results.inspections, done: true },
-          {
-            name: "Calendar Events",
-            count: data.results.calendar_events,
-            done: true,
-          },
-        ]);
-        setTimeout(() => {
-          setImporting(false);
-          setPhase(5);
-        }, 1500);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Business data could not be imported");
       }
+
+      setImportResults(data.results);
+      setImportProgress([
+        {
+          name: "Contacts & Leads",
+          count: data.results.contacts,
+          done: true,
+        },
+        { name: "Listings", count: data.results.listings, done: true },
+        { name: "Inspections", count: data.results.inspections, done: true },
+        {
+          name: "Calendar Events",
+          count: data.results.calendar_events,
+          done: true,
+        },
+      ]);
+      window.setTimeout(() => {
+        setImporting(false);
+        setPhase(5);
+      }, 1500);
     } catch (error) {
       console.error("Import failed:", error);
+      setImportError(
+        error instanceof Error
+          ? error.message
+          : "Business data could not be imported",
+      );
       setImporting(false);
     }
   };
@@ -602,23 +611,32 @@ export default function OnboardingWizard() {
             </div>
           )}
 
-          {!importing && (
-            <button
-              onClick={handleImport}
-              disabled={importing}
-              className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          {importError && (
+            <p
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
             >
-              {importing ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" /> Importing...
-                </>
-              ) : (
-                <>
-                  <>Start Import</>
-                  <Loader className="w-4 h-4" />
-                </>
-              )}
-            </button>
+              {importError}
+            </p>
+          )}
+
+          {!importing && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={handleImport}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Start Import
+                <Loader className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPhase(5)}
+                className="h-12 rounded-xl border border-border bg-background font-semibold text-foreground transition-colors hover:bg-muted"
+              >
+                Skip for now
+              </button>
+            </div>
           )}
         </div>
       ),
@@ -636,42 +654,32 @@ export default function OnboardingWizard() {
               Congratulations!
             </h2>
             <p className="text-muted-foreground">
-              I&apos;ve finished learning your agency. Here&apos;s what I know:
+              Your workspace setup is ready. These are the outcomes Clippy can
+              verify:
             </p>
           </div>
 
           <div className="bg-card border border-border rounded-xl p-6 space-y-3 text-left">
-            {[
-              "✓ 326 contacts imported",
-              "✓ 41 listings indexed",
-              "✓ 17 inspections scheduled",
-              "✓ 4 staff profiles created",
-              "✓ Brand tone learned",
-              `✓ ${
+            {buildOnboardingSummary({
+              primaryCrmName:
                 formData.primaryCrm === "other"
                   ? formData.otherCrmName
-                  : crmName(formData.primaryCrm)
-              } selected`,
-              "✓ Gmail connected",
-              "✓ Calendar connected",
-              "✓ Facebook connected",
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
+                  : crmName(formData.primaryCrm),
+              importResults,
+            }).map((item) => (
+              <div key={item} className="flex items-center gap-3">
+                <Check className="h-4 w-4 shrink-0 text-emerald-600" />
                 <span className="text-sm text-foreground">{item}</span>
               </div>
             ))}
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-left">
-            <p className="text-sm text-amber-800 font-medium mb-2">
-              I&apos;ve already identified:
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-left">
+            <p className="text-sm text-blue-800">
+              Clippy will show recommendations only after your workspace has
+              verified conversations, opportunities, inspections or connected
+              services.
             </p>
-            <ul className="text-sm text-amber-700 space-y-1">
-              <li>• 14 leads needing follow-up</li>
-              <li>• 3 inspections tomorrow</li>
-              <li>• 2 expired listings</li>
-              <li>• 6 overdue conversations</li>
-            </ul>
           </div>
 
           <button

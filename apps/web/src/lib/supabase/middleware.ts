@@ -1,25 +1,35 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const protectedPaths = [
+export const protectedPaths = [
   "/dashboard",
+  "/calendar",
   "/inbox",
+  "/clients",
   "/deals",
+  "/inspections",
   "/copilot",
-  "/team",
-  "/integrations",
-  "/import",
-  "/analytics",
-  "/admin",
-  "/onboarding",
   "/briefing",
+  "/knowledge",
+  "/analytics",
+  "/integrations",
+  "/team",
+  "/admin",
+  "/import",
+  "/onboarding",
   "/monitoring",
   "/property",
 ];
 
+export function isProtectedPath(pathname: string) {
+  return protectedPaths.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+}
+
 export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isProtected = protectedPaths.some((path) => pathname.startsWith(path));
+  const isProtected = isProtectedPath(pathname);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
