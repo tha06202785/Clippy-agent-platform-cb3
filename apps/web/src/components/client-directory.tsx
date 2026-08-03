@@ -27,9 +27,6 @@ export type ClientDirectoryItem = {
   created_at: string;
   property_enquiries: Array<{
     id: string;
-    status: string;
-    listing_id: string | null;
-    last_activity_at: string;
   }>;
 };
 
@@ -215,6 +212,7 @@ export function ClientDirectory({
                   <div className="min-w-0">
                     <Link
                       href={`/clients/${client.id}`}
+                      prefetch={false}
                       className="truncate font-semibold text-neutral-900 hover:text-emerald-700"
                     >
                       {client.full_name || "Unnamed client"}
@@ -296,6 +294,7 @@ export function ClientDirectory({
                   )}
                   <Link
                     href={`/clients/${client.id}`}
+                    prefetch={false}
                     className="ml-1 inline-flex items-center gap-1 rounded-xl bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
                   >
                     Open 360
