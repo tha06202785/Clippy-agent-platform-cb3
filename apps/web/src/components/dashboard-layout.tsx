@@ -162,6 +162,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
       <Link
         key={item.href}
         href={item.href}
+        prefetch={false}
         onClick={() => {
           setSidebarOpen(false);
           if (!isActive) setPendingHref(item.href);
@@ -214,7 +215,11 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5 text-neutral-800" />
           )}
         </button>
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link
+          href="/dashboard"
+          prefetch={false}
+          className="flex items-center gap-2"
+        >
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
@@ -251,7 +256,11 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
       >
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b border-neutral-200">
-          <Link href="/dashboard" className="flex items-center gap-3 group">
+          <Link
+            href="/dashboard"
+            prefetch={false}
+            className="flex items-center gap-3 group"
+          >
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform duration-300">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
