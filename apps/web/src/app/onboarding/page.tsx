@@ -1,16 +1,10 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight,
-  Check,
-  Database,
-  Loader,
-  Search,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, Check, Database, Loader, Search } from "lucide-react";
 import { CRM_OPTIONS, crmName } from "@/lib/crm-catalog";
 import { buildOnboardingSummary } from "@/lib/onboarding";
+import { BrandLogo } from "@/components/brand-logo";
 
 const agencyTypes = [
   { id: "residential_sales", label: "Residential Sales", icon: "🏠" },
@@ -171,9 +165,7 @@ export default function OnboardingWizard() {
       title: "Welcome to Clippy",
       content: (
         <div className="max-w-lg mx-auto text-center space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
-            <Sparkles className="w-10 h-10 text-white" />
-          </div>
+          <BrandLogo size={80} priority className="mx-auto" />
 
           <div className="space-y-4">
             <h1 className="text-2xl font-bold text-foreground">
