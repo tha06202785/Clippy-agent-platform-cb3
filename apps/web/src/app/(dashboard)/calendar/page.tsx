@@ -24,17 +24,18 @@ function firstRelated<T>(value: T | T[] | null): T | null {
 }
 
 export default async function CalendarPage() {
+  const startedAt = Date.now();
   const generatedAt = new Date().toISOString();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/sign-in");
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId =
+    typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
+  if (!userId) redirect("/sign-in");
 
   const { data: membership } = await supabase
     .from("user_org_roles")
     .select("org_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
   if (!membership?.org_id) redirect("/onboarding");
@@ -46,7 +47,7 @@ export default async function CalendarPage() {
         .from("knowledge_documents")
         .select("id,title,source_metadata")
         .eq("org_id", membership.org_id)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("source", "calendar")
         .eq("status", "indexed")
         .limit(100),
@@ -155,6 +156,17 @@ export default async function CalendarPage() {
   const integration = integrationResult.data;
   const health = healthResult.data;
   const status = health?.status || integration?.status || "disconnected";
+
+  console.log(
+    JSON.stringify({
+      level: "info",
+      message: "Calendar page completed",
+      route: "/calendar",
+      duration_ms: Date.now() - startedAt,
+      event_count: events.length,
+      vercel_region: process.env.VERCEL_REGION || null,
+    }),
+  );
 
   return (
     <CalendarWorkspace
