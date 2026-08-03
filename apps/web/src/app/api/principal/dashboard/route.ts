@@ -23,12 +23,32 @@ function requireResult(
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const startedAt = Date.now();
+  const requestId = request.headers.get("x-vercel-id");
+  const json = (body: unknown, init?: ResponseInit) => {
+    const durationMs = Date.now() - startedAt;
+    const response = NextResponse.json(body, init);
+    response.headers.set("Server-Timing", `dashboard;dur=${durationMs}`);
+    console.log(
+      JSON.stringify({
+        level: "info",
+        message: "Principal dashboard completed",
+        route: "/api/principal/dashboard",
+        request_id: requestId,
+        status: init?.status || 200,
+        duration_ms: durationMs,
+        vercel_region: process.env.VERCEL_REGION || null,
+      }),
+    );
+    return response;
+  };
+
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
-    return NextResponse.json(
+    return json(
       { error: "Dashboard data is unavailable in this environment" },
       { status: 503 },
     );
@@ -42,7 +62,7 @@ export async function GET() {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { data: membership, error: membershipError } = await supabase
@@ -53,7 +73,7 @@ export async function GET() {
       .maybeSingle();
 
     if (membershipError || !membership?.org_id) {
-      return NextResponse.json(
+      return json(
         { error: "No organisation membership found" },
         { status: 403 },
       );
@@ -243,7 +263,7 @@ export async function GET() {
       newLeadsToday,
     });
 
-    return NextResponse.json({
+    return json({
       generated_at: nowIso,
       reporting_time_zone: orgResult.data?.timezone || "Australia/Melbourne",
       viewer: {
@@ -303,8 +323,18 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("Principal dashboard failed", error);
-    return NextResponse.json(
+    console.error(
+      JSON.stringify({
+        level: "error",
+        message: "Principal dashboard failed",
+        route: "/api/principal/dashboard",
+        request_id: requestId,
+        error: error instanceof Error ? error.message : String(error),
+        duration_ms: Date.now() - startedAt,
+        vercel_region: process.env.VERCEL_REGION || null,
+      }),
+    );
+    return json(
       { error: "Unable to load today’s operations" },
       { status: 500 },
     );
