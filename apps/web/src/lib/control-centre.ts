@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type FeatureKey =
   | "copilot_chat"
@@ -148,7 +149,6 @@ export function estimateCostMicros(
 }
 
 export async function recordAIUsage(
-  supabase: SupabaseClient,
   event: {
     requestId: string;
     orgId: string;
@@ -167,6 +167,7 @@ export async function recordAIUsage(
     metadata?: Record<string, unknown>;
   },
 ): Promise<void> {
+  const supabase = createAdminClient();
   const { error } = await supabase.rpc("record_ai_usage", {
     p_request_id: event.requestId,
     p_org_id: event.orgId,
