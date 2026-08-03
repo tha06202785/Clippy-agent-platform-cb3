@@ -13,6 +13,7 @@ import {
   estimateCostMicros,
   estimateCredits,
   recordAIUsage,
+  recordComplianceInterventionAlert,
 } from "@/lib/control-centre";
 import { evaluateCopilotReply } from "@/lib/copilot-compliance";
 
@@ -608,6 +609,14 @@ export async function POST(req: NextRequest) {
         response_withheld: !compliance.passed,
       },
     });
+
+    if (!compliance.passed) {
+      await recordComplianceInterventionAlert({
+        requestId,
+        orgId,
+        checks: compliance.checks,
+      });
+    }
 
     return NextResponse.json({
       reply,
