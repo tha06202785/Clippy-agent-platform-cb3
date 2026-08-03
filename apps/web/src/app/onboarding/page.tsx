@@ -60,6 +60,9 @@ export default function OnboardingWizard() {
   const [loading, setLoading] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [importError, setImportError] = useState("");
+  const [importCompleted, setImportCompleted] = useState(false);
+  const [completionLoading, setCompletionLoading] = useState(false);
+  const [completionError, setCompletionError] = useState("");
   const [crmSearch, setCrmSearch] = useState("");
 
   const [formData, setFormData] = useState({
@@ -106,6 +109,7 @@ export default function OnboardingWizard() {
       }
 
       setImportResults(data.results);
+      setImportCompleted(true);
       setImportProgress([
         {
           name: "Contacts & Leads",
@@ -132,6 +136,33 @@ export default function OnboardingWizard() {
           : "Business data could not be imported",
       );
       setImporting(false);
+    }
+  };
+
+  const completeOnboarding = async () => {
+    setCompletionLoading(true);
+    setCompletionError("");
+    try {
+      const response = await fetch("/api/onboarding/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ importCompleted }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Onboarding completion could not be saved",
+        );
+      }
+      router.push("/dashboard");
+    } catch (error) {
+      setCompletionError(
+        error instanceof Error
+          ? error.message
+          : "Onboarding completion could not be saved",
+      );
+    } finally {
+      setCompletionLoading(false);
     }
   };
 
@@ -682,11 +713,21 @@ export default function OnboardingWizard() {
             </p>
           </div>
 
+          {completionError && (
+            <p
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            >
+              {completionError}
+            </p>
+          )}
+
           <button
-            onClick={() => router.push("/dashboard")}
-            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
+            onClick={completeOnboarding}
+            disabled={completionLoading}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Open My Dashboard
+            {completionLoading ? "Saving..." : "Open My Dashboard"}
           </button>
         </div>
       ),
