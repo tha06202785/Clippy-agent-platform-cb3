@@ -12,6 +12,7 @@ export default function SignUpPage() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [confirmationEmail, setConfirmationEmail] = useState("");
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,20 +21,23 @@ export default function SignUpPage() {
 
     try {
       const supabase = createClient();
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { full_name: name },
-          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/api/auth/callback?next=/onboarding`,
         },
       });
 
       if (signUpError) {
         setError(signUpError.message);
         setLoading(false);
-      } else {
+      } else if (data.session) {
         router.push("/onboarding");
+      } else {
+        setConfirmationEmail(email);
+        setLoading(false);
       }
     } catch {
       setError("Authentication is not configured for this environment.");
@@ -48,7 +52,7 @@ export default function SignUpPage() {
       const { error: signUpError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/api/auth/callback`,
+          redirectTo: `${window.location.origin}/api/auth/callback?next=/onboarding`,
         },
       });
       if (signUpError) setError(signUpError.message);
@@ -76,6 +80,15 @@ export default function SignUpPage() {
           </div>
         )}
 
+        {confirmationEmail && (
+          <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-foreground" role="status">
+            <p className="font-semibold">Check your email</p>
+            <p className="mt-1 text-muted-foreground">
+              We sent a confirmation link to {confirmationEmail}. Open the newest email to finish creating your account.
+            </p>
+          </div>
+        )}
+
         <button
           onClick={handleGoogleSignUp}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted transition-colors text-sm font-medium text-foreground mb-6"
@@ -98,7 +111,7 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSignUp} className="space-y-4">
+        <form onSubmit={handleSignUp} className="space-y-4" hidden={Boolean(confirmationEmail)}>
           <div>
             <label className="text-sm font-medium text-foreground">Full name</label>
             <input
