@@ -91,7 +91,7 @@ export default function PlatformAdminPage() {
         <Metric icon={Building2} label="Customer agencies" value={metrics.organisations || 0} detail={`${metrics.users || 0} users`} />
         <Metric icon={CreditCard} label="Active subscriptions" value={metrics.activeSubscriptions || 0} detail={`${metrics.pastDueSubscriptions || 0} past due`} />
         <Metric icon={DollarSign} label="Monthly recurring revenue" value={aud.format(metrics.mrrAud || 0)} detail="From active Clippy plans" />
-        <Metric icon={Bot} label="AI cost this month" value={aud.format(metrics.aiCostAud || 0)} detail={`${metrics.aiRequestsThisMonth || 0} requests · ${metrics.failedAIRequests || 0} failed`} />
+        <Metric icon={Bot} label="AI cost this month" value={aud.format(metrics.aiCostAud || 0)} detail={`${metrics.aiRequestsThisMonth || 0} requests · ${metrics.failedAIRequests || 0} failed · ${metrics.complianceInterventions || 0} withheld`} />
         <Metric icon={Plug} label="Integration health" value={`${Math.max((metrics.integrations || 0) - (metrics.unhealthyIntegrations || 0), 0)}/${metrics.integrations || 0}`} detail={`${metrics.unhealthyIntegrations || 0} need attention`} />
         <Metric icon={Activity} label="Queued communications" value={metrics.queuedCommunications || 0} detail={`${metrics.failedCommunications || 0} failed`} />
         <Metric icon={AlertTriangle} label="Open incidents" value={metrics.openIncidents || 0} detail="Across the Clippy platform" />
@@ -152,7 +152,7 @@ export default function PlatformAdminPage() {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
         <IssueList
           title="Integration attention"
           empty="All registered integrations are healthy."
@@ -167,6 +167,20 @@ export default function PlatformAdminPage() {
           items={(data?.failedCommunications || []).map((item: any) => ({
             title: item.status || "failed",
             detail: `Agency ${item.org_id} · ${item.scheduled_for ? new Date(item.scheduled_for).toLocaleString("en-AU") : "No schedule"}`,
+          }))}
+        />
+        <IssueList
+          title="Compliance interventions"
+          empty="No Copilot responses withheld this month."
+          items={(data?.complianceInterventions || []).map((item: any) => ({
+            title: item.checks?.length
+              ? item.checks.join(", ").replaceAll("_", " ")
+              : "Compliance review",
+            detail: `Agency ${item.orgId} · ${
+              item.createdAt
+                ? new Date(item.createdAt).toLocaleString("en-AU")
+                : "Unknown time"
+            }`,
           }))}
         />
       </div>
