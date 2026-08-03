@@ -11,7 +11,6 @@ import {
   Brain,
   Inbox,
   FileText,
-  Sparkles,
   Bot,
   Users,
   Settings,
@@ -35,6 +34,7 @@ import { VoiceCommand } from "@/components/voice-command";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { PostHogPageView } from "@/components/posthog-pageview";
 import { QueryProvider } from "@/components/query-provider";
+import { BrandLogo } from "@/components/brand-logo";
 
 type NavItem = {
   href: string;
@@ -151,7 +151,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const pageTitle =
     pageTitles.find(
       ([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-    )?.[1] ?? "NewClippy";
+    )?.[1] ?? "Clippy";
 
   const renderNavItem = (item: NavItem) => {
     const isActive =
@@ -220,10 +220,8 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
           prefetch={false}
           className="flex items-center gap-2"
         >
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-sm text-neutral-800">NewClippy</span>
+          <BrandLogo alt="" size={32} priority />
+          <span className="font-bold text-sm text-neutral-800">Clippy</span>
         </Link>
         <div className="flex items-center gap-2">
           <button
@@ -261,12 +259,13 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
             prefetch={false}
             className="flex items-center gap-3 group"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform duration-300">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-lg text-neutral-800">
-              NewClippy
-            </span>
+            <BrandLogo
+              alt=""
+              size={36}
+              priority
+              className="transition-transform duration-300 group-hover:scale-105"
+            />
+            <span className="font-bold text-lg text-neutral-800">Clippy</span>
           </Link>
         </div>
 

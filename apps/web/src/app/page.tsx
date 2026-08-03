@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   ArrowRight,
   BookOpen,
@@ -82,9 +83,7 @@ export default function LandingPage() {
             className="flex items-center gap-2"
             aria-label="Clippy home"
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary">
-              <Sparkles className="h-6 w-6 text-white" />
-            </span>
+            <BrandLogo alt="" size={40} priority />
             <span className="text-xl font-bold">Clippy</span>
           </Link>
 
@@ -317,7 +316,7 @@ export default function LandingPage() {
       <footer className="border-t bg-white px-6 py-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-sm text-neutral-600 md:flex-row">
           <div className="flex items-center gap-2 font-semibold text-neutral-800">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <BrandLogo alt="" size={20} />
             Clippy
           </div>
           <div className="flex items-center gap-6">
