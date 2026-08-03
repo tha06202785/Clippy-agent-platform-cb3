@@ -16,6 +16,7 @@ import {
   recordComplianceInterventionAlert,
 } from "@/lib/control-centre";
 import { evaluateCopilotReply } from "@/lib/copilot-compliance";
+import { requestCopilotCompletion } from "@/lib/ai/copilot-provider";
 
 export const dynamic = "force-dynamic";
 
@@ -500,34 +501,15 @@ export async function POST(req: NextRequest) {
         "\n12. The agent requested a communication draft. Return only the ready-to-send message body, without analysis, labels, quotation marks or a claim that it was sent.";
     }
 
-    const model = "kimi-k2.6";
-    const ollamaResponse = await fetch(
-      "https://ollama.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OLLAMA_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: message },
-          ],
-          max_tokens: 4096,
-          temperature: 0.8,
-        }),
-      },
-    );
-
-    if (!ollamaResponse.ok) {
-      throw new Error(
-        `Ollama API error: ${ollamaResponse.status} ${ollamaResponse.statusText}`,
-      );
-    }
-
-    const ollamaData = await ollamaResponse.json();
+    const completion = await requestCopilotCompletion({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
+      userId: user.id,
+    });
+    const ollamaData = completion.data;
+    const model = completion.model;
     const rawReply =
       ollamaData.choices?.[0]?.message?.content ||
       "I apologise, I'm having trouble responding right now.";
@@ -546,48 +528,48 @@ export async function POST(req: NextRequest) {
     };
     const proposedAction: ProposedDraftAction | null =
       draftActionRequested && compliance.passed
-      ? (() => {
-          const channel = resolveDraftChannel({
-            message,
-            conversationChannel: firstText(conversationContext, ["channel"]),
-            email: recipient.email,
-            phone: recipient.phone,
-          });
-          const channelLabel =
-            channel === "sms"
-              ? "Text message"
-              : channel === "whatsapp"
-                ? "WhatsApp"
-                : channel === "email"
-                  ? "Email"
-                  : "Message";
-          const propertyAddress = firstText(propertyContext, ["address"]);
-          return {
-            id: requestId,
-            type: "message_draft",
-            channel,
-            title: `${channelLabel} draft${
-              recipient.name ? ` for ${recipient.name}` : ""
-            }`,
-            subject:
-              channel === "email"
-                ? propertyAddress
-                  ? `Follow-up: ${propertyAddress}`
-                  : "Follow-up from your real estate agent"
-                : null,
-            content: reply,
-            recipient,
-            requiresApproval: true,
-          };
-        })()
-      : null;
+        ? (() => {
+            const channel = resolveDraftChannel({
+              message,
+              conversationChannel: firstText(conversationContext, ["channel"]),
+              email: recipient.email,
+              phone: recipient.phone,
+            });
+            const channelLabel =
+              channel === "sms"
+                ? "Text message"
+                : channel === "whatsapp"
+                  ? "WhatsApp"
+                  : channel === "email"
+                    ? "Email"
+                    : "Message";
+            const propertyAddress = firstText(propertyContext, ["address"]);
+            return {
+              id: requestId,
+              type: "message_draft",
+              channel,
+              title: `${channelLabel} draft${
+                recipient.name ? ` for ${recipient.name}` : ""
+              }`,
+              subject:
+                channel === "email"
+                  ? propertyAddress
+                    ? `Follow-up: ${propertyAddress}`
+                    : "Follow-up from your real estate agent"
+                  : null,
+              content: reply,
+              recipient,
+              requiresApproval: true,
+            };
+          })()
+        : null;
 
     await recordAIUsage({
       requestId,
       orgId,
       userId: user.id,
       featureKey: "copilot_chat",
-      provider: "ollama-cloud",
+      provider: completion.provider,
       model,
       inputTokens,
       outputTokens,
