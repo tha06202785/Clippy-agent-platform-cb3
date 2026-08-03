@@ -26,6 +26,7 @@ import {
   Plug,
   UserRound,
   ShieldCheck,
+  LoaderCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile-nav";
@@ -137,8 +138,10 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => setPendingHref(null), [pathname]);
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -154,11 +157,17 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
     const isActive =
       pathname === item.href ||
       (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
+    const isPending = pendingHref === item.href && !isActive;
     return (
       <Link
         key={item.href}
         href={item.href}
-        onClick={() => setSidebarOpen(false)}
+        onClick={() => {
+          setSidebarOpen(false);
+          if (!isActive) setPendingHref(item.href);
+        }}
+        aria-current={isActive ? "page" : undefined}
+        aria-busy={isPending || undefined}
         className={cn(
           "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300",
           isActive
@@ -166,13 +175,17 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
             : "text-neutral-600 hover:bg-neutral-100 hover:translate-x-1",
         )}
       >
-        <item.icon
-          className={cn(
-            "h-5 w-5",
-            isActive ? "text-primary" : item.color || "text-neutral-400",
-            "transition-transform group-hover:scale-110",
-          )}
-        />
+        {isPending ? (
+          <LoaderCircle className="h-5 w-5 animate-spin text-primary" />
+        ) : (
+          <item.icon
+            className={cn(
+              "h-5 w-5",
+              isActive ? "text-primary" : item.color || "text-neutral-400",
+              "transition-transform group-hover:scale-110",
+            )}
+          />
+        )}
         <span className="text-sm font-medium">{item.label}</span>
       </Link>
     );
@@ -180,6 +193,15 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gradient-hero">
+      {pendingHref ? (
+        <div
+          className="fixed inset-x-0 top-0 z-[60] h-1 overflow-hidden bg-primary/15"
+          role="progressbar"
+          aria-label="Loading page"
+        >
+          <div className="h-full w-2/3 animate-pulse rounded-r-full bg-gradient-to-r from-primary via-secondary to-primary" />
+        </div>
+      ) : null}
       {/* Mobile header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-white/80 backdrop-blur-xl border-b border-neutral-200">
         <button
