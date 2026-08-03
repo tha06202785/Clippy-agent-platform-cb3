@@ -68,11 +68,15 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  let user = null;
+  const authStartedAt = Date.now();
+  let hasVerifiedIdentity = false;
   let authSessionInvalid = false;
   try {
-    const result = await supabase.auth.getUser();
-    user = result.data.user;
+    // getClaims verifies the signed JWT locally when asymmetric signing keys
+    // are enabled, avoiding a Supabase Auth network round trip on every route.
+    // Route handlers still use getUser when they need the current user record.
+    const result = await supabase.auth.getClaims();
+    hasVerifiedIdentity = Boolean(result.data?.claims?.sub);
     authSessionInvalid = Boolean(result.error);
   } catch (error) {
     authSessionInvalid = true;
@@ -84,7 +88,20 @@ export async function updateSession(request: NextRequest) {
     process.env.NODE_ENV !== "production" &&
     process.env.ENABLE_TEST_AUTH_BYPASS === "true";
 
-  if (isProtected && !user && !authDisabledForTesting) {
+  const authDurationMs = Date.now() - authStartedAt;
+  if (authDurationMs >= 500) {
+    console.warn(
+      JSON.stringify({
+        level: "warning",
+        message: "Slow middleware authentication",
+        route: pathname,
+        duration_ms: authDurationMs,
+        vercel_region: process.env.VERCEL_REGION || null,
+      }),
+    );
+  }
+
+  if (isProtected && !hasVerifiedIdentity && !authDisabledForTesting) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     url.searchParams.set("next", pathname);
@@ -95,7 +112,7 @@ export async function updateSession(request: NextRequest) {
 
   const authPaths = ["/sign-in", "/signup"];
   const isAuthPage = authPaths.some((p) => pathname.startsWith(p));
-  if (isAuthPage && (user || authDisabledForTesting)) {
+  if (isAuthPage && (hasVerifiedIdentity || authDisabledForTesting)) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
