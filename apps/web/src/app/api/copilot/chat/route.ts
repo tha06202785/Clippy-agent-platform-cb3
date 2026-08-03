@@ -14,6 +14,7 @@ import {
   estimateCredits,
   recordAIUsage,
 } from "@/lib/control-centre";
+import { evaluateCopilotReply } from "@/lib/copilot-compliance";
 
 export const dynamic = "force-dynamic";
 
@@ -526,9 +527,11 @@ export async function POST(req: NextRequest) {
     }
 
     const ollamaData = await ollamaResponse.json();
-    const reply =
+    const rawReply =
       ollamaData.choices?.[0]?.message?.content ||
       "I apologise, I'm having trouble responding right now.";
+    const compliance = evaluateCopilotReply(rawReply);
+    const reply = compliance.safeReply || rawReply;
     const inputTokens =
       ollamaData.usage?.prompt_tokens ||
       Math.ceil((systemPrompt.length + message.length) / 4);
@@ -540,7 +543,8 @@ export async function POST(req: NextRequest) {
       email: firstText(clientContext, ["email"]),
       phone: firstText(clientContext, ["phone"]),
     };
-    const proposedAction: ProposedDraftAction | null = draftActionRequested
+    const proposedAction: ProposedDraftAction | null =
+      draftActionRequested && compliance.passed
       ? (() => {
           const channel = resolveDraftChannel({
             message,
@@ -606,10 +610,12 @@ export async function POST(req: NextRequest) {
       confidence: 0.85,
       leadStage: "engaged",
       nextAction: "follow_up",
-      escalation: null,
+      escalation: compliance.passed
+        ? null
+        : { required: true, reason: "compliance_review" },
       sentiment: "positive",
       scores: { interest: 0.7, urgency: 0.5, qualification: 0.6 },
-      compliance: { passed: true, checks: [] },
+      compliance: { passed: compliance.passed, checks: compliance.checks },
       crmUpdates: {},
       tags: [],
       proposed_action: proposedAction,
