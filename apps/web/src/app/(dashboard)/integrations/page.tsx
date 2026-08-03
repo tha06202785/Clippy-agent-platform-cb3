@@ -68,7 +68,7 @@ const CONFIG = {
     name: "Instagram",
     description: "Capture business-account direct messages",
     icon: Instagram,
-    connectUrl: "/api/integrations/facebook",
+    connectUrl: "/api/integrations/facebook?connect=instagram",
   },
   whatsapp: {
     name: "WhatsApp",
@@ -77,6 +77,19 @@ const CONFIG = {
     connectUrl: "/api/integrations/whatsapp",
   },
 } as const;
+
+const OAUTH_ERRORS: Record<string, string> = {
+  instagram_account_not_found:
+    "No Instagram professional account was found. Link an Instagram Business or Creator account to your Facebook Page, then try again.",
+  whatsapp_account_discovery_failed:
+    "Clippy could not access your Meta Business portfolio. Confirm WhatsApp and business permissions, then try again.",
+  whatsapp_phone_not_found:
+    "No WhatsApp Business phone number was found in the selected Meta portfolio.",
+  token_exchange_failed:
+    "Meta could not complete the secure connection. Please try connecting again.",
+  invalid_state:
+    "The connection session expired. Please start the connection again.",
+};
 
 function normaliseStatus(value?: string): Status {
   if (value === "healthy" || value === "connected") return "healthy";
@@ -102,6 +115,7 @@ export default function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -160,6 +174,25 @@ export default function IntegrationsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("connected") || params.get("success");
+    const oauthError = params.get("error");
+    if (connected) {
+      const label = CONFIG[connected as keyof typeof CONFIG]?.name || connected;
+      setNotice(`${label} connected successfully.`);
+    }
+    if (oauthError) {
+      setError(
+        OAUTH_ERRORS[oauthError] ||
+          "The connection could not be completed. Please try again.",
+      );
+    }
+    if (connected || oauthError) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const testConnection = async (provider: string) => {
     setBusy(provider);
@@ -282,6 +315,12 @@ export default function IntegrationsPage() {
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          {notice}
         </div>
       )}
 

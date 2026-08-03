@@ -4,6 +4,7 @@ import {
   buildFacebookTokenUrl,
   getFacebookOAuthRedirectUri,
   getSafeFacebookErrorDetails,
+  parseMetaPageConnections,
 } from "@/lib/facebook-oauth";
 import {
   FACEBOOK_OAUTH_STATE_COOKIE,
@@ -60,6 +61,10 @@ export async function GET(req: NextRequest) {
       new URL("/integrations?error=invalid_state", origin),
     );
   }
+
+  const requestedProvider = returnedState?.startsWith("instagram.")
+    ? "instagram"
+    : "facebook";
 
   try {
     const supabase = await createClient();
@@ -121,14 +126,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    let pageId = "";
+    let pageConnections: ReturnType<typeof parseMetaPageConnections> = [];
     try {
       const pageResponse = await fetch(
         buildFacebookPageAccountsUrl(tokens.access_token),
       );
       if (pageResponse.ok) {
-        const pages = await pageResponse.json();
-        pageId = pages.data?.[0]?.id || "";
+        pageConnections = parseMetaPageConnections(await pageResponse.json());
       } else {
         const failurePayload = await pageResponse.json().catch(() => null);
         console.warn("Facebook Page discovery failed", {
@@ -140,19 +144,62 @@ export async function GET(req: NextRequest) {
       // Page discovery is optional; credential persistence remains valid.
     }
 
-    const admin = createAdminClient();
-    const { error: saveError } = await admin.from("integrations").upsert(
+    const connectedAt = new Date().toISOString();
+    const instagramPage = pageConnections.find((page) => page.instagram);
+    const safePages = pageConnections.map((page) => ({
+      id: page.id,
+      name: page.name,
+    }));
+    const facebookCredentials = {
+      ...tokens,
+      pages: pageConnections.map((page) => ({
+        id: page.id,
+        access_token: page.accessToken,
+      })),
+    };
+    const integrationRows = [
       {
         org_id: membership.org_id,
         provider: "facebook",
         status: "connected",
-        credentials_encrypted: encryptIntegrationCredentials(tokens),
-        settings_json: pageId ? { facebook_page_id: pageId } : {},
-        connected_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        credentials_encrypted:
+          encryptIntegrationCredentials(facebookCredentials),
+        settings_json: {
+          facebook_page_id: pageConnections[0]?.id,
+          pages: safePages,
+        },
+        connected_at: connectedAt,
+        updated_at: connectedAt,
       },
-      { onConflict: "org_id,provider" },
-    );
+      ...(instagramPage?.instagram
+        ? [
+            {
+              org_id: membership.org_id,
+              provider: "instagram",
+              status: "connected",
+              credentials_encrypted: encryptIntegrationCredentials({
+                access_token: instagramPage.accessToken || tokens.access_token,
+                expires_in: tokens.expires_in,
+              }),
+              settings_json: {
+                instagram_business_account_id: instagramPage.instagram.id,
+                instagram_username: instagramPage.instagram.username,
+                instagram_name: instagramPage.instagram.name,
+                profile_picture_url: instagramPage.instagram.profilePictureUrl,
+                facebook_page_id: instagramPage.id,
+                facebook_page_name: instagramPage.name,
+              },
+              connected_at: connectedAt,
+              updated_at: connectedAt,
+            },
+          ]
+        : []),
+    ];
+
+    const admin = createAdminClient();
+    const { error: saveError } = await admin
+      .from("integrations")
+      .upsert(integrationRows, { onConflict: "org_id,provider" });
 
     if (saveError) {
       console.error("Failed to save Facebook integration", saveError.code);
@@ -161,8 +208,69 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const healthRows = [
+      {
+        org_id: membership.org_id,
+        provider: "facebook",
+        status: "healthy",
+        last_sync_at: connectedAt,
+        items_indexed: 0,
+        activity_summary: {
+          pagesConnected: pageConnections.length,
+          connectedAt,
+        },
+      },
+      ...(instagramPage?.instagram
+        ? [
+            {
+              org_id: membership.org_id,
+              provider: "instagram",
+              status: "healthy",
+              last_sync_at: connectedAt,
+              items_indexed: 0,
+              activity_summary: {
+                username: instagramPage.instagram.username,
+                connectedAt,
+              },
+            },
+          ]
+        : []),
+    ];
+    await admin
+      .from("integration_health")
+      .upsert(healthRows, { onConflict: "org_id,provider" });
+
+    await admin.from("clippy_activity_log").insert({
+      org_id: membership.org_id,
+      user_id: user.id,
+      action: "integration_connected",
+      category: "integration",
+      title:
+        requestedProvider === "instagram"
+          ? "Meta accounts connected"
+          : "Facebook connected",
+      description: instagramPage?.instagram
+        ? "Facebook Page and linked Instagram business account connected"
+        : "Facebook Page connection completed",
+      metadata: {
+        provider: requestedProvider,
+        pages: pageConnections.length,
+        instagramConnected: Boolean(instagramPage?.instagram),
+      },
+      impact_summary: instagramPage?.instagram
+        ? "Can now capture Facebook and Instagram enquiries"
+        : "Can now capture Facebook enquiries",
+      completed_at: connectedAt,
+    });
+
+    if (requestedProvider === "instagram" && !instagramPage?.instagram) {
+      return redirectAndClearState(
+        new URL("/integrations?error=instagram_account_not_found", origin),
+      );
+    }
+
     return redirectAndClearState(
-      new URL("/integrations?connected=facebook", origin),
+      new URL(`/integrations?connected=${requestedProvider}`, origin),
     );
   } catch (error) {
     console.error("Facebook OAuth callback failed", error);

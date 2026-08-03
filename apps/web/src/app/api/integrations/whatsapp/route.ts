@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { WHATSAPP_OAUTH_STATE_COOKIE } from "@/lib/oauth-state";
-import { getAppOrigin } from "@/lib/app-origin";
+import {
+  buildWhatsAppAuthorizationUrl,
+  getWhatsAppOAuthRedirectUri,
+} from "@/lib/whatsapp-oauth";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -29,9 +32,7 @@ export async function GET(_req: NextRequest) {
       );
     }
 
-    const clientId =
-      process.env.WHATSAPP_APP_ID || process.env.FACEBOOK_APP_ID;
-    const origin = getAppOrigin();
+    const clientId = process.env.WHATSAPP_APP_ID || process.env.FACEBOOK_APP_ID;
     if (!clientId) {
       return NextResponse.json(
         {
@@ -44,23 +45,18 @@ export async function GET(_req: NextRequest) {
     }
 
     const state = randomUUID();
-    const authUrl = new URL("https://www.facebook.com/v19.0/dialog/oauth");
-    authUrl.searchParams.set("client_id", clientId);
-    authUrl.searchParams.set(
-      "redirect_uri",
-      origin + "/api/integrations/whatsapp/callback",
-    );
-    authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set(
-      "scope",
-      "whatsapp_business_management,whatsapp_business_messaging",
-    );
-    authUrl.searchParams.set("state", state);
+    const redirectUri = getWhatsAppOAuthRedirectUri();
+    const authUrl = buildWhatsAppAuthorizationUrl({
+      appId: clientId,
+      state,
+      redirectUri,
+      configId: process.env.WHATSAPP_CONFIG_ID,
+    });
 
     const response = NextResponse.redirect(authUrl.toString());
     response.cookies.set(WHATSAPP_OAUTH_STATE_COOKIE, state, {
       httpOnly: true,
-      secure: origin.startsWith("https://"),
+      secure: redirectUri.startsWith("https://"),
       sameSite: "lax",
       path: "/api/integrations/whatsapp",
       maxAge: 10 * 60,

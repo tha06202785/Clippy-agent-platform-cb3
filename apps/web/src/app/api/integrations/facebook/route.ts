@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
     const {
@@ -34,7 +34,11 @@ export async function GET(_req: NextRequest) {
         { status: 500 },
       );
 
-    const state = randomUUID();
+    const requestedProvider =
+      req.nextUrl.searchParams.get("connect") === "instagram"
+        ? "instagram"
+        : "facebook";
+    const state = `${requestedProvider}.${randomUUID()}`;
     const redirectUri = getFacebookOAuthRedirectUri();
     const authUrl = buildFacebookAuthorizationUrl({
       appId,

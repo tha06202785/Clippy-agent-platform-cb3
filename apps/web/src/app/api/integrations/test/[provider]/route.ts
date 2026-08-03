@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptIntegrationCredentials } from "@/lib/integration-credentials";
+import { buildMetaObjectUrl } from "@/lib/facebook-oauth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -23,7 +24,8 @@ export async function GET(
       .from("user_org_roles")
       .select("org_id")
       .eq("user_id", user.id)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (!orgMember) {
       return NextResponse.json(
@@ -113,6 +115,9 @@ export async function GET(
       case "facebook":
         testResult = await testFacebookConnection(supabase, integration, orgId);
         break;
+      case "instagram":
+        testResult = await testInstagramConnection(integration);
+        break;
       case "whatsapp":
         testResult = await testWhatsAppConnection(supabase, integration, orgId);
         break;
@@ -152,6 +157,63 @@ export async function GET(
       },
       { status: 500 },
     );
+  }
+}
+
+async function testInstagramConnection(integration: any) {
+  const instagramId = integration.metadata?.instagram_business_account_id;
+  if (!integration.access_token || !instagramId) {
+    return {
+      success: false,
+      provider: "instagram",
+      status: "not_connected",
+      message: "Instagram business account not configured",
+      action: "connect",
+      actionUrl: "/api/integrations/facebook?connect=instagram",
+      humanMessage:
+        "Connect a Facebook Page that has an Instagram professional account linked to it.",
+    };
+  }
+
+  try {
+    const response = await fetch(
+      buildMetaObjectUrl(
+        instagramId,
+        "id,username,name,profile_picture_url",
+        integration.access_token,
+      ),
+      { cache: "no-store" },
+    );
+    if (!response.ok) {
+      return {
+        success: false,
+        provider: "instagram",
+        status: "error",
+        message: "Instagram access could not be verified",
+        action: "reconnect",
+        actionUrl: "/api/integrations/facebook?connect=instagram",
+        humanMessage: "Instagram needs to be reconnected through Meta.",
+      };
+    }
+    const account = await response.json();
+    return {
+      success: true,
+      provider: "instagram",
+      status: "healthy",
+      message: "Instagram connected",
+      humanMessage: account.username
+        ? `Instagram @${account.username} is ready to receive enquiries.`
+        : "Instagram is ready to receive enquiries.",
+      itemsIndexed: integration.items_indexed || 0,
+    };
+  } catch {
+    return {
+      success: false,
+      provider: "instagram",
+      status: "error",
+      message: "Instagram connection test failed",
+      humanMessage: "Unable to verify Instagram right now.",
+    };
   }
 }
 
@@ -362,7 +424,10 @@ async function testWhatsAppConnection(
   orgId: string,
 ) {
   try {
-    if (!integration.access_token || !integration.phone_number_id) {
+    const phoneNumberId =
+      integration.metadata?.whatsapp_phone_number_id ||
+      integration.metadata?.phone_number_id;
+    if (!integration.access_token || !phoneNumberId) {
       return {
         success: false,
         provider: "whatsapp",
@@ -375,27 +440,36 @@ async function testWhatsAppConnection(
       };
     }
 
-    const phoneNumberStatus = integration.metadata?.phone_status || "unknown";
-
-    if (phoneNumberStatus !== "connected") {
+    const response = await fetch(
+      buildMetaObjectUrl(
+        phoneNumberId,
+        "id,display_phone_number,verified_name,code_verification_status,quality_rating",
+        integration.access_token,
+      ),
+      { cache: "no-store" },
+    );
+    if (!response.ok) {
       return {
         success: false,
         provider: "whatsapp",
-        status: "phone_not_verified",
-        message: "Phone number not verified",
-        action: "verify",
-        humanMessage:
-          "Your WhatsApp phone number needs verification. Check your Meta Business Manager.",
+        status: "error",
+        message: "WhatsApp access could not be verified",
+        action: "reconnect",
+        actionUrl: "/api/integrations/whatsapp",
+        humanMessage: "WhatsApp needs to be reconnected through Meta Business.",
       };
     }
+    const phone = await response.json();
 
     return {
       success: true,
       provider: "whatsapp",
       status: "healthy",
       message: "WhatsApp Cloud API connected",
-      humanMessage: "WhatsApp is ready to send messages!",
-      phoneNumber: integration.phone_number_id,
+      humanMessage: phone.display_phone_number
+        ? `WhatsApp ${phone.display_phone_number} is ready to send messages.`
+        : "WhatsApp is ready to send messages!",
+      phoneNumber: phoneNumberId,
       itemsIndexed: 0,
     };
   } catch (error: any) {
