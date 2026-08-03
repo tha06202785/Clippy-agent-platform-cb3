@@ -188,3 +188,22 @@ export async function recordAIUsage(
 
   if (error) console.error("AI usage recording failed:", error);
 }
+
+export async function recordComplianceInterventionAlert(event: {
+  requestId: string;
+  orgId: string;
+  checks: string[];
+  threshold?: number;
+  windowMinutes?: number;
+}): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.rpc("record_compliance_intervention_alert", {
+    p_org_id: event.orgId,
+    p_request_id: event.requestId,
+    p_checks: event.checks,
+    p_threshold: event.threshold || 3,
+    p_window_minutes: event.windowMinutes || 60,
+  });
+
+  if (error) console.error("Compliance intervention alert failed:", error);
+}
