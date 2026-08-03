@@ -74,8 +74,7 @@ function contextNotFound(requestId: string) {
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") || randomUUID();
   const startedAt = Date.now();
-  let usageContext: { supabase: any; orgId: string; userId: string } | null =
-    null;
+  let usageContext: { orgId: string; userId: string } | null = null;
 
   try {
     const supabase = await createClient();
@@ -125,11 +124,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    usageContext = { supabase, orgId, userId: user.id };
+    usageContext = { orgId, userId: user.id };
     const entitlement = await checkEntitlement(supabase, orgId, "copilot_chat");
 
     if (!entitlement.allowed) {
-      await recordAIUsage(supabase, {
+      await recordAIUsage({
         requestId,
         orgId,
         userId: user.id,
@@ -578,7 +577,7 @@ export async function POST(req: NextRequest) {
         })()
       : null;
 
-    await recordAIUsage(supabase, {
+    await recordAIUsage({
       requestId,
       orgId,
       userId: user.id,
@@ -648,7 +647,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (usageContext) {
-      await recordAIUsage(usageContext.supabase, {
+      await recordAIUsage({
         requestId,
         orgId: usageContext.orgId,
         userId: usageContext.userId,
