@@ -57,8 +57,11 @@ export async function GET() {
         .limit(1000),
       admin
         .from("ai_usage_events")
-        .select("org_id,credits_used,cost_micros,status,created_at")
+        .select(
+          "request_id,org_id,feature_key,credits_used,cost_micros,status,error_code,metadata,created_at",
+        )
         .gte("created_at", monthStart.toISOString())
+        .order("created_at", { ascending: false })
         .limit(10000),
       admin.from("integrations").select("org_id,provider,status,last_sync_at").limit(5000),
       admin
@@ -93,6 +96,11 @@ export async function GET() {
       return total + Number(plan?.monthly_price_cents || 0);
     }, 0);
     const failedAIRequests = usageRows.filter((row: any) => row.status === "error").length;
+    const complianceInterventions = usageRows.filter(
+      (row: any) =>
+        row.error_code === "compliance_review" ||
+        row.metadata?.compliance_passed === false,
+    );
     const aiCostMicros = usageRows.reduce(
       (total: number, row: any) => total + Number(row.cost_micros || 0),
       0,
@@ -163,6 +171,7 @@ export async function GET() {
           mrrAud: mrrCents / 100,
           aiRequestsThisMonth: usageRows.length,
           failedAIRequests,
+          complianceInterventions: complianceInterventions.length,
           aiCostAud: aiCostMicros / 1_000_000,
           integrations: integrationRows.length,
           unhealthyIntegrations: unhealthyIntegrations.length,
@@ -173,6 +182,17 @@ export async function GET() {
         customers,
         unhealthyIntegrations: unhealthyIntegrations.slice(0, 50),
         failedCommunications: failedCommunications.slice(0, 50),
+        complianceInterventions: complianceInterventions.slice(0, 50).map((row: any) => ({
+          requestId: row.request_id,
+          orgId: row.org_id,
+          featureKey: row.feature_key,
+          checks: Array.isArray(row.metadata?.compliance_checks)
+            ? row.metadata.compliance_checks.filter(
+                (check: unknown): check is string => typeof check === "string",
+              )
+            : [],
+          createdAt: row.created_at,
+        })),
         incidents: incidents.data || [],
         warnings,
         checkedAt: new Date().toISOString(),

@@ -594,7 +594,8 @@ export async function POST(req: NextRequest) {
       creditsUsed,
       costMicros: estimateCostMicros(inputTokens, outputTokens),
       latencyMs: Date.now() - startedAt,
-      status: "success",
+      status: compliance.passed ? "success" : "blocked",
+      errorCode: compliance.passed ? undefined : "compliance_review",
       metadata: {
         lead_id: leadId || null,
         listing_id: listingId || null,
@@ -602,6 +603,9 @@ export async function POST(req: NextRequest) {
         conversation_id: conversationId || null,
         calendar_event_id: parsed.data.calendar_event_id || null,
         rag_context_used: Boolean(ragContext),
+        compliance_passed: compliance.passed,
+        compliance_checks: compliance.checks,
+        response_withheld: !compliance.passed,
       },
     });
 
