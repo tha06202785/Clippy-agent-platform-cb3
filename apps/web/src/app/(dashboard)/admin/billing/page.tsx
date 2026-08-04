@@ -7,7 +7,7 @@ interface Subscription {
   plan: string;
   status: string;
   current_period_end: string | null;
-  stripe_subscription_id: string | null;
+  cancel_at_period_end: boolean;
 }
 
 interface Invoice {
@@ -17,15 +17,14 @@ interface Invoice {
   amount_paid: number;
   currency: string;
   status: string;
-  lines: { data: { description: string }[] };
+  description: string | null;
 }
 
 const PLAN_LABELS: Record<string, string> = {
   free: "Free",
-  solo: "Solo",
+  starter: "Starter",
   professional: "Professional",
-  team: "Team",
-  enterprise: "Enterprise",
+  agency: "Agency",
   past_due: "Past Due",
 };
 
@@ -37,8 +36,12 @@ function formatCurrency(amount: number, currency: string = "usd"): string {
   }).format(amount / 100);
 }
 
-function formatDate(ts: number): string {
-  return new Date(ts * 1000).toLocaleDateString("en-US", {
+function formatDate(value: number | string): string {
+  const date = typeof value === "number"
+    ? new Date(value * 1000)
+    : new Date(value);
+
+  return date.toLocaleDateString("en-AU", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -54,14 +57,30 @@ export default function BillingPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/subscription/current").then((r) => r.json()),
-      fetch("/api/subscription/plans").then((r) => r.json()),
+      fetch("/api/subscription/current"),
+      fetch("/api/subscription/invoices"),
     ])
-      .then(([subData, plansData]) => {
+      .then(async ([subscriptionResponse, invoicesResponse]) => {
+        const [subData, invoicesData] = await Promise.all([
+          subscriptionResponse.json(),
+          invoicesResponse.json(),
+        ]);
+        if (!subscriptionResponse.ok) {
+          throw new Error(subData.error || "Failed to load subscription");
+        }
+        if (!invoicesResponse.ok) {
+          throw new Error(invoicesData.error || "Failed to load invoices");
+        }
         if (subData.subscription) setSubscription(subData.subscription);
-        if (plansData.invoices) setInvoices(plansData.invoices);
+        if (invoicesData.invoices) setInvoices(invoicesData.invoices);
       })
-      .catch(() => setError("Failed to load billing data"))
+      .catch((loadError) =>
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load billing data",
+        ),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -91,7 +110,7 @@ export default function BillingPage() {
   const isPastDue = subscription?.status === "past_due";
 
   const nextPayment = subscription?.current_period_end
-    ? formatDate(parseInt(subscription.current_period_end))
+    ? formatDate(subscription.current_period_end)
     : null;
 
   return (
@@ -138,7 +157,8 @@ export default function BillingPage() {
           </p>
           {nextPayment && isPaid && (
             <p className="text-sm text-muted-foreground">
-              Renews {nextPayment}
+              {subscription?.cancel_at_period_end ? "Ends" : "Renews"}{" "}
+              {nextPayment}
             </p>
           )}
           {isPastDue && (
@@ -226,10 +246,7 @@ export default function BillingPage() {
             </thead>
             <tbody>
               {invoices.map((inv) => {
-                const desc =
-                  inv.lines?.data?.[0]?.description ||
-                  inv.lines?.data?.[1]?.description ||
-                  "Clippy subscription";
+                const desc = inv.description || "Clippy subscription";
                 return (
                   <tr
                     key={inv.id}

@@ -1,7 +1,5 @@
-"use client";
-export const dynamic = "force-dynamic";
-import { EnterpriseOverview } from "@/components/enterprise-overview";
+import { redirect } from "next/navigation";
 
 export default function AdminPage() {
-  return <EnterpriseOverview />;
+  redirect("/admin/control-centre");
 }

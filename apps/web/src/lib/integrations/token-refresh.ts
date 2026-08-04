@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getGoogleOAuthConfig } from "@/lib/google-oauth-config";
 
 // Auto-refresh expired OAuth tokens
 export async function refreshExpiredTokens(orgId: string, userId: string) {
@@ -22,9 +23,15 @@ export async function refreshExpiredTokens(orgId: string, userId: string) {
       let newToken = null;
 
       // Refresh based on provider
-      if (integration.provider === "gmail" || integration.provider === "google") {
+      if (
+        integration.provider === "gmail" ||
+        integration.provider === "google"
+      ) {
         newToken = await refreshGoogleToken(integration.refresh_token);
-      } else if (integration.provider === "facebook" || integration.provider === "whatsapp") {
+      } else if (
+        integration.provider === "facebook" ||
+        integration.provider === "whatsapp"
+      ) {
         // Facebook/WhatsApp tokens are long-lived (60 days), usually don't need refresh
         continue;
       }
@@ -45,7 +52,11 @@ export async function refreshExpiredTokens(orgId: string, userId: string) {
       }
     } catch (error: any) {
       console.error("Failed to refresh token for", integration.provider, error);
-      results.push({ provider: integration.provider, success: false, error: error.message });
+      results.push({
+        provider: integration.provider,
+        success: false,
+        error: error.message,
+      });
     }
   }
 
@@ -53,15 +64,14 @@ export async function refreshExpiredTokens(orgId: string, userId: string) {
 }
 
 async function refreshGoogleToken(refreshToken: string) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const { clientId, clientSecret } = getGoogleOAuthConfig();
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: clientId || "",
-      client_secret: clientSecret || "",
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
@@ -74,6 +84,8 @@ async function refreshGoogleToken(refreshToken: string) {
   const data = await response.json();
   return {
     access_token: data.access_token,
-    expires_at: new Date(Date.now() + (data.expires_in || 3600) * 1000).toISOString(),
+    expires_at: new Date(
+      Date.now() + (data.expires_in || 3600) * 1000,
+    ).toISOString(),
   };
 }
