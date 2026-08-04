@@ -1,50 +1,66 @@
-"use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Building2, Users, Shield, DollarSign, Settings, LayoutDashboard, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { redirect } from "next/navigation";
+import { ShieldX } from "lucide-react";
+import { AdminNav } from "@/components/admin-nav";
+import { getAdminContext } from "@/lib/admin-access";
 
-const adminNav = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/offices", label: "Offices", icon: Building2 },
-  { href: "/admin/agents", label: "Agents", icon: Users },
-  { href: "/admin/compliance", label: "Compliance", icon: Shield },
-  { href: "/admin/billing", label: "Billing", icon: DollarSign },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
-];
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const context = await getAdminContext();
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  if (context.status === "unauthenticated") {
+    redirect("/sign-in?next=%2Fadmin%2Fcontrol-centre");
+  }
+
+  if (context.status === "unavailable") {
+    return (
+      <div className="mx-auto max-w-2xl rounded-2xl border bg-card p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+          <ShieldX className="h-6 w-6 text-amber-700" />
+        </div>
+        <h1 className="mt-4 text-xl font-semibold">Admin environment unavailable</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Authentication has not been configured for this deployment environment.
+          Add the Supabase public URL and anonymous key to enable Admin access.
+        </p>
+        <Link
+          href="/"
+          className="mt-6 inline-flex rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground"
+        >
+          Return home
+        </Link>
+      </div>
+    );
+  }
+
+  if (context.status === "forbidden") {
+    return (
+      <div className="mx-auto max-w-2xl rounded-2xl border bg-card p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+          <ShieldX className="h-6 w-6 text-amber-700" />
+        </div>
+        <h1 className="mt-4 text-xl font-semibold">Admin access required</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          This area is limited to organisation Owners and Admins. Your signed-in
+          account has not been granted either role.
+        </p>
+        <Link
+          href="/dashboard"
+          className="mt-6 inline-flex rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground"
+        >
+          Return to Today
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-        <LayoutDashboard className="w-3 h-3" />
-        <span>Admin</span>
-        {adminNav.find(n => pathname.startsWith(n.href)) && (
-          <>
-            <ChevronRight className="w-3 h-3" />
-            <span className="text-foreground font-medium">{adminNav.find(n => pathname.startsWith(n.href))?.label}</span>
-          </>
-        )}
-      </div>
-      <nav className="flex gap-1 flex-wrap">
-        {adminNav.map((item) => {
-          const Icon = item.icon;
-          const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
-          return (
-            <Link key={item.href} href={item.href}
-              className={cn("flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
-              <Icon className="w-4 h-4" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="pt-4 border-t border-border">
-        {children}
-      </div>
+      <AdminNav isPlatformAdmin={context.isPlatformAdmin} />
+      <div className="border-t border-border pt-4">{children}</div>
     </div>
   );
 }

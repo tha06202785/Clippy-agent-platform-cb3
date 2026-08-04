@@ -13,13 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - name: Run unit tests
+        run: pnpm --filter @clippy/web test
       - run: pnpm --filter @clippy/web type-check
         continue-on-error: true
       - run: pnpm --filter @clippy/web build
@@ -31,14 +31,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @clippy/web add -D @playwright/test
       - run: pnpm --filter @clippy/web exec playwright install chromium
       - name: Run E2E tests
         run: pnpm --filter @clippy/web exec playwright test
@@ -53,8 +50,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20

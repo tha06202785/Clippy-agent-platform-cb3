@@ -5,162 +5,84 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
-  // Rate limit check
-  const ip = await getClientIp();
-  const { allowed, remaining, resetAt } = checkRateLimit(ip, "leads");
-  if (!allowed) {
-    return NextResponse.json(
-      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
-      { status: 429, headers: { "X-RateLimit-Remaining": String(remaining), "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)) } }
-    );
-  }
+function limited(ip: string) {
+  const result = checkRateLimit(ip, "leads");
+  if (result.allowed) return null;
+  return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+}
 
+async function authOrg() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { supabase, orgId: null };
+  const { data, error } = await supabase.from("user_org_roles").select("org_id").eq("user_id", user.id).limit(1).maybeSingle();
+  if (error) throw error;
+  return { supabase, orgId: data?.org_id || null };
+}
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET() {
+  const blocked = limited(await getClientIp()); if (blocked) return blocked;
+  try {
+    const { supabase, orgId } = await authOrg();
+    if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { data, error } = await supabase.from("leads").select("*").eq("org_id", orgId)
+      .order("created_at", { ascending: false }).limit(50);
+    if (error) throw error;
+    return NextResponse.json(data || []);
+  } catch (error) {
+    console.error("Lead list failed", error);
+    return NextResponse.json({ error: "Leads are unavailable" }, { status: 500 });
   }
-
-  const { data: orgMember } = await supabase
-    .from("user_org_roles")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!orgMember) {
-    return NextResponse.json([]);
-  }
-
-  const { data: leads } = await supabase
-    .from("leads")
-    .select("*")
-    .eq("org_id", orgMember.org_id)
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  return NextResponse.json(leads || []);
 }
 
 export async function POST(req: NextRequest) {
-  // Rate limit check
-  const ip = await getClientIp();
-  const { allowed, remaining, resetAt } = checkRateLimit(ip, "leads");
-  if (!allowed) {
-    return NextResponse.json(
-      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
-      { status: 429, headers: { "X-RateLimit-Remaining": String(remaining), "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)) } }
-    );
+  const blocked = limited(await getClientIp()); if (blocked) return blocked;
+  try {
+    const { supabase, orgId } = await authOrg();
+    if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const validation = validate(createLeadSchema, await req.json());
+    if (!validation.success || !validation.data) return NextResponse.json({ error: validation.error }, { status: 400 });
+    const { data, error } = await supabase.from("leads")
+      .insert({ ...validation.data, org_id: orgId }).select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(data, { status: 201 });
+  } catch (error) {
+    console.error("Lead creation failed", error);
+    return NextResponse.json({ error: "Lead could not be created" }, { status: 500 });
   }
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: orgMember } = await supabase
-    .from("user_org_roles")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!orgMember) {
-    return NextResponse.json({ error: "No org found" }, { status: 400 });
-  }
-
-  const body = await req.json();
-  const validation = validate(createLeadSchema, body);
-  if (!validation.success) {
-    return NextResponse.json({ error: validation.error }, { status: 400 });
-  }
-
-  const { data: newLead, error } = await supabase
-    .from("leads")
-    .insert({ ...body, org_id: orgMember.org_id })
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json(newLead, { status: 201 });
 }
 
 export async function PATCH(req: NextRequest) {
-  // Rate limit check
-  const ip = await getClientIp();
-  const { allowed, remaining, resetAt } = checkRateLimit(ip, "leads");
-  if (!allowed) {
-    return NextResponse.json(
-      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
-      { status: 429, headers: { "X-RateLimit-Remaining": String(remaining), "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)) } }
-    );
+  const blocked = limited(await getClientIp()); if (blocked) return blocked;
+  try {
+    const { supabase, orgId } = await authOrg();
+    if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const id = new URL(req.url).searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Lead ID is required" }, { status: 400 });
+    const validation = validate(updateLeadSchema, await req.json());
+    if (!validation.success || !validation.data) return NextResponse.json({ error: validation.error }, { status: 400 });
+    const { data, error } = await supabase.from("leads").update(validation.data)
+      .eq("id", id).eq("org_id", orgId).select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Lead update failed", error);
+    return NextResponse.json({ error: "Lead could not be updated" }, { status: 500 });
   }
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) {
-    return NextResponse.json({ error: "Lead ID is required" }, { status: 400 });
-  }
-
-  const body = await req.json();
-  const validation = validate(updateLeadSchema, body);
-  if (!validation.success) {
-    return NextResponse.json({ error: validation.error }, { status: 400 });
-  }
-
-  const { data: updated, error } = await supabase
-    .from("leads")
-    .update({ ...body, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json(updated);
 }
 
 export async function DELETE(req: NextRequest) {
-  // Rate limit check
-  const ip = await getClientIp();
-  const { allowed, remaining, resetAt } = checkRateLimit(ip, "leads");
-  if (!allowed) {
-    return NextResponse.json(
-      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
-      { status: 429, headers: { "X-RateLimit-Remaining": String(remaining), "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)) } }
-    );
+  const blocked = limited(await getClientIp()); if (blocked) return blocked;
+  try {
+    const { supabase, orgId } = await authOrg();
+    if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const id = new URL(req.url).searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Lead ID is required" }, { status: 400 });
+    const { error } = await supabase.from("leads").delete().eq("id", id).eq("org_id", orgId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Lead deletion failed", error);
+    return NextResponse.json({ error: "Lead could not be deleted" }, { status: 500 });
   }
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) {
-    return NextResponse.json({ error: "Lead ID is required" }, { status: 400 });
-  }
-
-  const { error } = await supabase.from("leads").delete().eq("id", id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true });
 }

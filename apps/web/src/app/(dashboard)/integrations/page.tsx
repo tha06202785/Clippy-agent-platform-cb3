@@ -1,505 +1,167 @@
 "use client";
 
-import { useState, useEffect } from "react";
-// Inline simple UI components
-import { 
-  CheckCircle2, XCircle, AlertCircle, Loader2, RefreshCw, 
-  Mail, Calendar, MessageCircle, Instagram, Globe, Zap,
-  Activity, Shield, Clock, ChevronRight
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Activity, AlertCircle, Calendar, CheckCircle2, Clock, Globe, Instagram, Loader2, Mail, MessageCircle, RefreshCw, Shield, XCircle } from "lucide-react";
 
-// Simple inline components
-const Card = ({ className, ...props }: any) => <div className={cn("rounded-xl border bg-card text-card-foreground shadow", className)} {...props} />;
-const CardHeader = ({ className, ...props }: any) => <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />;
-const CardTitle = ({ className, ...props }: any) => <h3 className={cn("font-semibold leading-none tracking-tight", className)} {...props} />;
-const CardDescription = ({ className, ...props }: any) => <p className={cn("text-sm text-muted-foreground", className)} {...props} />;
-const CardContent = ({ className, ...props }: any) => <div className={cn("p-6 pt-0", className)} {...props} />;
-const Button = ({ className, variant, size, disabled, onClick, children, ...props }: any) => {
-  const base = "inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
-  const variants: any = {
-    default: "bg-primary text-primary-foreground hover:bg-primary/90",
-    outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-  };
-  const sizes: any = { sm: "h-9 px-3 text-xs", default: "h-10 px-4 py-2" };
-  return (
-    <button className={cn(base, variants[variant || "default"], sizes[size || "default"], className)} disabled={disabled} onClick={onClick} {...props}>
-      {children}
-    </button>
-  );
+type Status = "healthy" | "warning" | "error" | "not_connected";
+
+type IntegrationStatus = {
+  id?: string;
+  provider: string;
+  status?: string;
+  email?: string;
+  last_sync_at?: string;
+  items_indexed?: number;
+  humanMessage?: string;
+  canAutoRefresh?: boolean;
+  permissions?: { granted: number; required: number; missing?: string[] };
 };
-const Badge = ({ className, ...props }: any) => <div className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold", className)} {...props} />;
-const Progress = ({ value, className }: any) => (
-  <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-secondary", className)}>
-    <div className="h-full bg-primary transition-all" style={{ width: `${value}%` }} />
-  </div>
-);
 
-interface Integration {
+type Integration = {
   provider: string;
   name: string;
   description: string;
-  icon: any;
-  status: "healthy" | "warning" | "error" | "not_connected";
+  status: Status;
   connected: boolean;
   email?: string;
   lastSync?: string;
-  itemsIndexed?: number;
+  itemsIndexed: number;
   humanMessage?: string;
   canAutoRefresh?: boolean;
-  action?: string;
-  actionUrl?: string;
-  permissions?: {
-    granted: number;
-    required: number;
-    missing?: string[];
-  };
+  permissions?: { granted: number; required: number; missing?: string[] };
+};
+
+const CONFIG = {
+  gmail: { name: "Gmail", description: "Read and send lead emails", icon: Mail, connectUrl: "/api/integrations/google" },
+  "google-calendar": { name: "Google Calendar", description: "Book inspections and meetings", icon: Calendar, connectUrl: "/api/integrations/google" },
+  facebook: { name: "Facebook", description: "Capture Messenger and Lead Ads enquiries", icon: Globe, connectUrl: "/api/integrations/facebook" },
+  instagram: { name: "Instagram", description: "Capture business-account direct messages", icon: Instagram, connectUrl: "/api/integrations/facebook" },
+  whatsapp: { name: "WhatsApp", description: "Message and follow up with leads", icon: MessageCircle, connectUrl: "/api/integrations/whatsapp" },
+} as const;
+
+function normaliseStatus(value?: string): Status {
+  if (value === "healthy" || value === "connected") return "healthy";
+  if (value === "warning") return "warning";
+  if (value === "error" || value === "expired") return "error";
+  return "not_connected";
 }
 
-const integrationConfig: Record<string, any> = {
-  gmail: {
-    name: "Gmail",
-    description: "Read and send emails automatically",
-    icon: Mail,
-    color: "text-red-500",
-    bgColor: "bg-red-50",
-    connectUrl: "/api/integrations/google",
-  },
-  "google-calendar": {
-    name: "Google Calendar",
-    description: "Schedule inspections and meetings",
-    icon: Calendar,
-    color: "text-blue-500",
-    bgColor: "bg-blue-50",
-    connectUrl: "/api/integrations/google",
-  },
-  facebook: {
-    name: "Facebook",
-    description: "Import leads from Messenger and Ads",
-    icon: Globe,
-    color: "text-blue-600",
-    bgColor: "bg-blue-50",
-    connectUrl: "/api/integrations/facebook",
-  },
-  instagram: {
-    name: "Instagram",
-    description: "Connect DMs and import leads",
-    icon: Instagram,
-    color: "text-pink-600",
-    bgColor: "bg-pink-50",
-    connectUrl: "/api/integrations/facebook",
-  },
-  whatsapp: {
-    name: "WhatsApp Cloud API",
-    description: "Message leads automatically",
-    icon: MessageCircle,
-    color: "text-green-500",
-    bgColor: "bg-green-50",
-    connectUrl: "/api/integrations/whatsapp",
-  },
-};
+function relativeTime(value?: string) {
+  if (!value) return "Never";
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return "Unknown";
+  const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [testing, setTesting] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchIntegrations = async () => {
+  const load = useCallback(async () => {
+    setError(null);
     try {
-      const response = await fetch("/api/integrations/status");
-      const data = await response.json();
-      
-      // Map to our format
-      const mapped = Object.entries(integrationConfig).map(([provider, config]: [string, any]) => {
-        const existing = data.find((i: any) => i.provider === provider);
+      const response = await fetch("/api/integrations/status", { cache: "no-store", credentials: "include" });
+      const payload = await response.json().catch(() => []);
+      if (!response.ok) throw new Error(payload?.error || "Unable to load integrations");
+      const statuses: IntegrationStatus[] = Array.isArray(payload) ? payload : Array.isArray(payload?.integrations) ? payload.integrations : [];
+      const mapped = Object.entries(CONFIG).map(([provider, config]) => {
+        const existing = statuses.find((item) => item.provider === provider);
+        const status = normaliseStatus(existing?.status);
         return {
           provider,
           name: config.name,
           description: config.description,
-          icon: config.icon,
-          status: existing?.status || "not_connected",
-          connected: existing?.status === "connected" || existing?.status === "healthy",
+          status,
+          connected: status !== "not_connected",
           email: existing?.email,
           lastSync: existing?.last_sync_at,
-          itemsIndexed: existing?.items_indexed || 0,
+          itemsIndexed: existing?.items_indexed ?? 0,
           humanMessage: existing?.humanMessage,
           canAutoRefresh: existing?.canAutoRefresh,
-          action: existing?.action,
-          actionUrl: existing?.actionUrl,
           permissions: existing?.permissions,
-        };
+        } satisfies Integration;
       });
-      
-      setIntegrations(mapped as Integration[]);
-    } catch (error) {
-      console.error("Failed to fetch integrations:", error);
+      setIntegrations(mapped);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to load integrations");
+      setIntegrations(Object.entries(CONFIG).map(([provider, config]) => ({ provider, name: config.name, description: config.description, status: "not_connected", connected: false, itemsIndexed: 0 })));
     } finally {
       setLoading(false);
     }
-  };
-
-  const testConnection = async (provider: string) => {
-    setTesting(provider);
-    try {
-      const response = await fetch("/api/integrations/test/" + provider);
-      const result = await response.json();
-      
-      // Update the integration with test result
-      setIntegrations(prev => prev.map(int => 
-        int.provider === provider 
-          ? { ...int, ...result, status: result.success ? "healthy" : "error" }
-          : int
-      ));
-      
-      // Auto-refresh if possible
-      if (!result.success && result.canAutoRefresh && result.action === "refresh") {
-        await autoRefresh(provider);
-      }
-    } catch (error) {
-      console.error("Test failed:", error);
-    } finally {
-      setTesting(null);
-    }
-  };
-
-  const autoRefresh = async (provider: string) => {
-    setRefreshing(provider);
-    try {
-      // Trigger refresh by calling test again (backend handles auto-refresh)
-      await testConnection(provider);
-    } finally {
-      setRefreshing(null);
-    }
-  };
-
-  const handleConnect = (provider: string) => {
-    const config = integrationConfig[provider];
-    if (config?.connectUrl) {
-      window.location.href = config.connectUrl;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "healthy": return "text-emerald-600 bg-emerald-50 border-emerald-200";
-      case "warning": return "text-amber-600 bg-amber-50 border-amber-200";
-      case "error": return "text-red-600 bg-red-50 border-red-200";
-      default: return "text-gray-600 bg-gray-50 border-gray-200";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "healthy": return CheckCircle2;
-      case "warning": return AlertCircle;
-      case "error": return XCircle;
-      default: return null;
-    }
-  };
-
-  const formatLastSync = (dateString?: string) => {
-    if (!dateString) return "Never";
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return ;
-    if (hours < 24) return ;
-    return ;
-  };
-
-  useEffect(() => {
-    fetchIntegrations();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground">Loading integrations...</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => { void load(); }, [load]);
 
-  const healthyCount = integrations.filter(i => i.status === "healthy").length;
-  const totalConnected = integrations.filter(i => i.connected).length;
+  const testConnection = async (provider: string) => {
+    setBusy(provider);
+    setError(null);
+    try {
+      const response = await fetch(`/api/integrations/test/${encodeURIComponent(provider)}`, { cache: "no-store", credentials: "include" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || result.humanMessage || "Connection test failed");
+      setIntegrations((current) => current.map((item) => item.provider === provider ? { ...item, status: result.success ? "healthy" : "error", connected: true, humanMessage: result.humanMessage, lastSync: result.last_sync_at ?? item.lastSync, itemsIndexed: result.items_indexed ?? item.itemsIndexed, canAutoRefresh: result.canAutoRefresh ?? item.canAutoRefresh, permissions: result.permissions ?? item.permissions } : item));
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Connection test failed";
+      setIntegrations((current) => current.map((item) => item.provider === provider ? { ...item, status: "error", connected: true, humanMessage: message } : item));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const connect = (provider: keyof typeof CONFIG) => { window.location.assign(CONFIG[provider].connectUrl); };
+
+  const healthy = integrations.filter((item) => item.status === "healthy").length;
+  const connected = integrations.filter((item) => item.connected).length;
+  const indexed = integrations.reduce((sum, item) => sum + item.itemsIndexed, 0);
+  const latestSync = useMemo(() => integrations.map((item) => item.lastSync).filter(Boolean).sort().at(-1), [integrations]);
+
+  if (loading) return <div className="flex min-h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-emerald-600" /></div>;
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-10">
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Integrations</h1>
-          <p className="text-muted-foreground">
-            Connect your favorite tools and let Clippy work automatically
-          </p>
-        </div>
-
-        {/* Summary Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Healthy Connections</CardTitle>
-              <Activity className="h-4 w-4 text-emerald-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{healthyCount} / {totalConnected}</div>
-              <p className="text-xs text-muted-foreground">
-                {totalConnected === integrations.length ? "All connected" : integrations.length - totalConnected + " to connect"}
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Items Indexed</CardTitle>
-              <Shield className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {integrations.reduce((sum, i) => sum + (i.itemsIndexed || 0), 0).toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Knowledge items learned
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Last Sync</CardTitle>
-              <Clock className="h-4 w-4 text-amber-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {integrations.filter(i => i.lastSync).length > 0
-                  ? formatLastSync(integrations.filter(i => i.lastSync)[0].lastSync)
-                  : "Never"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Most recent activity
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Integration Cards */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {integrations.map((integration) => {
-            const Icon = integration.icon;
-            const StatusIcon = getStatusIcon(integration.status);
-            const config = integrationConfig[integration.provider];
-            
-            return (
-              <Card key={integration.provider} className={cn(
-                "relative overflow-hidden transition-all hover:shadow-lg",
-                integration.connected && "border-2"
-              )}>
-                {/* Status Badge */}
-                <div className={cn(
-                  "absolute top-4 right-4 flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border",
-                  getStatusColor(integration.status)
-                )}>
-                  {StatusIcon && <StatusIcon className="w-3 h-3" />}
-                  {integration.status === "healthy" && "Connected"}
-                  {integration.status === "warning" && "Warning"}
-                  {integration.status === "error" && "Error"}
-                  {integration.status === "not_connected" && "Not Connected"}
-                </div>
-
-                <CardHeader>
-                  <div className="flex items-start gap-4">
-                    <div className={cn("p-3 rounded-xl", config.bgColor)}>
-                      <Icon className={cn("w-6 h-6", config.color)} />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <CardTitle className="text-lg">{integration.name}</CardTitle>
-                      <CardDescription>{integration.description}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  {/* Connection Details */}
-                  {integration.connected && (
-                    <div className="space-y-2 text-sm">
-                      {integration.email && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Mail className="w-4 h-4" />
-                          {integration.email}
-                        </div>
-                      )}
-                      
-                      {integration.itemsIndexed !== undefined && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Activity className="w-4 h-4" />
-                          {integration.itemsIndexed.toLocaleString()} items indexed
-                        </div>
-                      )}
-                      
-                      {integration.lastSync && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="w-4 h-4" />
-                          Last synced {formatLastSync(integration.lastSync)}
-                        </div>
-                      )}
-                      
-                      {/* Permissions */}
-                      {integration.permissions && (
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Permissions</span>
-                            <span className="font-medium">
-                              {integration.permissions.granted}/{integration.permissions.required} granted
-                            </span>
-                          </div>
-                          <Progress 
-                            value={(integration.permissions.granted / integration.permissions.required) * 100} 
-                            className="h-2"
-                          />
-                          {integration.permissions.missing && integration.permissions.missing.length > 0 && (
-                            <p className="text-xs text-amber-600">
-                              Missing: {integration.permissions.missing.length} permissions
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Human Message */}
-                      {integration.humanMessage && (
-                        <div className={cn(
-                          "p-3 rounded-lg text-sm",
-                          integration.status === "healthy" 
-                            ? "bg-emerald-50 text-emerald-800"
-                            : integration.status === "error"
-                            ? "bg-red-50 text-red-800"
-                            : "bg-amber-50 text-amber-800"
-                        )}>
-                          {integration.humanMessage}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Not Connected Message */}
-                  {!integration.connected && !integration.humanMessage && (
-                    <p className="text-sm text-muted-foreground">
-                      Connect {integration.name} to enable automatic {integration.description.toLowerCase()}
-                    </p>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 pt-2">
-                    {integration.connected ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => testConnection(integration.provider)}
-                          disabled={testing === integration.provider}
-                          className="flex-1"
-                        >
-                          {testing === integration.provider ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="w-4 h-4" />
-                          )}
-                          Test Connection
-                        </Button>
-                        
-                        {integration.status === "error" && integration.canAutoRefresh && (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => autoRefresh(integration.provider)}
-                            disabled={refreshing === integration.provider}
-                            className="flex-1"
-                          >
-                            {refreshing === integration.provider ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Zap className="w-4 h-4" />
-                            )}
-                            Auto-Fix
-                          </Button>
-                        )}
-                        
-                        {integration.status === "error" && !integration.canAutoRefresh && (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => handleConnect(integration.provider)}
-                            className="flex-1"
-                          >
-                            Reconnect
-                            <ChevronRight className="w-4 h-4 ml-1" />
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <Button
-                        onClick={() => handleConnect(integration.provider)}
-                        className="w-full"
-                      >
-                        Connect
-                        <ChevronRight className="w-4 h-4 ml-1" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Help Section */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-600" />
-              Need Help?
-            </CardTitle>
-            <CardDescription>
-              Tips for setting up your integrations
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm text-blue-900">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5" />
-                <span>
-                  <strong>Gmail:</strong> Make sure to grant all requested permissions for Clippy to read and send emails
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5" />
-                <span>
-                  <strong>Google Calendar:</strong> Required for automatic inspection scheduling
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5" />
-                <span>
-                  <strong>WhatsApp:</strong> You need a Meta Business Manager account with a verified phone number
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5" />
-                <span>
-                  <strong>Facebook/Instagram:</strong> Connect your business pages to import leads from Messenger
-                </span>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
+    <main className="space-y-6 bg-neutral-50 p-4 pb-28 md:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div><h1 className="text-2xl font-bold text-neutral-900">Integrations</h1><p className="text-sm text-neutral-600">Connect channels, test their health and see what Clippy has indexed.</p></div>
+        <button onClick={() => void load()} className="inline-flex items-center justify-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-semibold"><RefreshCw className="h-4 w-4" />Refresh status</button>
       </div>
-    </div>
+
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
+
+      <section className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl border bg-white p-4"><Activity className="h-5 w-5 text-emerald-600" /><p className="mt-3 text-2xl font-bold">{healthy}/{connected}</p><p className="text-xs text-neutral-500">Healthy connections</p></div>
+        <div className="rounded-xl border bg-white p-4"><Shield className="h-5 w-5 text-blue-600" /><p className="mt-3 text-2xl font-bold">{indexed.toLocaleString("en-AU")}</p><p className="text-xs text-neutral-500">Items indexed</p></div>
+        <div className="rounded-xl border bg-white p-4"><Clock className="h-5 w-5 text-amber-600" /><p className="mt-3 text-lg font-bold">{relativeTime(latestSync)}</p><p className="text-xs text-neutral-500">Latest sync</p></div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2">
+        {integrations.map((integration) => {
+          const config = CONFIG[integration.provider as keyof typeof CONFIG];
+          const Icon = config.icon;
+          const StatusIcon = integration.status === "healthy" ? CheckCircle2 : integration.status === "error" ? XCircle : AlertCircle;
+          const statusClass = integration.status === "healthy" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : integration.status === "error" ? "border-red-200 bg-red-50 text-red-700" : integration.status === "warning" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-neutral-200 bg-neutral-50 text-neutral-600";
+          return (
+            <article key={integration.provider} className="rounded-2xl border bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3"><div className="flex gap-3"><div className="rounded-xl bg-emerald-50 p-3"><Icon className="h-6 w-6 text-emerald-700" /></div><div><h2 className="font-semibold text-neutral-900">{integration.name}</h2><p className="text-sm text-neutral-500">{integration.description}</p></div></div><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold ${statusClass}`}><StatusIcon className="h-3 w-3" />{integration.status === "not_connected" ? "Not connected" : integration.status}</span></div>
+              <div className="mt-4 space-y-2 text-sm text-neutral-600">
+                {integration.email && <p>{integration.email}</p>}
+                <p>{integration.itemsIndexed.toLocaleString("en-AU")} items indexed · Last sync {relativeTime(integration.lastSync)}</p>
+                {integration.permissions && <p>{integration.permissions.granted}/{integration.permissions.required} permissions granted</p>}
+                {integration.humanMessage && <div className={`rounded-lg border p-3 ${statusClass}`}>{integration.humanMessage}</div>}
+              </div>
+              <div className="mt-5 flex gap-2">
+                {integration.connected && <button disabled={busy === integration.provider} onClick={() => void testConnection(integration.provider)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50">{busy === integration.provider ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Test connection</button>}
+                <button onClick={() => connect(integration.provider as keyof typeof CONFIG)} className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">{integration.connected ? "Reconnect" : "Connect"}</button>
+              </div>
+            </article>
+          );
+        })}
+      </section>
+    </main>
   );
 }

@@ -7,7 +7,6 @@ import Link from "next/link";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -19,31 +18,43 @@ export default function SignUpPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: name },
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-      },
-    });
+    try {
+      const supabase = createClient();
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name },
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+        },
+      });
 
-    if (error) {
-      setError(error.message);
+      if (signUpError) {
+        setError(signUpError.message);
+        setLoading(false);
+      } else {
+        router.push("/onboarding");
+      }
+    } catch {
+      setError("Authentication is not configured for this environment.");
       setLoading(false);
-    } else {
-      router.push("/onboarding");
     }
   };
 
   const handleGoogleSignUp = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
-      },
-    });
-    if (error) setError(error.message);
+    setError("");
+    try {
+      const supabase = createClient();
+      const { error: signUpError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback`,
+        },
+      });
+      if (signUpError) setError(signUpError.message);
+    } catch {
+      setError("Authentication is not configured for this environment.");
+    }
   };
 
   return (
@@ -54,7 +65,9 @@ export default function SignUpPage() {
             <span className="text-white font-bold text-lg">C</span>
           </div>
           <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Start your 14-day free trial. No card required.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Create a workspace account. No paid plan is selected on this screen.
+          </p>
         </div>
 
         {error && (

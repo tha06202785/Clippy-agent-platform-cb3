@@ -1,96 +1,131 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  FACEBOOK_OAUTH_STATE_COOKIE,
+  matchesOAuthState,
+} from "@/lib/oauth-state";
+import { encryptIntegrationCredentials } from "@/lib/integration-credentials";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+function redirectAndClearState(url: URL) {
+  const response = NextResponse.redirect(url);
+  response.cookies.set(FACEBOOK_OAUTH_STATE_COOKIE, "", {
+    httpOnly: true,
+    secure: url.protocol === "https:",
+    sameSite: "lax",
+    path: "/api/integrations/facebook",
+    maxAge: 0,
+  });
+  return response;
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
   const returnedState = searchParams.get("state");
-  const error = searchParams.get("error");
+  const providerError = searchParams.get("error");
+  const expectedState = req.cookies.get(FACEBOOK_OAUTH_STATE_COOKIE)?.value;
 
-  if (error) {
-    return NextResponse.redirect(new URL("/integrations?error=" + encodeURIComponent(error), origin));
+  if (providerError) {
+    return redirectAndClearState(
+      new URL("/integrations?error=" + encodeURIComponent(providerError), origin),
+    );
   }
 
   if (!code) {
-    return NextResponse.redirect(new URL("/integrations?error=no_code", origin));
+    return redirectAndClearState(new URL("/integrations?error=no_code", origin));
   }
 
-  // Basic CSRF check — state must be a valid UUID/org ID
-  if (!returnedState || returnedState.length < 8) {
-    return NextResponse.redirect(new URL("/integrations?error=invalid_state", origin));
+  if (!matchesOAuthState(expectedState, returnedState)) {
+    return redirectAndClearState(new URL("/integrations?error=invalid_state", origin));
   }
 
   try {
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return redirectAndClearState(new URL("/sign-in?next=/integrations", origin));
+    }
 
-    // Exchange code for access token
+    const { data: membership, error: membershipError } = await supabase
+      .from("user_org_roles")
+      .select("org_id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    if (membershipError || !membership?.org_id) {
+      return redirectAndClearState(new URL("/integrations?error=no_org", origin));
+    }
+
+    const appId = process.env.FACEBOOK_APP_ID;
+    const appSecret = process.env.FACEBOOK_APP_SECRET;
+    if (!appId || !appSecret) {
+      return redirectAndClearState(new URL("/integrations?error=not_configured", origin));
+    }
+
+    const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com";
     const tokenResponse = await fetch(
       "https://graph.facebook.com/v19.0/oauth/access_token?" +
         new URLSearchParams({
-          client_id: process.env.FACEBOOK_APP_ID || "",
-          client_secret: process.env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_ACCESS_TOKEN || "",
-          redirect_uri: origin + "/api/integrations/facebook/callback",
+          client_id: appId,
+          client_secret: appSecret,
+          redirect_uri: configuredOrigin + "/api/integrations/facebook/callback",
           code,
-        })
+        }),
     );
 
     if (!tokenResponse.ok) {
-      console.error("Facebook token exchange failed:", await tokenResponse.text());
-      return NextResponse.redirect(new URL("/integrations?error=token_exchange_failed", origin));
+      console.error("Facebook token exchange failed", tokenResponse.status);
+      return redirectAndClearState(
+        new URL("/integrations?error=token_exchange_failed", origin),
+      );
     }
 
     const tokens = await tokenResponse.json();
-
-    // Fetch the Facebook Page info so we can store the page ID for webhook routing
     let pageId = "";
     try {
-      const pageRes = await fetch(
+      const pageResponse = await fetch(
         "https://graph.facebook.com/v19.0/me/accounts?" +
-          new URLSearchParams({ access_token: tokens.access_token })
+          new URLSearchParams({ access_token: tokens.access_token }),
       );
-      const pages = await pageRes.json();
-      pageId = pages.data?.[0]?.id || "";
+      if (pageResponse.ok) {
+        const pages = await pageResponse.json();
+        pageId = pages.data?.[0]?.id || "";
+      }
     } catch {
-      // Non-fatal — page ID lookup failed
+      // Page discovery is optional; credential persistence remains valid.
     }
 
-    // Upsert integration — use raw SQL upsert to handle composite key properly
-    const { error: upsertError } = await supabase.rpc("upsert_integration", {
-      p_org_id: returnedState,
-      p_provider: "facebook",
-      p_status: "connected",
-      p_credentials: JSON.stringify(tokens),
-      p_connected_at: new Date().toISOString(),
-      p_page_id: pageId,
-    });
-
-    // Fallback if RPC not defined
-    if (upsertError) {
-      const { error: insertError } = await supabase.from("integrations").insert({
-        org_id: returnedState,
+    const admin = createAdminClient();
+    const { error: saveError } = await admin.from("integrations").upsert(
+      {
+        org_id: membership.org_id,
         provider: "facebook",
         status: "connected",
-        credentials_encrypted: JSON.stringify(tokens),
+        credentials_encrypted: encryptIntegrationCredentials(tokens),
         settings_json: pageId ? { facebook_page_id: pageId } : {},
         connected_at: new Date().toISOString(),
-      });
-      if (insertError) {
-        console.error("Failed to save integration:", insertError);
-        return NextResponse.redirect(
-          new URL("/integrations?error=save_failed", origin)
-        );
-      }
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "org_id,provider" },
+    );
+
+    if (saveError) {
+      console.error("Failed to save Facebook integration", saveError.code);
+      return redirectAndClearState(new URL("/integrations?error=save_failed", origin));
     }
 
-    return NextResponse.redirect(
-      new URL("/integrations?connected=facebook", origin)
+    return redirectAndClearState(
+      new URL("/integrations?connected=facebook", origin),
     );
-  } catch (error: any) {
-    console.error("Facebook OAuth callback error:", error);
-    return NextResponse.redirect(
-      new URL("/integrations?error=callback_failed", origin)
+  } catch (error) {
+    console.error("Facebook OAuth callback failed", error);
+    return redirectAndClearState(
+      new URL("/integrations?error=callback_failed", origin),
     );
   }
 }
