@@ -330,6 +330,24 @@ export default async function Client360Page({
                       {enquiry.conversations?.length || 0} conversation
                       {(enquiry.conversations?.length || 0) === 1 ? "" : "s"}
                     </p>
+                    {enquiry.conversations?.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {enquiry.conversations.slice(0, 3).map((conversation) => (
+                          <Link
+                            key={conversation.id}
+                            href={`/copilot?lead_id=${client.id}&enquiry_id=${enquiry.id}&conversation_id=${conversation.id}${
+                              enquiry.listings
+                                ? `&listing_id=${enquiry.listings.id}`
+                                : ""
+                            }`}
+                            className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold capitalize text-blue-700 transition hover:bg-blue-100"
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                            {conversation.channel} thread
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                     <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
                       <span>Active {formatDate(enquiry.last_activity_at)}</span>
                       <Link

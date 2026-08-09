@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   X, Phone, MessageCircle, Mail, Sparkles, ChevronRight,
-  Clock, User, MapPin, Star, Edit3, Check, Send, ArrowLeft,
+  Clock, User, MapPin, Star, Edit3, Check, Copy, ArrowLeft,
   Calendar, DollarSign, Home, AlertCircle
 } from "lucide-react";
 
@@ -58,7 +58,7 @@ interface LeadDetailPanelProps {
 export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPanelProps) {
   const [replyDraft, setReplyDraft] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState(lead.notes || "");
   const [showReplyBox, setShowReplyBox] = useState(false);
@@ -110,16 +110,19 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
     }
   };
 
-  const handleSend = () => {
+  const copyApprovedDraft = async () => {
     if (!replyDraft.trim()) return;
-    setIsSending(true);
-    // TODO: integrate with WhatsApp/email channel when ready
-    setTimeout(() => {
-      setIsSending(false);
-      setShowReplyBox(false);
-      setReplyDraft("");
-    }, 1000);
+    await navigator.clipboard.writeText(replyDraft);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   };
+
+  const channelHref = lead.email
+    ? `mailto:${lead.email}?subject=${encodeURIComponent("Follow-up from your real estate agent")}&body=${encodeURIComponent(replyDraft)}`
+    : lead.phone
+      ? `sms:${lead.phone}?body=${encodeURIComponent(replyDraft)}`
+      : null;
+  const channelLabel = lead.email ? "Open email" : "Open messages";
 
   return (
     <div className="flex flex-col h-full">
@@ -246,7 +249,7 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-foreground">Notes</p>
-                <button onClick={() => setIsEditing(!isEditing)}
+                <button onClick={() => isEditing ? void saveNotes() : setIsEditing(true)}
                   className="text-xs text-primary hover:underline flex items-center gap-1">
                   {isEditing ? (
                     <><Check className="w-3 h-3" /> Save</>
@@ -343,21 +346,25 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
                       placeholder="AI draft will appear here…"
                     />
                     <div className="flex items-center gap-2">
-                      <button onClick={handleSend} disabled={isSending || !replyDraft.trim()}
+                      <button onClick={() => void copyApprovedDraft()} disabled={!replyDraft.trim()}
                         className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                        {isSending ? (
-                          <><div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Sending…</>
+                        {copied ? (
+                          <><Check className="w-4 h-4" /> Draft copied</>
                         ) : (
-                          <><Send className="w-4 h-4" /> Send reply</>
+                          <><Copy className="w-4 h-4" /> Approve and copy</>
                         )}
                       </button>
-                      <button onClick={() => { navigator.clipboard.writeText(replyDraft); }}
-                        className="px-4 py-3 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted transition-colors">
-                        Copy
-                      </button>
+                      {channelHref && (
+                        <a
+                          href={channelHref}
+                          className="px-4 py-3 border border-border rounded-xl text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors"
+                        >
+                          {channelLabel}
+                        </a>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground text-center">
-                      Replies go to {lead.email || "the lead's email"} · WhatsApp integration coming soon
+                      Clippy creates the draft only. Review it, then confirm delivery in your email or messaging app.
                     </p>
                   </div>
                 )}

@@ -428,6 +428,21 @@ export default async function Property360Page({
                         </span>
                       </div>
 
+                      {client && enquiry.conversations?.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {enquiry.conversations.slice(0, 3).map((conversation) => (
+                            <Link
+                              key={conversation.id}
+                              href={`/copilot?lead_id=${client.id}&listing_id=${listing.id}&enquiry_id=${enquiry.id}&conversation_id=${conversation.id}`}
+                              className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold capitalize text-blue-700 transition hover:bg-blue-100"
+                            >
+                              <MessageCircle className="h-3 w-3" />
+                              {conversation.channel} thread
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+
                       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3">
                         {client?.phone && (
                           <>
