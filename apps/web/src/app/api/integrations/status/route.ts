@@ -41,7 +41,7 @@ export async function GET(_req: NextRequest) {
         admin
           .from("integration_health")
           .select(
-            "provider,status,last_sync_at,items_indexed,activity_summary",
+            "provider,status,last_sync_at,items_indexed,activity_summary,last_error",
           )
           .eq("org_id", auth.orgId),
       ]);
@@ -67,6 +67,12 @@ export async function GET(_req: NextRequest) {
         !Array.isArray(integration.settings_json)
           ? integration.settings_json
           : {};
+      const lastError = healthData?.last_error || "";
+      const requiresReconnect =
+        healthData?.status === "error" &&
+        /token refresh failed|access token is missing|credentials were not found|reconnect google/i.test(
+          lastError,
+        );
 
       return {
         id: integration.id,
@@ -79,6 +85,10 @@ export async function GET(_req: NextRequest) {
         last_sync_at: healthData?.last_sync_at,
         items_indexed: healthData?.items_indexed || 0,
         activity_summary: healthData?.activity_summary || {},
+        requires_reconnect: requiresReconnect,
+        humanMessage: requiresReconnect
+          ? "Google access has expired. Reconnect Google to resume Gmail and Calendar syncing."
+          : undefined,
       };
     });
 

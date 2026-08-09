@@ -28,6 +28,7 @@ type IntegrationStatus = {
   items_indexed?: number;
   humanMessage?: string;
   canAutoRefresh?: boolean;
+  requires_reconnect?: boolean;
   permissions?: { granted: number; required: number; missing?: string[] };
 };
 
@@ -42,6 +43,7 @@ type Integration = {
   itemsIndexed: number;
   humanMessage?: string;
   canAutoRefresh?: boolean;
+  requiresReconnect?: boolean;
   permissions?: { granted: number; required: number; missing?: string[] };
 };
 
@@ -146,6 +148,7 @@ export default function IntegrationsPage() {
           itemsIndexed: existing?.items_indexed ?? 0,
           humanMessage: existing?.humanMessage,
           canAutoRefresh: existing?.canAutoRefresh,
+          requiresReconnect: existing?.requires_reconnect,
           permissions: existing?.permissions,
         } satisfies Integration;
       });
@@ -260,6 +263,7 @@ export default function IntegrationsPage() {
       setError(
         reason instanceof Error ? reason.message : "Google data sync failed",
       );
+      await load();
     } finally {
       setBusy(null);
     }
@@ -389,6 +393,8 @@ export default function IntegrationsPage() {
                   <StatusIcon className="h-3 w-3" />
                   {integration.status === "not_connected"
                     ? "Not connected"
+                    : integration.requiresReconnect
+                      ? "Reconnect required"
                     : integration.status}
                 </span>
               </div>
@@ -412,6 +418,7 @@ export default function IntegrationsPage() {
               </div>
               <div className="mt-5 flex gap-2">
                 {integration.connected &&
+                !integration.requiresReconnect &&
                 (integration.provider === "gmail" ||
                   integration.provider === "google-calendar") ? (
                   <button
