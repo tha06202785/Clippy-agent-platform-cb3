@@ -21,6 +21,10 @@ type CopilotCompletion = {
 
 const PROVIDER_TIMEOUT_MS = 30_000;
 
+function cleanEnv(value: string | undefined, fallback = "") {
+  return value?.trim() || fallback;
+}
+
 async function postCompletion({
   url,
   token,
@@ -68,11 +72,12 @@ export async function requestCopilotCompletion({
   userId: string;
 }): Promise<CopilotCompletion> {
   const failures: string[] = [];
-  const gatewayToken =
-    process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+  const gatewayToken = cleanEnv(
+    process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
+  );
 
   if (gatewayToken) {
-    const model = process.env.COPILOT_MODEL || "openai/gpt-5.5";
+    const model = cleanEnv(process.env.COPILOT_MODEL, "openai/gpt-5.5");
     try {
       const data = await postCompletion({
         url: "https://ai-gateway.vercel.sh/v1/chat/completions",
@@ -97,7 +102,7 @@ export async function requestCopilotCompletion({
       });
       return {
         data,
-        model: data.model || model,
+        model: cleanEnv(data.model, model),
         provider: "vercel-ai-gateway",
       };
     } catch (error) {
@@ -105,10 +110,10 @@ export async function requestCopilotCompletion({
     }
   }
 
-  const ollamaToken = process.env.OLLAMA_API_KEY;
+  const ollamaToken = cleanEnv(process.env.OLLAMA_API_KEY);
   if (ollamaToken) {
-    const model = process.env.OLLAMA_MODEL || "kimi-k2.6";
-    const baseUrl = process.env.OLLAMA_BASE_URL || "https://ollama.com";
+    const model = cleanEnv(process.env.OLLAMA_MODEL, "kimi-k2.6");
+    const baseUrl = cleanEnv(process.env.OLLAMA_BASE_URL, "https://ollama.com");
     try {
       const data = await postCompletion({
         url: `${baseUrl.replace(/\/$/, "")}/v1/chat/completions`,
@@ -121,7 +126,11 @@ export async function requestCopilotCompletion({
           temperature: 0.8,
         },
       });
-      return { data, model: data.model || model, provider: "ollama" };
+      return {
+        data,
+        model: cleanEnv(data.model, model),
+        provider: "ollama",
+      };
     } catch (error) {
       failures.push(error instanceof Error ? error.message : String(error));
     }

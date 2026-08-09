@@ -66,6 +66,37 @@ describe("Copilot provider routing", () => {
     );
   });
 
+  it("removes accidental whitespace from Ollama configuration", async () => {
+    delete process.env.VERCEL_OIDC_TOKEN;
+    delete process.env.AI_GATEWAY_API_KEY;
+    process.env.OLLAMA_API_KEY = "  ollama-token\n";
+    process.env.OLLAMA_MODEL = " kimi-k2.6\n";
+    process.env.OLLAMA_BASE_URL = " https://ollama.com/\n";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ choices: [{ message: { content: "Hello" } }] }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await requestCopilotCompletion({
+      messages: [{ role: "user", content: "Hello" }],
+      userId: "user-1",
+    });
+
+    expect(result.model).toBe("kimi-k2.6");
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://ollama.com/v1/chat/completions",
+    );
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+      Authorization: "Bearer ollama-token",
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      model: "kimi-k2.6",
+    });
+  });
+
   it("returns a safe error without exposing provider responses", async () => {
     process.env.VERCEL_OIDC_TOKEN = "oidc-token";
     process.env.OLLAMA_API_KEY = "ollama-token";
