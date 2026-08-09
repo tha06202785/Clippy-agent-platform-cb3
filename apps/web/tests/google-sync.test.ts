@@ -3,6 +3,7 @@ import {
   calendarEventToKnowledge,
   extractGmailText,
   gmailMessageToKnowledge,
+  isLikelyRealEstateLead,
 } from "@/lib/integrations/google-sync";
 
 const encode = (value: string) => Buffer.from(value).toString("base64url");
@@ -45,6 +46,21 @@ describe("Google knowledge sync", () => {
       title: "Buyer enquiry",
     });
     expect(item?.content).toContain("Saturday inspection");
+    expect(item && isLikelyRealEstateLead(item)).toBe(true);
+  });
+
+  it.each([
+    ["Your receipt", "Thanks for your payment. View your receipt and unsubscribe.", "no-reply@shop.test"],
+    ["Security alert", "A new device signed into your account.", "alerts@example.com"],
+    ["Weekly newsletter", "Here is this week's market newsletter. Unsubscribe here.", "news@example.com"],
+    ["Lunch tomorrow", "Are we still meeting at 12?", "friend@example.com"],
+  ])("does not treat unrelated Gmail as a lead: %s", (subject, body, from) => {
+    const item = gmailMessageToKnowledge({
+      id: subject, threadId: subject, payload: { mimeType: "text/plain",
+        headers: [{ name: "Subject", value: subject }, { name: "From", value: from }],
+        body: { data: encode(body) } },
+    });
+    expect(item && isLikelyRealEstateLead(item)).toBe(false);
   });
 
   it("converts active calendar events and ignores cancellations", () => {

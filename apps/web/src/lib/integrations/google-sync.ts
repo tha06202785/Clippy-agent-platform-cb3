@@ -15,6 +15,17 @@ const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 const MAX_EMAILS_PER_SYNC = 20;
 const MAX_EVENTS_PER_SYNC = 50;
 const MAX_ITEM_CONTENT = 8_000;
+const REAL_ESTATE_TERMS = [
+  "property", "inspection", "inspect", "open home", "open house", "listing",
+  "buyer", "buying", "vendor", "selling", "rental", "rent", "lease", "tenant",
+  "apartment", "townhouse", "auction", "offer", "real estate", "enquiry", "inquiry",
+  "domain.com.au", "realestate.com.au",
+];
+const NON_LEAD_TERMS = [
+  "unsubscribe", "newsletter", "receipt", "invoice", "security alert", "password",
+  "verification code", "one-time code", "order confirmation", "delivery update",
+  "statement available", "marketing preferences",
+];
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -158,8 +169,30 @@ export function gmailMessageToKnowledge(
       from: from || null,
       to: to || null,
       email_date: date || null,
+      email_address: extractEmailAddress(from),
+      sender_name: extractSenderName(from),
+      body,
     },
   };
+}
+
+function extractEmailAddress(from: string): string {
+  const match = from.match(/<([^>]+)>/) || from.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return (match?.[1] || match?.[0] || "").toLowerCase().trim();
+}
+
+function extractSenderName(from: string): string | null {
+  const name = from.replace(/<[^>]+>/, "").replace(/^"|"$/g, "").trim();
+  return name && !name.includes("@") ? name : null;
+}
+
+export function isLikelyRealEstateLead(item: GoogleKnowledgeItem): boolean {
+  if (item.source !== "email") return false;
+  const email = String(item.metadata.email_address || "");
+  const content = `${item.title} ${item.content}`.toLowerCase();
+  if (!email || /^(no-?reply|notifications?|mailer-daemon)@/i.test(email)) return false;
+  if (NON_LEAD_TERMS.some((term) => content.includes(term))) return false;
+  return REAL_ESTATE_TERMS.some((term) => content.includes(term));
 }
 
 export function calendarEventToKnowledge(
@@ -307,7 +340,7 @@ async function fetchGmailItems(
     : null;
   listUrl.searchParams.set(
     "q",
-    `${after ? `after:${after}` : "newer_than:30d"} -category:spam -category:trash`,
+    `in:inbox ${after ? `after:${after}` : "newer_than:30d"} -category:promotions -category:social -category:spam -category:trash`,
   );
   const list = await googleJson<{
     messages?: Array<{ id?: string }>;
@@ -323,7 +356,81 @@ async function fetchGmailItems(
   );
   return messages
     .map((message) => (message ? gmailMessageToKnowledge(message) : null))
-    .filter((item): item is GoogleKnowledgeItem => Boolean(item));
+    .filter((item): item is GoogleKnowledgeItem => Boolean(item))
+    .filter(isLikelyRealEstateLead);
+}
+
+async function importGmailLeads(
+  admin: AdminClient,
+  orgId: string,
+  items: GoogleKnowledgeItem[],
+) {
+  let imported = 0;
+  let unchanged = 0;
+  for (const item of items) {
+    const { data: existingMessage } = await admin
+      .from("conversation_messages")
+      .select("id")
+      .eq("external_message_id", item.externalId)
+      .maybeSingle();
+    if (existingMessage) { unchanged += 1; continue; }
+
+    const email = String(item.metadata.email_address || "");
+    if (!email) continue;
+    let { data: lead } = await admin
+      .from("leads")
+      .select("id")
+      .eq("org_id", orgId)
+      .ilike("email", email)
+      .limit(1)
+      .maybeSingle();
+    if (!lead) {
+      const created = await admin.from("leads").insert({
+        org_id: orgId,
+        full_name: item.metadata.sender_name || null,
+        email,
+        source: "gmail",
+        status: "new",
+        stage: "new",
+        last_contact_at: new Date().toISOString(),
+        source_data: { gmail_thread_id: item.metadata.thread_id, subject: item.title },
+      }).select("id").single();
+      if (created.error || !created.data) throw new Error(`Gmail lead creation failed: ${created.error?.code}`);
+      lead = created.data;
+      await admin.from("lead_identities").insert({
+        org_id: orgId, lead_id: lead.id, channel: "email", email_normalized: email,
+      });
+    }
+
+    const threadId = String(item.metadata.thread_id || item.externalId);
+    let { data: conversation } = await admin.from("conversations").select("id")
+      .eq("org_id", orgId).eq("channel", "email")
+      .eq("external_conversation_id", threadId).limit(1).maybeSingle();
+    if (!conversation) {
+      const created = await admin.from("conversations").insert({
+        org_id: orgId, lead_id: lead.id, channel: "email",
+        external_conversation_id: threadId, status: "active", lead_stage: "new",
+        automation_mode: "paused", last_message_at: new Date().toISOString(),
+      }).select("id").single();
+      if (created.error || !created.data) throw new Error(`Gmail conversation creation failed: ${created.error?.code}`);
+      conversation = created.data;
+    }
+    const { error: messageError } = await admin.from("conversation_messages").insert({
+      conversation_id: conversation.id, role: "lead",
+      content: String(item.metadata.body || item.content), channel: "email",
+      external_message_id: item.externalId,
+      metadata: { subject: item.title, from: item.metadata.from, gmail_thread_id: threadId },
+    });
+    if (messageError) throw new Error(`Gmail message import failed: ${messageError.code}`);
+    await admin.from("conversations").update({
+      last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).eq("id", conversation.id);
+    imported += 1;
+  }
+  const { count } = await admin.from("conversation_messages")
+    .select("id,conversations!inner(org_id)", { count: "exact", head: true })
+    .eq("channel", "email").eq("conversations.org_id", orgId);
+  return { indexed: imported, unchanged, total: count || 0 };
 }
 
 async function fetchCalendarItems(
@@ -572,7 +679,7 @@ export async function syncGoogleKnowledge(
     fetchCalendarItems(credentials.access_token),
   ]);
   const [gmail, calendar] = await Promise.all([
-    indexGoogleItems(admin, orgId, userId, "email", gmailItems),
+    importGmailLeads(admin, orgId, gmailItems),
     indexGoogleItems(admin, orgId, userId, "calendar", calendarItems),
   ]);
   await Promise.all([
