@@ -1,209 +1,102 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Search, Phone, MessageCircle, Mail } from "lucide-react";
-import { LeadDetailPanel } from "@/components/lead-detail-panel";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Bot, Inbox, Mail, MessageCircle, Search } from "lucide-react";
 
-interface Lead {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  phone: string | null;
-  source: string;
-  status: string;
-  stage: string;
-  ai_score: number | null;
-  priority: string | null;
-  buyer_type: string | null;
-  notes: string | null;
-  last_contact_at: string | null;
-  last_activity_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+type Related<T> = T | T[] | null;
+type Person = { id: string; full_name: string | null; email: string | null; phone: string | null; priority?: string | null; stage?: string | null };
+type Listing = { id: string; address: string | null; status?: string | null };
+type Message = { id: string; direction_in_out: string; text: string | null; created_at: string; read_at: string | null };
+type Thread = {
+  id: string; lead_id: string | null; listing_id: string | null; enquiry_id: string | null;
+  channel: string; last_message_at: string | null; updated_at: string;
+  leads: Related<Person>; listings: Related<Listing>; unread_count: number; message_count: number;
+  latest_message: Message | null;
+};
+
+const one = <T,>(value: Related<T>): T | null => Array.isArray(value) ? value[0] || null : value;
+const channelLabel = (value: string) => value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+const shortTime = (value?: string | null) => value ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "";
 
 export default function InboxPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Lead | null>(null);
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [search, setSearch] = useState("");
+  const [channel, setChannel] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetch("/api/leads")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setLeads(data);
-        } else {
-          setLeads([]);
-        }
-      })
-      .catch(() => setLeads([]))
-      .finally(() => setLoading(false));
+  const loadThreads = useCallback(async () => {
+    try {
+      const response = await fetch("/api/conversations", { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not load conversations");
+      const data = await response.json();
+      setThreads(Array.isArray(data) ? data : []);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not load conversations");
+    } finally { setLoading(false); }
   }, []);
 
-  const filtered = leads.filter((l) =>
-    (l.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (l.email || "").toLowerCase().includes(search.toLowerCase()) ||
-    (l.phone || "").includes(search)
-  );
+  useEffect(() => { void loadThreads(); }, [loadThreads]);
 
-  const handleStageChange = async (leadId: string, stage: string) => {
+  const selectThread = useCallback(async (id: string) => {
+    setSelectedId(id); setLoadingMessages(true); setError("");
     try {
-      const res = await fetch(`/api/leads?id=${leadId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage, status: stage === "closed_won" ? "closed_won" : stage === "closed_lost" ? "closed_lost" : stage === "qualified" ? "qualified" : "contacted" }),
-      });
-      if (res.ok) {
-        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage } : l));
-        setSelected(prev => prev?.id === leadId ? { ...prev, stage } : prev);
-      }
-    } catch {
-      // silent fail
-    }
-  };
+      const response = await fetch(`/api/conversations/${id}/messages`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not load message history");
+      const data = await response.json();
+      setMessages(Array.isArray(data.messages) ? data.messages : []);
+      setThreads((current) => current.map((item) => item.id === id ? { ...item, unread_count: 0 } : item));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not load message history");
+    } finally { setLoadingMessages(false); }
+  }, []);
 
-  if (loading) {
-    return (
-      <div className="flex h-[calc(100vh-8rem)] -m-4 md:-m-6 lg:-m-8">
-        <div className="w-96 border-r border-border bg-card flex flex-col p-4">
-          <div className="h-10 bg-muted rounded-lg animate-pulse mb-4" />
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-20 bg-muted rounded-lg animate-pulse mb-2" />
-          ))}
-        </div>
-        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-          Loading inbox…
-        </div>
-      </div>
-    );
-  }
+  const selected = threads.find((item) => item.id === selectedId) || null;
+  const channels = useMemo(() => Array.from(new Set(threads.map((item) => item.channel))).sort(), [threads]);
+  const filtered = useMemo(() => threads.filter((thread) => {
+    const lead = one(thread.leads); const listing = one(thread.listings);
+    const haystack = `${lead?.full_name || ""} ${lead?.email || ""} ${lead?.phone || ""} ${listing?.address || ""} ${thread.latest_message?.text || ""}`.toLowerCase();
+    return (channel === "all" || thread.channel === channel) && haystack.includes(search.toLowerCase());
+  }), [channel, search, threads]);
+
+  const lead = selected ? one(selected.leads) : null;
+  const listing = selected ? one(selected.listings) : null;
+  const copilotParams = new URLSearchParams();
+  if (selected?.lead_id) copilotParams.set("lead_id", selected.lead_id);
+  if (selected?.listing_id) copilotParams.set("listing_id", selected.listing_id);
+  if (selected?.enquiry_id) copilotParams.set("enquiry_id", selected.enquiry_id);
+  if (selected?.id) copilotParams.set("conversation_id", selected.id);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] -m-4 md:-m-6 lg:-m-8">
-      {/* Lead list */}
-      <div className="w-96 border-r border-border bg-card flex flex-col flex-shrink-0">
-        <div className="p-4 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search leads…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">{filtered.length} lead{filtered.length !== 1 ? "s" : ""}</p>
+    <div className="flex h-[calc(100vh-8rem)] -m-4 overflow-hidden bg-background md:-m-6 lg:-m-8">
+      <aside className={`${selected ? "hidden md:flex" : "flex"} w-full flex-col border-r border-border bg-card md:w-[390px] md:flex-shrink-0`}>
+        <div className="border-b border-border p-4">
+          <div className="mb-3 flex items-center justify-between"><div><h1 className="font-semibold">Conversations</h1><p className="text-xs text-muted-foreground">{threads.reduce((sum, item) => sum + item.unread_count, 0)} unread</p></div><Inbox className="h-5 w-5 text-primary" /></div>
+          <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input aria-label="Search conversations" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search people, property, messages…" className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1"><button onClick={() => setChannel("all")} className={`rounded-full px-3 py-1 text-xs ${channel === "all" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>All</button>{channels.map((item) => <button key={item} onClick={() => setChannel(item)} className={`whitespace-nowrap rounded-full px-3 py-1 text-xs ${channel === item ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{channelLabel(item)}</button>)}</div>
         </div>
-
-        <div className="flex-1 overflow-auto">
-          {filtered.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">
-              {search ? "No leads match your search." : "No leads yet. Add your first lead to get started."}
-            </div>
-          ) : (
-            filtered.map((lead) => (
-              <div
-                key={lead.id}
-                onClick={() => setSelected(lead)}
-                className={
-                  "p-4 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors " +
-                  (selected?.id === lead.id ? "bg-muted" : "")
-                }
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs flex-shrink-0">
-                      {(lead.full_name || "?")[0].toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {lead.full_name || "Unknown"}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {lead.email || "No contact"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 ml-2 flex-shrink-0">
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Date(lead.created_at).toLocaleDateString()}
-                    </span>
-                    {lead.ai_score != null && (
-                      <span className={
-                        "text-[10px] font-bold " +
-                        (lead.ai_score >= 70 ? "text-red-500" : lead.ai_score >= 40 ? "text-amber-500" : "text-muted-foreground")
-                      }>
-                        {lead.ai_score}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-[10px] text-muted-foreground">
-                    {lead.source} · <span className="capitalize">{lead.stage.replace("_", " ")}</span>
-                  </p>
-                  <div className="flex items-center gap-0.5">
-                    {lead.phone && (
-                      <a
-                        href={`tel:${lead.phone}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1 rounded text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                        title="Call"
-                      >
-                        <Phone className="w-3 h-3" />
-                      </a>
-                    )}
-                    {lead.phone && (
-                      <a
-                        href={`sms:${lead.phone}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1 rounded text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                        title="Text"
-                      >
-                        <MessageCircle className="w-3 h-3" />
-                      </a>
-                    )}
-                    {lead.email && (
-                      <a
-                        href={`mailto:${lead.email}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1 rounded text-muted-foreground hover:text-purple-600 hover:bg-purple-50 transition-colors"
-                        title="Email"
-                      >
-                        <Mail className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading conversations…</div> : filtered.length === 0 ? <div className="p-8 text-center text-sm text-muted-foreground">No conversations match this view.</div> : filtered.map((thread) => {
+            const person = one(thread.leads); const property = one(thread.listings);
+            return <button key={thread.id} onClick={() => void selectThread(thread.id)} className={`w-full border-b border-border p-4 text-left transition-colors hover:bg-muted/60 ${selectedId === thread.id ? "bg-muted" : ""}`}>
+              <div className="flex items-start gap-3"><div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{(person?.full_name || "?")[0].toUpperCase()}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{person?.full_name || person?.email || "Unknown client"}</span><span className="whitespace-nowrap text-[10px] text-muted-foreground">{shortTime(thread.latest_message?.created_at || thread.last_message_at)}</span></div><p className="truncate text-xs text-muted-foreground">{property?.address || channelLabel(thread.channel)}</p><div className="mt-1 flex items-center gap-2"><p className={`flex-1 truncate text-xs ${thread.unread_count ? "font-medium text-foreground" : "text-muted-foreground"}`}>{thread.latest_message?.direction_in_out === "out" ? "You: " : ""}{thread.latest_message?.text || "No messages yet"}</p>{thread.unread_count > 0 && <span className="min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[10px] font-bold text-primary-foreground">{thread.unread_count}</span>}</div></div></div>
+            </button>;
+          })}
         </div>
-      </div>
+      </aside>
 
-      {/* Detail panel */}
-      <div className="flex-1 bg-background overflow-hidden">
-        {selected ? (
-          <LeadDetailPanel
-            lead={selected}
-            onClose={() => setSelected(null)}
-            onStageChange={handleStageChange}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Search className="w-7 h-7 text-muted-foreground/50" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-1">Select a lead</h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              Choose a lead from the list to view their details, stage, and draft an AI reply.
-            </p>
-          </div>
-        )}
-      </div>
+      <main className={`${selected ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col`}>
+        {!selected ? <div className="flex h-full flex-col items-center justify-center p-8 text-center"><MessageCircle className="mb-4 h-12 w-12 text-muted-foreground/40" /><h2 className="font-semibold">Select a conversation</h2><p className="mt-1 max-w-sm text-sm text-muted-foreground">View the complete client and property message history in one place.</p></div> : <>
+          <header className="flex items-center gap-3 border-b border-border bg-card px-4 py-3"><button onClick={() => { setSelectedId(null); setMessages([]); }} className="rounded-md p-2 hover:bg-muted md:hidden" aria-label="Back to conversations"><ArrowLeft className="h-4 w-4" /></button><div className="min-w-0 flex-1"><h2 className="truncate font-semibold">{lead?.full_name || lead?.email || "Unknown client"}</h2><p className="truncate text-xs text-muted-foreground">{channelLabel(selected.channel)}{listing?.address ? ` · ${listing.address}` : ""}</p></div><Link href={`/copilot?${copilotParams.toString()}`} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"><Bot className="h-4 w-4" /><span className="hidden sm:inline">Open Clippy</span></Link></header>
+          <section className="flex-1 overflow-y-auto p-4 md:p-6">{loadingMessages ? <div className="text-center text-sm text-muted-foreground">Loading message history…</div> : messages.length === 0 ? <div className="text-center text-sm text-muted-foreground">No messages in this conversation yet.</div> : <div className="mx-auto flex max-w-3xl flex-col gap-3">{messages.map((message) => <div key={message.id} className={`flex ${message.direction_in_out === "out" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${message.direction_in_out === "out" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md border border-border bg-card"}`}><p className="whitespace-pre-wrap break-words">{message.text || "(No text content)"}</p><p className={`mt-1 text-[10px] ${message.direction_in_out === "out" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{shortTime(message.created_at)}</p></div></div>)}</div>}</section>
+          <footer className="border-t border-border bg-card p-4"><div className="mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-3"><div className="min-w-0"><p className="text-sm font-medium">Draft safely with Clippy</p><p className="truncate text-xs text-muted-foreground">Sending stays approval-only while channel connections are repaired.</p></div><div className="flex gap-2">{lead?.email && <a href={`mailto:${lead.email}`} className="rounded-md border border-border bg-background p-2" aria-label="Open email"><Mail className="h-4 w-4" /></a>}<Link href={`/copilot?${copilotParams.toString()}`} className="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">Draft reply</Link></div></div></footer>
+        </>}
+        {error && <div className="absolute bottom-4 right-4 rounded-lg bg-destructive px-4 py-2 text-sm text-destructive-foreground shadow-lg">{error}</div>}
+      </main>
     </div>
   );
 }

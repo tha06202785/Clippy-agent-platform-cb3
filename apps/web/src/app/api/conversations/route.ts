@@ -40,16 +40,56 @@ export async function GET(req: NextRequest) {
       .single();
     if (!orgMember) return NextResponse.json([]);
 
-    const { data: conversations } = await supabase
+    const { data: conversations, error: conversationsError } = await supabase
       .from("conversations")
       .select(
-        "*, leads(id,full_name,email,phone), listings(id,address,status), property_enquiries(id,status,source,last_activity_at)",
+        "id,lead_id,listing_id,enquiry_id,channel,created_at,last_message_at,updated_at,leads(id,full_name,email,phone,priority,stage),listings(id,address,status),property_enquiries(id,status,source,last_activity_at)",
       )
       .eq("org_id", orgMember.org_id)
-      .order("updated_at", { ascending: false })
-      .limit(50);
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(100);
+    if (conversationsError) throw conversationsError;
 
-    return NextResponse.json(conversations || []);
+    const conversationIds = (conversations || []).map((item) => item.id);
+    const { data: messages, error: messagesError } = conversationIds.length
+      ? await supabase
+          .from("messages")
+          .select("id,conversation_id,direction_in_out,text,created_at,read_at")
+          .eq("org_id", orgMember.org_id)
+          .in("conversation_id", conversationIds)
+          .order("created_at", { ascending: false })
+          .limit(5000)
+      : { data: [], error: null };
+    if (messagesError) throw messagesError;
+
+    const summaries = new Map<
+      string,
+      { latest_message: unknown; unread_count: number; message_count: number }
+    >();
+    for (const message of messages || []) {
+      const summary = summaries.get(message.conversation_id) || {
+        latest_message: null,
+        unread_count: 0,
+        message_count: 0,
+      };
+      if (!summary.latest_message) summary.latest_message = message;
+      summary.message_count += 1;
+      if (message.direction_in_out === "in" && !message.read_at) {
+        summary.unread_count += 1;
+      }
+      summaries.set(message.conversation_id, summary);
+    }
+
+    return NextResponse.json(
+      (conversations || []).map((conversation) => ({
+        ...conversation,
+        ...(summaries.get(conversation.id) || {
+          latest_message: null,
+          unread_count: 0,
+          message_count: 0,
+        }),
+      })),
+    );
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

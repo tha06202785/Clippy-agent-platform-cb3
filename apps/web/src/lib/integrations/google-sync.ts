@@ -369,9 +369,11 @@ async function importGmailLeads(
   let unchanged = 0;
   for (const item of items) {
     const { data: existingMessage } = await admin
-      .from("conversation_messages")
+      .from("messages")
       .select("id")
-      .eq("external_message_id", item.externalId)
+      .eq("org_id", orgId)
+      .contains("raw_json", { external_message_id: item.externalId })
+      .limit(1)
       .maybeSingle();
     if (existingMessage) { unchanged += 1; continue; }
 
@@ -405,21 +407,19 @@ async function importGmailLeads(
     const threadId = String(item.metadata.thread_id || item.externalId);
     let { data: conversation } = await admin.from("conversations").select("id")
       .eq("org_id", orgId).eq("channel", "email")
-      .eq("external_conversation_id", threadId).limit(1).maybeSingle();
+      .eq("external_thread_id", threadId).limit(1).maybeSingle();
     if (!conversation) {
       const created = await admin.from("conversations").insert({
         org_id: orgId, lead_id: lead.id, channel: "email",
-        external_conversation_id: threadId, status: "active", lead_stage: "new",
-        automation_mode: "paused", last_message_at: new Date().toISOString(),
+        external_thread_id: threadId, last_message_at: new Date().toISOString(),
       }).select("id").single();
       if (created.error || !created.data) throw new Error(`Gmail conversation creation failed: ${created.error?.code}`);
       conversation = created.data;
     }
-    const { error: messageError } = await admin.from("conversation_messages").insert({
-      conversation_id: conversation.id, role: "lead",
-      content: String(item.metadata.body || item.content), channel: "email",
-      external_message_id: item.externalId,
-      metadata: { subject: item.title, from: item.metadata.from, gmail_thread_id: threadId },
+    const { error: messageError } = await admin.from("messages").insert({
+      org_id: orgId, conversation_id: conversation.id, direction_in_out: "in",
+      text: String(item.metadata.body || item.content), read_at: null,
+      raw_json: { channel: "email", external_message_id: item.externalId, subject: item.title, from: item.metadata.from, gmail_thread_id: threadId },
     });
     if (messageError) throw new Error(`Gmail message import failed: ${messageError.code}`);
     await admin.from("conversations").update({
@@ -427,9 +427,9 @@ async function importGmailLeads(
     }).eq("id", conversation.id);
     imported += 1;
   }
-  const { count } = await admin.from("conversation_messages")
-    .select("id,conversations!inner(org_id)", { count: "exact", head: true })
-    .eq("channel", "email").eq("conversations.org_id", orgId);
+  const { count } = await admin.from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", orgId).contains("raw_json", { channel: "email" });
   return { indexed: imported, unchanged, total: count || 0 };
 }
 
