@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     });
     const tokens = await tokenResponse.json();
     if (!tokenResponse.ok) return NextResponse.redirect(new URL("/integrations?error=token_exchange_failed", origin));
+    tokens.expires_at = Date.now() + (tokens.expires_in || 3600) * 1000;
 
     const supabase = await createClient();
     await supabase.from("integrations").upsert({
