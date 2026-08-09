@@ -1,143 +1,342 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import {
+  buildDashboardRecommendations,
+  calculateMessagePerformance,
+  getDashboardWindow,
+  type DashboardLead,
+  type DashboardMessage,
+} from "@/lib/dashboard-intelligence";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function requireResult(
+  label: string,
+  result: { error?: { message?: string } | null },
+) {
+  if (result.error) {
+    throw new Error(`${label}: ${result.error.message || "query failed"}`);
+  }
+}
+
+export async function GET(request: Request) {
+  const startedAt = Date.now();
+  const requestId = request.headers.get("x-vercel-id");
+  const json = (body: unknown, init?: ResponseInit) => {
+    const durationMs = Date.now() - startedAt;
+    const response = NextResponse.json(body, init);
+    response.headers.set("Server-Timing", `dashboard;dur=${durationMs}`);
+    console.log(
+      JSON.stringify({
+        level: "info",
+        message: "Principal dashboard completed",
+        route: "/api/principal/dashboard",
+        request_id: requestId,
+        status: init?.status || 200,
+        duration_ms: durationMs,
+        vercel_region: process.env.VERCEL_REGION || null,
+      }),
+    );
+    return response;
+  };
+
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return json(
+      { error: "Dashboard data is unavailable in this environment" },
+      { status: 503 },
+    );
+  }
+
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    const { data: orgMember } = await supabase
-      .from("user_org_roles").select("org_id").eq("user_id", user.id).single();
-    if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
-
-    const orgId = orgMember.org_id;
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const thisWeek = new Date(today);
-    thisWeek.setDate(thisWeek.getDate() - 7);
-
-    // Today's activity
-    const { data: todayConversations } = await supabase
-      .from("conversations").select("id, lead_stage")
-      .eq("org_id", orgId).gte("last_message_at", today.toISOString());
-
-    const { data: todayMessages } = await supabase
-      .from("conversation_messages").select("id, role")
-      .gte("created_at", today.toISOString());
-
-    const { data: todayLeads } = await supabase
-      .from("leads").select("id, stage, ai_score")
-      .eq("org_id", orgId).gte("created_at", today.toISOString());
-
-    const { data: todayInspections } = await supabase
-      .from("inspection_bookings").select("id, booking_status")
-      .eq("org_id", orgId).gte("created_at", today.toISOString());
-
-    const { data: todayApplications } = await supabase
-      .from("rental_applications").select("id, status")
-      .eq("org_id", orgId).gte("created_at", today.toISOString());
-
-    const { data: todayEscalations } = await supabase
-      .from("escalations").select("id, severity")
-      .eq("org_id", orgId).gte("created_at", today.toISOString())
-      .eq("status", "pending");
-
-    // Weekly metrics
-    const { data: weekLeads } = await supabase
-      .from("leads").select("id, stage, ai_score")
-      .eq("org_id", orgId).gte("created_at", thisWeek.toISOString());
-
-    const { data: weekInspections } = await supabase
-      .from("inspection_bookings").select("id, booking_status, attendance_status")
-      .eq("org_id", orgId).gte("created_at", thisWeek.toISOString());
-
-    const { data: weekApplications } = await supabase
-      .from("rental_applications").select("id, status")
-      .eq("org_id", orgId).gte("created_at", thisWeek.toISOString());
-
-    // Pipeline
-    const { data: hotLeads } = await supabase
-      .from("leads").select("id, ai_score")
-      .eq("org_id", orgId).eq("stage", "hot");
-
-    const { data: warmLeads } = await supabase
-      .from("leads").select("id, ai_score")
-      .eq("org_id", orgId).eq("stage", "warm");
-
-    const { data: allLeads } = await supabase
-      .from("leads").select("id, stage, ai_score")
-      .eq("org_id", orgId);
-
-    // Response time
-    const { data: recentMessages } = await supabase
-      .from("conversation_messages").select("created_at, role, conversation_id")
-      .order("created_at", { ascending: false }).limit(100);
-
-    let totalResponseTime = 0;
-    let responseCount = 0;
-    if (recentMessages) {
-      for (let i = 0; i < recentMessages.length - 1; i++) {
-        if (recentMessages[i].role === "ai" && recentMessages[i + 1]?.role === "lead") {
-          const timeDiff = new Date(recentMessages[i].created_at).getTime() - new Date(recentMessages[i + 1].created_at).getTime();
-          if (timeDiff > 0 && timeDiff < 300000) {
-            totalResponseTime += timeDiff;
-            responseCount++;
-          }
-        }
-      }
-    }
-    const avgResponseTime = responseCount > 0 ? Math.round(totalResponseTime / responseCount / 1000) : 0;
-
-    // Lead stage breakdown
-    const byStage: Record<string, number> = {};
-    if (allLeads) {
-      for (const lead of allLeads) {
-        const stage = lead.stage || "unknown";
-        byStage[stage] = (byStage[stage] || 0) + 1;
-      }
+    if (authError || !user) {
+      return json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return NextResponse.json({
+    const { data: membership, error: membershipError } = await supabase
+      .from("user_org_roles")
+      .select("org_id, role")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (membershipError || !membership?.org_id) {
+      return json(
+        { error: "No organisation membership found" },
+        { status: 403 },
+      );
+    }
+
+    const orgId = membership.org_id;
+    const reportingWindow = getDashboardWindow();
+    const todayIso = reportingWindow.today.toISOString();
+    const weekIso = reportingWindow.week.toISOString();
+    const nowIso = reportingWindow.now.toISOString();
+
+    const [
+      profileResult,
+      orgResult,
+      todayMessagesResult,
+      todayDeliveriesResult,
+      todayLeadsResult,
+      hotLeadsResult,
+      warmLeadsCountResult,
+      totalLeadsCountResult,
+      weekLeadsCountResult,
+      pendingTasksResult,
+      dueTasksResult,
+      urgentTasksResult,
+      inspectionTasksResult,
+      activityResult,
+    ] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("orgs")
+        .select("id, name, timezone")
+        .eq("id", orgId)
+        .maybeSingle(),
+      supabase
+        .from("messages")
+        .select("conversation_id, direction_in_out, created_at")
+        .eq("org_id", orgId)
+        .gte("created_at", todayIso)
+        .order("created_at", { ascending: true })
+        .limit(1000),
+      supabase
+        .from("message_deliveries")
+        .select(
+          "id, direction, status, provider_message_id, sent_at, delivered_at, created_at",
+        )
+        .eq("org_id", orgId)
+        .gte("created_at", todayIso)
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("leads")
+        .select("id, full_name, stage, ai_score, created_at, last_activity_at")
+        .eq("org_id", orgId)
+        .gte("created_at", todayIso)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("leads")
+        .select("id, full_name, stage, ai_score, created_at, last_activity_at")
+        .eq("org_id", orgId)
+        .eq("stage", "hot")
+        .order("ai_score", { ascending: false })
+        .limit(20),
+      supabase
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("stage", "warm"),
+      supabase
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId),
+      supabase
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .gte("created_at", weekIso),
+      supabase
+        .from("tasks")
+        .select("id, type, title, due_at, status, lead_id")
+        .eq("org_id", orgId)
+        .eq("status", "pending")
+        .order("due_at", { ascending: true })
+        .limit(200),
+      supabase
+        .from("tasks")
+        .select("id, type, title, due_at, status, lead_id")
+        .eq("org_id", orgId)
+        .eq("status", "pending")
+        .lte("due_at", nowIso)
+        .order("due_at", { ascending: true })
+        .limit(100),
+      supabase
+        .from("tasks")
+        .select("id")
+        .eq("org_id", orgId)
+        .eq("status", "pending")
+        .eq("type", "urgent_follow_up")
+        .limit(100),
+      supabase
+        .from("tasks")
+        .select("id")
+        .eq("org_id", orgId)
+        .eq("status", "pending")
+        .in("type", ["schedule_inspection", "schedule_showing"])
+        .limit(100),
+      supabase
+        .from("clippy_activity_log")
+        .select(
+          "id, action, category, title, description, impact_summary, completed_at",
+        )
+        .eq("org_id", orgId)
+        .not("completed_at", "is", null)
+        .gte("completed_at", todayIso)
+        .order("completed_at", { ascending: false })
+        .limit(8),
+    ]);
+
+    const coreResults: Array<[string, { error?: { message?: string } | null }]> =
+      [
+        ["Profile", profileResult],
+        ["Organisation", orgResult],
+        ["Messages", todayMessagesResult],
+        ["Message deliveries", todayDeliveriesResult],
+        ["New leads", todayLeadsResult],
+        ["Hot leads", hotLeadsResult],
+        ["Warm leads", warmLeadsCountResult],
+        ["Total leads", totalLeadsCountResult],
+        ["Weekly leads", weekLeadsCountResult],
+        ["Pending tasks", pendingTasksResult],
+        ["Due tasks", dueTasksResult],
+        ["Urgent tasks", urgentTasksResult],
+        ["Inspection tasks", inspectionTasksResult],
+      ];
+    for (const [label, result] of coreResults) requireResult(label, result);
+
+    const messages = (todayMessagesResult.data || []).map((message) => ({
+      conversation_id: message.conversation_id,
+      role: message.direction_in_out === "in" ? "lead" : "agent",
+      created_at: message.created_at,
+    })) as DashboardMessage[];
+    const performance = calculateMessagePerformance(messages);
+    const hotLeads = (hotLeadsResult.data || []) as DashboardLead[];
+    const urgentTasks = urgentTasksResult.data?.length || 0;
+    const dueTasks = dueTasksResult.data?.length || 0;
+    const pendingInspectionTasks = inspectionTasksResult.data?.length || 0;
+    const newLeadsToday = todayLeadsResult.data?.length || 0;
+    const activityAvailable = !activityResult.error;
+    const activity = activityAvailable ? activityResult.data || [] : null;
+
+    if (activityResult.error) {
+      console.warn("Dashboard activity evidence unavailable", {
+        orgId,
+        message: activityResult.error.message,
+      });
+    }
+
+    const verifiedOutboundDeliveries = (
+      todayDeliveriesResult.data || []
+    ).filter(
+      (delivery) =>
+        ["out", "outbound"].includes(delivery.direction || "") &&
+        ["sent", "delivered", "read"].includes(delivery.status || "") &&
+        Boolean(
+          delivery.provider_message_id ||
+            delivery.sent_at ||
+            delivery.delivered_at,
+        ),
+    ).length;
+
+    const verifiedActivityCount = activity?.length ?? null;
+    const clippyState = !activityAvailable
+      ? "evidence_unavailable"
+      : verifiedActivityCount && verifiedActivityCount > 0
+        ? "evidenced"
+        : "no_evidence";
+
+    const recommendations = buildDashboardRecommendations({
+      urgentTasks,
+      dueTasks,
+      hotLeads,
+      pendingInspectionTasks,
+      newLeadsToday,
+    });
+
+    return json({
+      generated_at: nowIso,
+      reporting_time_zone: orgResult.data?.timezone || "Australia/Melbourne",
+      viewer: {
+        name:
+          text(profileResult.data?.full_name) ??
+          text(user.user_metadata?.full_name) ??
+          text(user.user_metadata?.name) ??
+          user.email?.split("@")[0] ??
+          "Agent",
+        role: membership.role ?? "agent",
+        agency_name: orgResult.data?.name ?? null,
+      },
+      clippy: {
+        state: clippyState,
+        headline:
+          clippyState === "evidence_unavailable"
+            ? "Clippy’s activity evidence is unavailable"
+            : clippyState === "evidenced"
+              ? `${verifiedActivityCount} verified ${
+                  verifiedActivityCount === 1 ? "action" : "actions"
+                } completed today`
+              : "No completed Clippy actions are recorded today",
+        recommendations,
+        completed: {
+          verified_outbound_deliveries: verifiedOutboundDeliveries,
+          outbound_messages_recorded:
+            performance.outbound_messages_recorded,
+          verified_activity_count: verifiedActivityCount,
+          recent_activity: activity,
+        },
+      },
       now: {
-        conversations_active: todayConversations?.length || 0,
-        messages_today: todayMessages?.length || 0,
-        ai_messages: todayMessages?.filter(m => m.role === "ai").length || 0,
-        lead_messages: todayMessages?.filter(m => m.role === "lead").length || 0,
-        new_leads_today: todayLeads?.length || 0,
-        inspections_booked_today: todayInspections?.filter(i => i.booking_status === "confirmed").length || 0,
-        applications_started_today: todayApplications?.filter(a => a.status !== "not_started").length || 0,
-        pending_escalations: todayEscalations?.length || 0,
+        conversations_active: new Set(
+          messages.map((message) => message.conversation_id),
+        ).size,
+        new_leads_today: newLeadsToday,
+        urgent_tasks: urgentTasks,
+        due_tasks: dueTasks,
+        pending_tasks: pendingTasksResult.data?.length || 0,
+        pending_inspection_tasks: pendingInspectionTasks,
       },
       week: {
-        new_leads: weekLeads?.length || 0,
-        inspections_booked: weekInspections?.filter(i => i.booking_status === "confirmed").length || 0,
-        inspections_attended: weekInspections?.filter(i => i.attendance_status === "attended").length || 0,
-        inspections_no_show: weekInspections?.filter(i => i.attendance_status === "did_not_attend").length || 0,
-        applications_submitted: weekApplications?.filter(a => ["submitted","under_review","approved"].includes(a.status)).length || 0,
-        applications_approved: weekApplications?.filter(a => a.status === "approved").length || 0,
+        new_leads: weekLeadsCountResult.count ?? 0,
       },
       pipeline: {
-        hot_leads: hotLeads?.length || 0,
-        warm_leads: warmLeads?.length || 0,
-        total_leads: allLeads?.length || 0,
-        estimated_commission: ((hotLeads?.length || 0) * 15000) + ((warmLeads?.length || 0) * 5000),
-        by_stage: byStage,
+        hot_leads: hotLeads.length,
+        warm_leads: warmLeadsCountResult.count ?? 0,
+        total_leads: totalLeadsCountResult.count ?? 0,
       },
-      performance: {
-        avg_response_time_seconds: avgResponseTime,
-        response_rate: responseCount > 0 ? Math.round((responseCount / (todayMessages?.filter(m => m.role === "lead").length || 1)) * 100) : 0,
-        ai_handled_percent: todayMessages && todayMessages.length > 0
-          ? Math.round(((todayMessages.filter(m => m.role === "ai").length || 0) / todayMessages.length) * 100)
-          : 0,
+      performance,
+      data_quality: {
+        activity_log_available: activityAvailable,
+        delivery_evidence_available: true,
+        message_scope: "organisation_id",
+        inspection_bookings_available: false,
+        rental_applications_available: false,
       },
     });
-  } catch (error: any) {
-    console.error("Principal dashboard error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        message: "Principal dashboard failed",
+        route: "/api/principal/dashboard",
+        request_id: requestId,
+        error: error instanceof Error ? error.message : String(error),
+        duration_ms: Date.now() - startedAt,
+        vercel_region: process.env.VERCEL_REGION || null,
+      }),
+    );
+    return json(
+      { error: "Unable to load today’s operations" },
+      { status: 500 },
+    );
   }
 }

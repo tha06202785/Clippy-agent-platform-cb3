@@ -1,103 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { updateListingSchema, validate } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  // Rate limit check
-  const ip = await getClientIp();
-  const { allowed, remaining, resetAt } = checkRateLimit(ip, "listings");
-  if (!allowed) {
-    return NextResponse.json(
-      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
-      {
-        status: 429,
-        headers: {
-          "X-RateLimit-Remaining": String(remaining),
-          "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
-        },
-      }
-    );
-  }
+async function authOrg() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { supabase, orgId: null };
+  const { data, error } = await supabase.from("user_org_roles").select("org_id").eq("user_id", user.id).limit(1).maybeSingle();
+  if (error) throw error;
+  return { supabase, orgId: data?.org_id || null };
+}
 
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: listing, error } = await supabase
-      .from("listings")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !listing) {
-      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(listing);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { supabase, orgId } = await authOrg();
+    if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { data, error } = await supabase.from("listings").select("*").eq("id", id).eq("org_id", orgId).maybeSingle();
+    if (error) throw error;
+    if (!data) return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Listing lookup failed", error);
+    return NextResponse.json({ error: "Listing is unavailable" }, { status: 500 });
   }
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const { data: updated, error } = await supabase
-      .from("listings")
-      .update(body)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json(updated);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { supabase, orgId } = await authOrg();
+    if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const validation = validate(updateListingSchema, await req.json());
+    if (!validation.success || !validation.data) return NextResponse.json({ error: validation.error }, { status: 400 });
+    const { data, error } = await supabase.from("listings").update(validation.data)
+      .eq("id", id).eq("org_id", orgId).select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Listing update failed", error);
+    return NextResponse.json({ error: "Listing could not be updated" }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { error } = await supabase.from("listings").delete().eq("id", id);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
+    const { supabase, orgId } = await authOrg();
+    if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { error } = await supabase.from("listings").delete().eq("id", id).eq("org_id", orgId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error("Listing deletion failed", error);
+    return NextResponse.json({ error: "Listing could not be deleted" }, { status: 500 });
   }
 }

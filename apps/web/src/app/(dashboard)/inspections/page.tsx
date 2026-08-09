@@ -16,6 +16,7 @@ export default function InspectionsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/inspection-bookings")
@@ -26,20 +27,32 @@ export default function InspectionsPage() {
   }, []);
 
   const updateAttendance = async (id: string, status: string) => {
-    await fetch("/api/inspection-bookings?id=" + id, {
+    setError(null);
+    const response = await fetch("/api/inspection-bookings?id=" + id, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ attendance_status: status }),
     });
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, attendance_status: status } : b));
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(data.error || "Attendance could not be updated.");
+      return;
+    }
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, attendance_status: data.attendance_status } : b));
   };
 
   const cancelBooking = async (id: string) => {
-    await fetch("/api/inspection-bookings/" + id + "/cancel", {
+    setError(null);
+    const response = await fetch("/api/inspection-bookings/" + id + "/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason: "cancelled_by_agent" }),
     });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(data.error || "Inspection could not be cancelled.");
+      return;
+    }
     setBookings(prev => prev.map(b => b.id === id ? { ...b, booking_status: "cancelled" } : b));
   };
 
@@ -71,6 +84,8 @@ export default function InspectionsPage() {
           </select>
         </div>
       </div>
+
+      {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       {bookings.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-12 text-center">

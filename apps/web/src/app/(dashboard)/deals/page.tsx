@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Home, Plus, TrendingUp, Clock, DollarSign, User,
   ChevronRight, MoreHorizontal, Sparkles, AlertCircle
@@ -18,6 +18,36 @@ interface Deal {
   created_at: string;
   stage?: string;
   lead_name?: string;
+}
+
+interface DealForm {
+  address: string;
+  price: string;
+  stage: string;
+  bedrooms: string;
+  bathrooms: string;
+}
+
+const EMPTY_DEAL_FORM: DealForm = {
+  address: "",
+  price: "",
+  stage: "inquiry",
+  bedrooms: "",
+  bathrooms: "",
+};
+
+function toDeal(listing: any): Deal {
+  return {
+    id: listing.id,
+    address: listing.address,
+    price: listing.price == null ? null : String(listing.price),
+    bedrooms: listing.bedrooms ?? null,
+    bathrooms: listing.bathrooms ?? null,
+    status: listing.status || "active",
+    property_type: listing.property_type ?? null,
+    created_at: listing.created_at,
+    stage: listing.stage || "inquiry",
+  };
 }
 
 const STAGES = [
@@ -52,23 +82,16 @@ export default function DealsPage() {
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [activeStage, setActiveStage] = useState<string | null>(null);
   const [showAddDeal, setShowAddDeal] = useState(false);
+  const [dealForm, setDealForm] = useState<DealForm>(EMPTY_DEAL_FORM);
+  const [dealError, setDealError] = useState<string | null>(null);
+  const [creatingDeal, setCreatingDeal] = useState(false);
 
   useEffect(() => {
     fetch("/api/listings")
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setDeals(data.map((l: any) => ({
-            id: l.id,
-            address: l.address,
-            price: l.price,
-            bedrooms: l.bedrooms,
-            bathrooms: l.bathrooms,
-            status: l.status || "active",
-            property_type: l.property_type,
-            created_at: l.created_at,
-            stage: l.stage || "inquiry",
-          })));
+          setDeals(data.map(toDeal));
         } else {
           setDeals([]);
         }
@@ -87,6 +110,44 @@ export default function DealsPage() {
     const num = parseFloat((d.price || "0").replace(/[^0-9.]/g, ""));
     return sum + (isNaN(num) ? 0 : num);
   }, 0);
+
+  const handleCreateDeal = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setDealError(null);
+
+    if (!dealForm.address.trim()) {
+      setDealError("Property address is required.");
+      return;
+    }
+
+    setCreatingDeal(true);
+    try {
+      const response = await fetch("/api/listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: dealForm.address.trim(),
+          price: dealForm.price.replace(/[$,\s]/g, "") || undefined,
+          stage: dealForm.stage,
+          status: "active",
+          bedrooms: dealForm.bedrooms ? Number(dealForm.bedrooms) : undefined,
+          bathrooms: dealForm.bathrooms ? Number(dealForm.bathrooms) : undefined,
+        }),
+      });
+      const created = await response.json();
+      if (!response.ok) {
+        throw new Error(created.error || "Deal could not be created.");
+      }
+
+      setDeals((current) => [toDeal(created), ...current]);
+      setDealForm(EMPTY_DEAL_FORM);
+      setShowAddDeal(false);
+    } catch (error) {
+      setDealError(error instanceof Error ? error.message : "Deal could not be created.");
+    } finally {
+      setCreatingDeal(false);
+    }
+  };
 
   const handleStageMove = async (dealId: string, newStage: string) => {
     try {
@@ -298,19 +359,25 @@ export default function DealsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAddDeal(false)}>
           <div className="bg-card rounded-xl border border-border p-6 w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-foreground mb-4">Add New Deal</h3>
-            <div className="space-y-3">
+            <form className="space-y-3" onSubmit={handleCreateDeal}>
               <div>
-                <label className="text-xs text-muted-foreground">Property Address</label>
-                <input type="text" placeholder="123 Example St" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                <label className="text-xs text-muted-foreground" htmlFor="deal-address">Property Address</label>
+                <input id="deal-address" type="text" placeholder="123 Example St" value={dealForm.address}
+                  onChange={(event) => setDealForm((current) => ({ ...current, address: event.target.value }))}
+                  className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground">Price</label>
-                  <input type="text" placeholder="50,000" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                  <label className="text-xs text-muted-foreground" htmlFor="deal-price">Price</label>
+                  <input id="deal-price" type="text" placeholder="500,000" value={dealForm.price}
+                    onChange={(event) => setDealForm((current) => ({ ...current, price: event.target.value }))}
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Stage</label>
-                  <select className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm">
+                  <label className="text-xs text-muted-foreground" htmlFor="deal-stage">Stage</label>
+                  <select id="deal-stage" value={dealForm.stage}
+                    onChange={(event) => setDealForm((current) => ({ ...current, stage: event.target.value }))}
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm">
                     <option value="inquiry">New Inquiry</option>
                     <option value="contacted">Contacted</option>
                     <option value="qualified">Qualified</option>
@@ -321,25 +388,32 @@ export default function DealsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground">Bedrooms</label>
-                  <input type="number" placeholder="3" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                  <label className="text-xs text-muted-foreground" htmlFor="deal-bedrooms">Bedrooms</label>
+                  <input id="deal-bedrooms" type="number" min="1" placeholder="3" value={dealForm.bedrooms}
+                    onChange={(event) => setDealForm((current) => ({ ...current, bedrooms: event.target.value }))}
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Bathrooms</label>
-                  <input type="number" placeholder="2" className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                  <label className="text-xs text-muted-foreground" htmlFor="deal-bathrooms">Bathrooms</label>
+                  <input id="deal-bathrooms" type="number" min="1" placeholder="2" value={dealForm.bathrooms}
+                    onChange={(event) => setDealForm((current) => ({ ...current, bathrooms: event.target.value }))}
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
                 </div>
               </div>
+              {dealError && (
+                <p className="text-sm text-red-600" role="alert">{dealError}</p>
+              )}
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowAddDeal(false)}
+                <button type="button" onClick={() => { setDealError(null); setShowAddDeal(false); }}
                   className="flex-1 px-4 py-2.5 rounded-xl border border-input text-sm font-semibold text-foreground hover:bg-muted transition-colors">
                   Cancel
                 </button>
-                <button onClick={() => setShowAddDeal(false)}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-                  Create Deal
+                <button type="submit" disabled={creatingDeal}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                  {creatingDeal ? "Creating…" : "Create Deal"}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

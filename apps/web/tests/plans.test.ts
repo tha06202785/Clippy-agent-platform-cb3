@@ -1,24 +1,35 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import { getPublicBillingCatalog } from "@/lib/billing";
 
-const BASE_URL = "http://localhost:3000";
-
-describe("Subscription Plans API", () => {
-  it("should return list of plans", async () => {
-    const response = await fetch(BASE_URL + "/api/subscription/plans");
-    const data = await response.json();
-    expect(response.status).toBe(200);
-    expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBeGreaterThan(0);
-    expect(data[0]).toHaveProperty("id");
-    expect(data[0]).toHaveProperty("name");
-    expect(data[0]).toHaveProperty("price");
+describe("public billing catalog", () => {
+  it("stays in pilot mode without an explicit checkout rollout", () => {
+    expect(getPublicBillingCatalog({})).toEqual({
+      pricingStatus: "pilot",
+      currency: "AUD",
+      checkoutEnabled: false,
+      plans: [],
+    });
   });
 
-  it("should include free plan", async () => {
-    const response = await fetch(BASE_URL + "/api/subscription/plans");
-    const data = await response.json();
-    const free = data.find((p: any) => p.id === "free");
-    expect(free).toBeDefined();
-    expect(free.price).toBe(0);
+  it("only exposes configured canonical plans without Stripe price IDs", () => {
+    const catalog = getPublicBillingCatalog({
+      ENABLE_PAID_CHECKOUT: "true",
+      STRIPE_SECRET_KEY: "sk_test_example",
+      STRIPE_WEBHOOK_SECRET: "whsec_example",
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "service_role_example",
+      STRIPE_STARTER_PRICE_ID: "price_internal_secret",
+    });
+
+    expect(catalog.pricingStatus).toBe("checkout_ready");
+    expect(catalog.plans).toEqual([
+      {
+        id: "starter",
+        name: "Starter",
+        checkoutAvailable: true,
+      },
+    ]);
+    expect(catalog.plans[0]).not.toHaveProperty("priceId");
+    expect(JSON.stringify(catalog)).not.toContain("price_internal_secret");
   });
 });

@@ -1,11 +1,25 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMessage, trackDelivery } from "@/lib/channels/router";
 import { registerWhatsAppChannel } from "@/lib/channels/whatsapp";
 
 export const dynamic = "force-dynamic";
 
 registerWhatsAppChannel();
+
+function hasValidMetaSignature(rawBody: string, signature: string | null) {
+  const appSecret =
+    process.env.WHATSAPP_APP_SECRET || process.env.FACEBOOK_APP_SECRET;
+  if (!appSecret || !signature?.startsWith("sha256=")) return false;
+
+  const provided = signature.slice("sha256=".length);
+  const expected = createHmac("sha256", appSecret)
+    .update(rawBody, "utf8")
+    .digest("hex");
+  if (provided.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+}
 
 // WhatsApp webhook verification
 export async function GET(req: NextRequest) {
@@ -24,30 +38,34 @@ export async function GET(req: NextRequest) {
 // Resolve the org that owns a given WhatsApp Business Account phone_number_id
 async function resolveOrgByWhatsAppPhoneNumberId(
   supabase: any,
-  phoneNumberId: string
+  phoneNumberId: string,
 ): Promise<string | null> {
-  // Find integration where settings_json->>'whatsapp_phone_number_id' matches
-  const { data: integration } = await supabase
+  const { data: integrations } = await supabase
     .from("integrations")
     .select("org_id, settings_json")
     .eq("provider", "whatsapp")
-    .maybeSingle();
+    .eq("status", "connected");
 
-  if (!integration) return null;
-
-  const settings = integration.settings_json || {};
-  const storedPhoneNumberId =
-    settings.whatsapp_phone_number_id ||
-    settings.phone_number_id ||
-    "";
-
-  return storedPhoneNumberId === phoneNumberId ? integration.org_id : null;
+  const integration = (integrations || []).find((candidate: any) => {
+    const settings = candidate.settings_json || {};
+    return (
+      settings.whatsapp_phone_number_id === phoneNumberId ||
+      settings.phone_number_id === phoneNumberId
+    );
+  });
+  return integration?.org_id || null;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const supabase = await createClient();
+    const rawBody = await req.text();
+    if (
+      !hasValidMetaSignature(rawBody, req.headers.get("x-hub-signature-256"))
+    ) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+    const body = JSON.parse(rawBody);
+    const supabase = createAdminClient();
 
     const entries = body.entry || [];
 
@@ -60,34 +78,18 @@ export async function POST(req: NextRequest) {
 
         // Resolve org once per change (same phone_number_id for all msgs in a change)
         const phoneNumberId = value.metadata?.phone_number_id || "";
-        const resolvedOrgId =
-          phoneNumberId
-            ? await resolveOrgByWhatsAppPhoneNumberId(supabase, phoneNumberId)
-            : null;
+        const resolvedOrgId = phoneNumberId
+          ? await resolveOrgByWhatsAppPhoneNumberId(supabase, phoneNumberId)
+          : null;
 
-        // If no org resolved, use the first org as a fallback (for single-tenant setups)
         if (!resolvedOrgId) {
-          const { data: orgs } = await supabase.from("orgs").select("id").limit(1);
-          if (!orgs || orgs.length === 0) {
-            console.warn("WhatsApp webhook: no org found, skipping");
-            continue;
-          }
-          // Only use fallback org if there's exactly one — otherwise refuse
-          if (orgs.length > 1) {
-            console.error(
-              "WhatsApp webhook: multiple orgs found, cannot route to default. Setup required."
-            );
-            continue;
-          }
+          console.warn(
+            "WhatsApp webhook: phone number is not linked to an org",
+          );
+          continue;
         }
 
-              let orgId = resolvedOrgId;
-      if (!orgId) {
-        const { data: fallbackOrgs } = await supabase.from("orgs").select("id").limit(1);
-        if (fallbackOrgs && fallbackOrgs.length > 0) {
-          orgId = fallbackOrgs[0].id;
-        }
-      }
+        const orgId = resolvedOrgId;
 
         for (const msg of messages) {
           const from = msg.from; // sender phone in E.164
@@ -162,7 +164,7 @@ export async function POST(req: NextRequest) {
                   externalId: msgId,
                   externalConversationId: from,
                 }),
-              }
+              },
             );
             const aiData = await aiRes.json();
 
@@ -176,7 +178,7 @@ export async function POST(req: NextRequest) {
                   leadId,
                   conversationId: aiData.conversationId,
                   orgId: orgId!,
-                }
+                },
               );
 
               if (aiData.conversationId) {
@@ -185,7 +187,7 @@ export async function POST(req: NextRequest) {
                   deliveryResult,
                   "whatsapp",
                   aiData.conversationId,
-                  orgId!
+                  orgId!,
                 );
               }
             }

@@ -3,15 +3,5 @@
     "deploymentEnabled": {
       "apps/web": true
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/gmail",
-      "schedule": "*/10 * * * *"
-    },
-    {
-      "path": "/api/cron/daily",
-      "schedule": "0 6 * * *"
-    }
-  ]
+  }
 }
