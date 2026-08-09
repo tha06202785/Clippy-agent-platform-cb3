@@ -48,6 +48,20 @@ const CALENDAR_INTENT =
   /\b(calendar|schedule|agenda|appointment|appointments|meeting|meetings|inspection|inspections|upcoming)\b/i;
 const EMAIL_INTENT =
   /\b(email|emails|mail|gmail|inbox|message|messages)\b/i;
+const MAX_SOURCE_CONTENT_CHARS = 1_000;
+export const MAX_KNOWLEDGE_CONTEXT_CHARS = 8_000;
+
+function boundedText(value: string, maxChars: number) {
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
+}
+
+export function limitKnowledgeContext(
+  parts: string[],
+  maxChars = MAX_KNOWLEDGE_CONTEXT_CHARS,
+) {
+  return boundedText(parts.join("\n"), maxChars);
+}
 
 export function detectKnowledgeSourceIntent(query: string) {
   return {
@@ -90,7 +104,7 @@ async function retrieveSourceDocuments(
   }
 
   const documents = (data ?? []) as SourceDocument[];
-  if (source === "email") return documents.slice(0, 5);
+  if (source === "email") return documents.slice(0, 3);
 
   const nowMs = now.getTime();
   return documents
@@ -107,7 +121,7 @@ async function retrieveSourceDocuments(
       (a, b) =>
         Date.parse(a.startsAt as string) - Date.parse(b.startsAt as string),
     )
-    .slice(0, 10)
+    .slice(0, 5)
     .map(({ document }) => document);
 }
 
@@ -122,7 +136,7 @@ function formatSourceDocument(document: SourceDocument): string {
       startsAt ? `Starts: ${startsAt}` : null,
       endsAt ? `Ends: ${endsAt}` : null,
       location ? `Location: ${location}` : null,
-      document.content,
+      boundedText(document.content, MAX_SOURCE_CONTENT_CHARS),
     ]
       .filter(Boolean)
       .join("\n");
@@ -130,7 +144,7 @@ function formatSourceDocument(document: SourceDocument): string {
 
   return [
     `Email: ${document.title || "Untitled email"}`,
-    document.content,
+    boundedText(document.content, MAX_SOURCE_CONTENT_CHARS),
   ].join("\n");
 }
 
@@ -271,21 +285,17 @@ export async function retrieveForAIResponse(
   const sourceIntent = detectKnowledgeSourceIntent(query);
   const sourceDocuments: SourceDocument[] = [];
 
-  if (sourceIntent.calendar) {
-    sourceDocuments.push(
-      ...(await retrieveSourceDocuments(
-        supabase,
-        orgId,
-        userId,
-        "calendar",
-      )),
+  const sourceLookups: Promise<SourceDocument[]>[] = [];
+  if (sourceIntent.calendar)
+    sourceLookups.push(
+      retrieveSourceDocuments(supabase, orgId, userId, "calendar"),
     );
-  }
-
-  if (sourceIntent.email) {
-    sourceDocuments.push(
-      ...(await retrieveSourceDocuments(supabase, orgId, userId, "email")),
+  if (sourceIntent.email)
+    sourceLookups.push(
+      retrieveSourceDocuments(supabase, orgId, userId, "email"),
     );
+  if (sourceLookups.length > 0) {
+    sourceDocuments.push(...(await Promise.all(sourceLookups)).flat());
   }
 
   // Generate query embedding
@@ -293,43 +303,44 @@ export async function retrieveForAIResponse(
   const queryEmbedding = embeddings[0];
 
   // Search with priority order
-  const results: SearchResult[] = [];
+  const searches: Promise<SearchResult[]>[] = [];
 
   // 1. Client Memory (highest priority)
   if (clientId) {
-    const clientResults = await searchKnowledge(
-      supabase,
-      queryEmbedding,
-      orgId,
-      {
+    searches.push(
+      searchKnowledge(supabase, queryEmbedding, orgId, {
         clientId,
         layer: "client_memory",
-        topK: 3,
-      },
+        topK: 2,
+      }),
     );
-    results.push(...clientResults);
   }
 
   // 2. Agent Profile
-  const agentResults = await searchKnowledge(supabase, queryEmbedding, orgId, {
-    layer: "agent_private",
-    topK: 2,
-  });
-  results.push(...agentResults);
+  searches.push(
+    searchKnowledge(supabase, queryEmbedding, orgId, {
+      layer: "agent_private",
+      topK: 1,
+    }),
+  );
 
   // 3. Agency Knowledge
-  const agencyResults = await searchKnowledge(supabase, queryEmbedding, orgId, {
-    layer: "agency_private",
-    topK: 3,
-  });
-  results.push(...agencyResults);
+  searches.push(
+    searchKnowledge(supabase, queryEmbedding, orgId, {
+      layer: "agency_private",
+      topK: 2,
+    }),
+  );
 
   // 4. Shared Real Estate Knowledge (lowest priority)
-  const sharedResults = await searchKnowledge(supabase, queryEmbedding, orgId, {
-    layer: "real_estate_shared",
-    topK: 2,
-  });
-  results.push(...sharedResults);
+  searches.push(
+    searchKnowledge(supabase, queryEmbedding, orgId, {
+      layer: "real_estate_shared",
+      topK: 1,
+    }),
+  );
+
+  const results = (await Promise.all(searches)).flat();
 
   // Build context from results
   const contextParts: string[] = [];
@@ -347,12 +358,12 @@ export async function retrieveForAIResponse(
     contextParts.push("Semantically related knowledge:");
     results.forEach((result, i) => {
       contextParts.push(
-        `[${i + 1}] ${result.chunk?.content || result.document?.content || ""}`,
+        `[${i + 1}] ${boundedText(result.chunk?.content || result.document?.content || "", 1_200)}`,
       );
     });
   }
 
-  return contextParts.join("\n");
+  return limitKnowledgeContext(contextParts);
 }
 
 // Auto-learn from source (email, calendar, CRM, etc.)

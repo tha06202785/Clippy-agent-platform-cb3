@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { detectKnowledgeSourceIntent } from "@/lib/rag/embeddings";
+import {
+  detectKnowledgeSourceIntent,
+  limitKnowledgeContext,
+} from "@/lib/rag/embeddings";
 
 describe("knowledge source intent", () => {
   it("detects natural calendar and schedule questions", () => {
@@ -26,5 +29,12 @@ describe("knowledge source intent", () => {
       calendar: false,
       email: false,
     });
+  });
+
+  it("keeps retrieved knowledge inside the Copilot context budget", () => {
+    const context = limitKnowledgeContext(["a".repeat(6_000), "b".repeat(6_000)]);
+
+    expect(context.length).toBeLessThanOrEqual(8_000);
+    expect(context.endsWith("…")).toBe(true);
   });
 });

@@ -86,7 +86,7 @@ export async function requestCopilotCompletion({
         body: {
           model,
           messages,
-          max_tokens: 4096,
+          max_tokens: 1600,
           temperature: 0.8,
           user: userId,
           providerOptions: {
@@ -122,7 +122,7 @@ export async function requestCopilotCompletion({
         body: {
           model,
           messages,
-          max_tokens: 4096,
+          max_tokens: 1600,
           temperature: 0.8,
         },
       });

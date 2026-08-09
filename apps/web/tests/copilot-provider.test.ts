@@ -34,6 +34,9 @@ describe("Copilot provider routing", () => {
     expect(fetchMock.mock.calls[0][0]).toBe(
       "https://ai-gateway.vercel.sh/v1/chat/completions",
     );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      max_tokens: 1600,
+    });
   });
 
   it("falls back to Ollama when the gateway fails", async () => {
