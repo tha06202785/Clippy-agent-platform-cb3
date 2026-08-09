@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { sendMessage, trackDelivery } from "@/lib/channels/router";
-import { registerFacebookChannel } from "@/lib/channels/facebook";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { persistInboundMessage } from "@/lib/conversations/persist-inbound";
 
 export const dynamic = "force-dynamic";
-
-registerFacebookChannel();
 
 // Facebook webhook verification
 export async function GET(req: NextRequest) {
@@ -26,24 +23,22 @@ async function resolveOrgByFacebookPageId(
   supabase: any,
   pageId: string
 ): Promise<string | null> {
-  const { data: integration } = await supabase
+  const { data: integrations } = await supabase
     .from("integrations")
     .select("org_id, settings_json")
     .eq("provider", "facebook")
-    .maybeSingle();
-
-  if (!integration) return null;
-
-  const settings = integration.settings_json || {};
-  const storedPageId = settings.facebook_page_id || settings.page_id || "";
-
-  return storedPageId === pageId ? integration.org_id : null;
+    .eq("status", "connected");
+  const integration = (integrations || []).find((candidate: any) => {
+    const settings = candidate.settings_json || {};
+    return (settings.facebook_page_id || settings.page_id || "") === pageId;
+  });
+  return integration?.org_id || null;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const entries = body.entry || [];
 
@@ -60,21 +55,10 @@ export async function POST(req: NextRequest) {
         ? await resolveOrgByFacebookPageId(supabase, pageId)
         : null;
 
-      // Fallback: use the first org if single-tenant
-      let orgId = resolvedOrgId;
+      const orgId = resolvedOrgId;
       if (!orgId) {
-        const { data: fallbackOrgs } = await supabase.from("orgs").select("id").limit(1);
-        if (!fallbackOrgs || fallbackOrgs.length === 0) {
-          console.warn("Facebook webhook: no org found, skipping");
-          continue;
-        }
-        if (fallbackOrgs.length > 1) {
-          console.error(
-            "Facebook webhook: multiple orgs found, cannot route to default. Setup required."
-          );
-          continue;
-        }
-        orgId = fallbackOrgs[0].id;
+        console.warn("Facebook webhook: page is not linked to an org");
+        continue;
       }
 
       for (const event of messaging) {
@@ -84,21 +68,7 @@ export async function POST(req: NextRequest) {
         const msgId = event.message?.mid;
         if (!pageScopedSenderId || !message) continue;
 
-        // ── Idempotency: skip if this mid already processed ──
-        if (msgId) {
-          const { data: existingMsg } = await supabase
-            .from("conversation_messages")
-            .select("id")
-            .eq("external_message_id", msgId)
-            .maybeSingle();
-
-          if (existingMsg) {
-            continue;
-          }
-        }
-
-        // Save raw webhook event (async, don't await)
-        supabase.from("webhook_events").insert({
+        await supabase.from("webhook_events").insert({
           org_id: orgId,
           channel: "facebook",
           event_type: "messaging",
@@ -111,6 +81,7 @@ export async function POST(req: NextRequest) {
         const { data: identity } = await supabase
           .from("lead_identities")
           .select("lead_id")
+          .eq("org_id", orgId)
           .eq("facebook_psid", pageScopedSenderId)
           .maybeSingle();
 
@@ -140,48 +111,12 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Send to AI brain
         if (leadId) {
-          const aiRes = await fetch(
-            process.env.NEXT_PUBLIC_APP_URL + "/api/ai/message",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                channel: "facebook",
-                leadId,
-                message,
-                externalId: msgId,
-                externalConversationId: pageScopedSenderId,
-              }),
-            }
-          );
-          const aiData = await aiRes.json();
-
-          // Deliver reply back via Facebook
-          if (aiData.reply && !aiData.paused && !aiData.optedOut) {
-            const deliveryResult = await sendMessage(
-              "facebook",
-              pageScopedSenderId,
-              aiData.reply,
-              {
-                externalConversationId: pageScopedSenderId,
-                leadId,
-                conversationId: aiData.conversationId,
-                orgId: orgId!,
-              }
-            );
-
-            if (aiData.conversationId) {
-              await trackDelivery(
-                supabase,
-                deliveryResult,
-                "facebook",
-                aiData.conversationId,
-                orgId!
-              );
-            }
-          }
+          await persistInboundMessage({
+            supabase, orgId, leadId, channel: "facebook",
+            externalThreadId: pageScopedSenderId,
+            externalMessageId: msgId, text: message, rawPayload: event,
+          });
         }
       }
     }

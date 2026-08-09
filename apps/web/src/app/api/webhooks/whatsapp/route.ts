@@ -1,12 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendMessage, trackDelivery } from "@/lib/channels/router";
-import { registerWhatsAppChannel } from "@/lib/channels/whatsapp";
+import { persistInboundMessage } from "@/lib/conversations/persist-inbound";
 
 export const dynamic = "force-dynamic";
-
-registerWhatsAppChannel();
 
 function hasValidMetaSignature(rawBody: string, signature: string | null) {
   const appSecret =
@@ -97,20 +94,7 @@ export async function POST(req: NextRequest) {
           const msgId = msg.id;
           if (!from || !text) continue;
 
-          // ── Idempotency: skip if this external_message_id already processed ──
-          const { data: existingMsg } = await supabase
-            .from("conversation_messages")
-            .select("id")
-            .eq("external_message_id", msgId)
-            .maybeSingle();
-
-          if (existingMsg) {
-            // Already processed this message — acknowledge and skip
-            continue;
-          }
-
-          // Save raw webhook event (async, don't await)
-          supabase.from("webhook_events").insert({
+          await supabase.from("webhook_events").insert({
             org_id: orgId,
             channel: "whatsapp",
             event_type: "message",
@@ -123,6 +107,7 @@ export async function POST(req: NextRequest) {
           const { data: identity } = await supabase
             .from("lead_identities")
             .select("lead_id")
+            .eq("org_id", orgId)
             .eq("whatsapp_id", from)
             .maybeSingle();
 
@@ -152,45 +137,11 @@ export async function POST(req: NextRequest) {
           }
 
           if (leadId) {
-            const aiRes = await fetch(
-              process.env.NEXT_PUBLIC_APP_URL + "/api/ai/message",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  channel: "whatsapp",
-                  leadId,
-                  message: text,
-                  externalId: msgId,
-                  externalConversationId: from,
-                }),
-              },
-            );
-            const aiData = await aiRes.json();
-
-            if (aiData.reply && !aiData.paused && !aiData.optedOut) {
-              const deliveryResult = await sendMessage(
-                "whatsapp",
-                from,
-                aiData.reply,
-                {
-                  externalConversationId: from,
-                  leadId,
-                  conversationId: aiData.conversationId,
-                  orgId: orgId!,
-                },
-              );
-
-              if (aiData.conversationId) {
-                await trackDelivery(
-                  supabase,
-                  deliveryResult,
-                  "whatsapp",
-                  aiData.conversationId,
-                  orgId!,
-                );
-              }
-            }
+            await persistInboundMessage({
+              supabase, orgId, leadId, channel: "whatsapp",
+              externalThreadId: from, externalMessageId: msgId,
+              text, rawPayload: msg,
+            });
           }
         }
       }
