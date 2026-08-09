@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const params = new URL(req.url).searchParams;
     const limit = Math.min(Math.max(Number(params.get("limit") || 50), 1), 100);
     let query = supabase.from("knowledge_documents").select("*").eq("org_id", orgId)
+      .eq("status", "indexed")
       .order("created_at", { ascending: false }).limit(limit);
     if (params.get("layer")) query = query.eq("layer", params.get("layer"));
     const { data, error } = await query;
