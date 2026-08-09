@@ -26,6 +26,12 @@ type HealthResponse = {
   score: number;
   checkedAt: string;
   checks: HealthCheck[];
+  build?: {
+    commitSha: string;
+    commitRef: string;
+    deploymentId: string;
+    environment: string;
+  };
   error?: string;
 };
 
@@ -154,6 +160,27 @@ export default function AdminQaPage() {
             <p className="mt-3 text-3xl font-bold">{failures}</p>
           </div>
         </div>
+
+        {data?.build && (
+          <div className="rounded-2xl border bg-card p-5 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Running release</p>
+                <p className="mt-1 font-mono text-lg font-semibold">
+                  {data.build.commitRef} @ {data.build.commitSha.slice(0, 7)}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                <span className="text-muted-foreground">Environment</span>
+                <span className="font-medium capitalize">{data.build.environment}</span>
+                <span className="text-muted-foreground">Deployment</span>
+                <span className="max-w-48 truncate font-mono text-xs" title={data.build.deploymentId}>
+                  {data.build.deploymentId}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-2xl border bg-card shadow-sm">
           <div className="flex flex-col gap-2 border-b p-5 sm:flex-row sm:items-center sm:justify-between">

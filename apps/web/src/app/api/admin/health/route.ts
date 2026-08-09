@@ -17,10 +17,18 @@ type HealthCheck = {
   latencyMs?: number;
 };
 
+const buildInfo = () => ({
+  commitSha: process.env.VERCEL_GIT_COMMIT_SHA || "local",
+  commitRef: process.env.VERCEL_GIT_COMMIT_REF || "local",
+  deploymentId: process.env.VERCEL_DEPLOYMENT_ID || "local",
+  environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "local",
+});
+
 const elapsed = (startedAt: number) => Date.now() - startedAt;
 
 export async function GET() {
   const checks: HealthCheck[] = [];
+  const build = buildInfo();
 
   try {
     const authStarted = Date.now();
@@ -61,6 +69,17 @@ export async function GET() {
       status: "healthy",
       message: "Owner or Admin session verified",
       latencyMs: elapsed(authStarted),
+    });
+
+    const unexpectedProductionRef =
+      build.environment === "production" && build.commitRef !== "main";
+    checks.push({
+      key: "release",
+      name: "Production release",
+      status: unexpectedProductionRef ? "error" : "healthy",
+      message: unexpectedProductionRef
+        ? `Production was built from ${build.commitRef}, not main`
+        : `${build.commitRef} @ ${build.commitSha.slice(0, 7)} (${build.environment})`,
     });
 
     const dbStarted = Date.now();
@@ -229,6 +248,7 @@ export async function GET() {
         overall,
         score,
         checkedAt: new Date().toISOString(),
+        build,
         checks,
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -239,6 +259,7 @@ export async function GET() {
         overall: "error",
         score: 0,
         checkedAt: new Date().toISOString(),
+        build,
         checks,
         error: error?.message || "Health check failed",
       },
