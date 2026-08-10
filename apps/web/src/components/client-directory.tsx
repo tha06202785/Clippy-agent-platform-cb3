@@ -106,7 +106,7 @@ export function ClientDirectory({
               <Sparkles className="h-3.5 w-3.5" />
               Client relationship workspace
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
+            <h1 className="text-2xl font-semibold leading-8 tracking-[-0.02em] text-neutral-900 sm:text-[26px]">
               Every client, every property interest.
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-600 sm:text-base">
@@ -142,7 +142,7 @@ export function ClientDirectory({
                 className="min-w-24 rounded-2xl border border-white bg-white/80 p-3 shadow-sm backdrop-blur"
               >
                 <metric.icon className={`h-4 w-4 ${metric.colour}`} />
-                <div className="mt-2 text-2xl font-bold text-neutral-900">
+                <div className="mt-2 text-2xl font-semibold text-neutral-900 tabular-nums">
                   {metric.value}
                 </div>
                 <div className="text-[11px] font-medium text-neutral-500">
@@ -206,7 +206,7 @@ export function ClientDirectory({
                 className="group grid gap-4 p-4 transition hover:bg-emerald-50/40 sm:p-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(180px,.7fr)_minmax(160px,.55fr)_auto] lg:items-center"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-blue-500 text-sm font-bold text-white shadow-sm">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-blue-500 text-sm font-semibold text-white shadow-sm">
                     {initials(client.full_name)}
                   </div>
                   <div className="min-w-0">
@@ -253,7 +253,7 @@ export function ClientDirectory({
 
                 <div className="flex items-center justify-between gap-3 lg:block">
                   <span
-                    className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold capitalize ${
+                    className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ${
                       client.priority === "hot"
                         ? "bg-orange-100 text-orange-700"
                         : client.priority === "warm"
