@@ -41,7 +41,13 @@ const statusStyles: Record<HealthState, string> = {
   error: "border-red-200 bg-red-50 text-red-700",
 };
 
-function StatusIcon({ status, className = "h-5 w-5" }: { status: HealthState; className?: string }) {
+function StatusIcon({
+  status,
+  className = "h-5 w-5",
+}: {
+  status: HealthState;
+  className?: string;
+}) {
   if (status === "healthy") return <CheckCircle2 className={className} />;
   if (status === "warning") return <AlertTriangle className={className} />;
   return <XCircle className={className} />;
@@ -79,9 +85,12 @@ export default function AdminQaPage() {
     runDiagnostics();
   }, [runDiagnostics]);
 
-  const healthy = data?.checks.filter((check) => check.status === "healthy").length || 0;
-  const warnings = data?.checks.filter((check) => check.status === "warning").length || 0;
-  const failures = data?.checks.filter((check) => check.status === "error").length || 0;
+  const healthy =
+    data?.checks.filter((check) => check.status === "healthy").length || 0;
+  const warnings =
+    data?.checks.filter((check) => check.status === "warning").length || 0;
+  const failures =
+    data?.checks.filter((check) => check.status === "error").length || 0;
 
   return (
     <div className="min-h-screen bg-background px-4 py-6 pb-24 md:px-8 md:py-10">
@@ -92,9 +101,12 @@ export default function AdminQaPage() {
               <ShieldCheck className="h-4 w-4" />
               Admin diagnostics
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">Clippy QA Centre</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Clippy End-to-End QA Centre
+            </h1>
             <p className="mt-2 text-muted-foreground">
-              Live checks for authentication, database, AI, knowledge, integrations and automation.
+              Read-only production checks across Client 360, property context,
+              Copilot, reminders, CRM imports, knowledge and automation.
             </p>
           </div>
 
@@ -123,7 +135,9 @@ export default function AdminQaPage() {
 
         <div className="grid gap-4 md:grid-cols-4">
           <div className="rounded-2xl border bg-card p-5 shadow-sm md:col-span-1">
-            <p className="text-sm font-medium text-muted-foreground">System health</p>
+            <p className="text-sm font-medium text-muted-foreground">
+              System health
+            </p>
             <div className="mt-3 flex items-end gap-2">
               <span className="text-4xl font-bold">{data?.score ?? "—"}</span>
               <span className="pb-1 text-muted-foreground">%</span>
@@ -138,7 +152,9 @@ export default function AdminQaPage() {
 
           <div className="rounded-2xl border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-muted-foreground">Healthy</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Healthy
+              </p>
               <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             </div>
             <p className="mt-3 text-3xl font-bold">{healthy}</p>
@@ -146,7 +162,9 @@ export default function AdminQaPage() {
 
           <div className="rounded-2xl border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-muted-foreground">Warnings</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Warnings
+              </p>
               <AlertTriangle className="h-5 w-5 text-amber-600" />
             </div>
             <p className="mt-3 text-3xl font-bold">{warnings}</p>
@@ -154,7 +172,9 @@ export default function AdminQaPage() {
 
           <div className="rounded-2xl border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-muted-foreground">Failures</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Failures
+              </p>
               <XCircle className="h-5 w-5 text-red-600" />
             </div>
             <p className="mt-3 text-3xl font-bold">{failures}</p>
@@ -165,16 +185,23 @@ export default function AdminQaPage() {
           <div className="rounded-2xl border bg-card p-5 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Running release</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Running release
+                </p>
                 <p className="mt-1 font-mono text-lg font-semibold">
                   {data.build.commitRef} @ {data.build.commitSha.slice(0, 7)}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                 <span className="text-muted-foreground">Environment</span>
-                <span className="font-medium capitalize">{data.build.environment}</span>
+                <span className="font-medium capitalize">
+                  {data.build.environment}
+                </span>
                 <span className="text-muted-foreground">Deployment</span>
-                <span className="max-w-48 truncate font-mono text-xs" title={data.build.deploymentId}>
+                <span
+                  className="max-w-48 truncate font-mono text-xs"
+                  title={data.build.deploymentId}
+                >
                   {data.build.deploymentId}
                 </span>
               </div>
@@ -187,10 +214,11 @@ export default function AdminQaPage() {
             <div>
               <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Activity className="h-5 w-5" />
-                Live system checks
+                Live end-to-end checks
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                These checks use the signed-in account and current production configuration.
+                These checks use the signed-in account and current production
+                data. They never create test leads or send messages.
               </p>
             </div>
             {data?.checkedAt && (
@@ -209,22 +237,33 @@ export default function AdminQaPage() {
               </div>
             ) : (
               data?.checks.map((check) => (
-                <div key={check.key} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div
+                  key={check.key}
+                  className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
+                >
                   <div className="flex min-w-0 items-start gap-3">
-                    <div className={`mt-0.5 rounded-full border p-2 ${statusStyles[check.status]}`}>
+                    <div
+                      className={`mt-0.5 rounded-full border p-2 ${statusStyles[check.status]}`}
+                    >
                       <StatusIcon status={check.status} className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
                       <p className="font-semibold">{check.name}</p>
-                      <p className="mt-1 break-words text-sm text-muted-foreground">{check.message}</p>
+                      <p className="mt-1 break-words text-sm text-muted-foreground">
+                        {check.message}
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 pl-11 sm:pl-0">
                     {typeof check.latencyMs === "number" && (
-                      <span className="text-xs text-muted-foreground">{check.latencyMs} ms</span>
+                      <span className="text-xs text-muted-foreground">
+                        {check.latencyMs} ms
+                      </span>
                     )}
-                    <span className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusStyles[check.status]}`}>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusStyles[check.status]}`}
+                    >
                       {check.status}
                     </span>
                   </div>
@@ -237,7 +276,10 @@ export default function AdminQaPage() {
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-blue-900">
           <h2 className="font-semibold">How to use this page</h2>
           <p className="mt-2 text-sm leading-6">
-            Open this page after every deployment. Resolve red failures first, then investigate amber warnings before inviting pilot agencies. No credentials or secret values are displayed.
+            Open this page after every deployment. Resolve red failures first,
+            then investigate amber warnings before inviting pilot agencies.
+            Checks are read-only, and no credentials or secret values are
+            displayed.
           </p>
         </div>
       </div>
