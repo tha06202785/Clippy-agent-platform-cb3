@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import {
+  createImportDuplicateGuard,
+  type DuplicateReason,
+} from "@/lib/crm-import-deduplication";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +20,6 @@ const leadSchema = z.object({
 const payloadSchema = z.object({
   leads: z.array(leadSchema).min(1).max(500),
 });
-
-function identity(email: string, phone: string) {
-  return email.toLowerCase() || phone.replace(/\D/g, "");
-}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existing, error: readError } = await supabase
     .from("leads")
-    .select("email,phone")
+    .select("id,email,phone")
     .eq("org_id", membership.org_id)
     .limit(5000);
   if (readError) {
@@ -67,24 +67,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const seen = new Set(
-    (existing ?? [])
-      .map((lead) => identity(lead.email || "", lead.phone || ""))
-      .filter(Boolean),
-  );
+  const duplicateGuard = createImportDuplicateGuard(existing ?? []);
   const rows: Array<Record<string, unknown>> = [];
-  let skipped = 0;
+  const skippedByReason: Record<DuplicateReason, number> = {
+    missing_identity: 0,
+    duplicate_email: 0,
+    duplicate_phone: 0,
+    conflicting_identity: 0,
+  };
   for (const lead of parsed.data.leads) {
-    if (!lead.full_name && !lead.email && !lead.phone) {
-      skipped += 1;
+    const duplicateReason = duplicateGuard(lead);
+    if (duplicateReason) {
+      skippedByReason[duplicateReason] += 1;
       continue;
     }
-    const key = identity(lead.email, lead.phone);
-    if (key && seen.has(key)) {
-      skipped += 1;
-      continue;
-    }
-    if (key) seen.add(key);
     rows.push({
       org_id: membership.org_id,
       full_name: lead.full_name || null,
@@ -98,11 +94,16 @@ export async function POST(request: NextRequest) {
       last_activity_at: new Date().toISOString(),
     });
   }
+  const skipped = Object.values(skippedByReason).reduce(
+    (total, value) => total + value,
+    0,
+  );
 
   if (rows.length === 0) {
     return NextResponse.json({
       imported: 0,
       skipped,
+      skipped_by_reason: skippedByReason,
       total: parsed.data.leads.length,
     });
   }
@@ -116,7 +117,13 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { imported: rows.length, skipped, total: parsed.data.leads.length },
+    {
+      imported: rows.length,
+      skipped,
+      skipped_by_reason: skippedByReason,
+      requires_review: skippedByReason.conflicting_identity,
+      total: parsed.data.leads.length,
+    },
     { status: 201 },
   );
 }
