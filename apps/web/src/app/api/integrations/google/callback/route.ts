@@ -122,6 +122,7 @@ export async function GET(req: NextRequest) {
       },
       connected_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      last_error: null,
     };
     const { error: saveError } = await admin.from("integrations").upsert(
       [
@@ -140,6 +141,23 @@ export async function GET(req: NextRequest) {
       console.error("Failed to save Google integration", saveError.code);
       return redirectAndClearState(
         new URL("/integrations?error=save_failed", origin),
+      );
+    }
+
+    const { error: healthResetError } = await admin
+      .from("integration_health")
+      .update({
+        status: "healthy",
+        last_error: null,
+        errors_count: 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("org_id", membership.org_id)
+      .in("provider", ["gmail", "google-calendar"]);
+    if (healthResetError) {
+      console.error(
+        "Failed to clear stale Google integration health",
+        healthResetError.code,
       );
     }
 
