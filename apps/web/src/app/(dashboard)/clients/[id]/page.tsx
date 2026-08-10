@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { CreateFollowUpButton } from "@/components/create-follow-up-button";
+import { FollowUpActions } from "@/components/follow-up-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -562,6 +563,10 @@ export default async function Client360Page({
                           {overdue ? "Overdue · " : ""}
                           {formatDate(task.due_at)}
                         </p>
+                        <FollowUpActions
+                          taskId={task.id}
+                          copilotHref={`/copilot?lead_id=${client.id}`}
+                        />
                       </div>
                     </div>
                   );
