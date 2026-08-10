@@ -29,6 +29,7 @@ import {
   Bell,
   BellOff,
   Workflow,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile-nav";
@@ -86,6 +87,12 @@ const primaryNav: NavItem[] = [
 
 const workspaceNav: NavItem[] = [
   {
+    href: "/launch",
+    label: "Launch Centre",
+    icon: Rocket,
+    color: "text-emerald-600",
+  },
+  {
     href: "/briefing",
     label: "Daily brief",
     icon: Calendar,
@@ -140,6 +147,7 @@ const pageTitles: Array<[string, string]> = [
   ["/team", "Team"],
   ["/import", "Import"],
   ["/onboarding", "Setup"],
+  ["/launch", "Launch Centre"],
   ["/admin", "Administration"],
   ["/monitoring", "Monitoring"],
 ];
