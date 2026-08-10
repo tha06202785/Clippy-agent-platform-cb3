@@ -38,6 +38,8 @@ import { PostHogProvider } from "@/components/posthog-provider";
 import { PostHogPageView } from "@/components/posthog-pageview";
 import { QueryProvider } from "@/components/query-provider";
 import { BrandLogo } from "@/components/brand-logo";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 
 type NavItem = {
   href: string;
@@ -230,6 +232,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
     pageTitles.find(
       ([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     )?.[1] ?? "Clippy";
+  const isTodayDashboard = pathname === "/dashboard";
 
   const renderNavItem = (item: NavItem) => {
     const isActive =
@@ -279,7 +282,13 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-hero">
+    <div
+      className={cn(
+        "min-h-screen bg-gradient-hero",
+        isTodayDashboard &&
+          `${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className}`,
+      )}
+    >
       {pendingHref ? (
         <div
           className="fixed inset-x-0 top-0 z-[60] h-1 overflow-hidden bg-primary/15"
@@ -307,7 +316,16 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
           className="flex items-center gap-2"
         >
           <BrandLogo alt="" size={32} priority />
-          <span className="font-bold text-sm text-neutral-800">Clippy</span>
+          <span
+            className={cn(
+              "text-sm text-neutral-800",
+              isTodayDashboard
+                ? "font-semibold tracking-[-0.01em]"
+                : "font-bold",
+            )}
+          >
+            Clippy
+          </span>
         </Link>
         <div className="flex items-center gap-2">
           <button
@@ -374,14 +392,28 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
               priority
               className="transition-transform duration-300 group-hover:scale-105"
             />
-            <span className="font-bold text-lg text-neutral-800">Clippy</span>
+            <span
+              className={cn(
+                "text-lg text-neutral-800",
+                isTodayDashboard
+                  ? "font-semibold tracking-[-0.015em]"
+                  : "font-bold",
+              )}
+            >
+              Clippy
+            </span>
           </Link>
         </div>
 
         {/* Nav Items */}
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
           {primaryNav.map(renderNavItem)}
-          <p className="px-3 pb-1 pt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-400">
+          <p
+            className={cn(
+              "px-3 pb-1 pt-6 text-[11px] font-semibold uppercase text-neutral-400",
+              isTodayDashboard ? "tracking-[0.06em]" : "tracking-[0.18em]",
+            )}
+          >
             Workspace
           </p>
           {workspaceNav.map(renderNavItem)}
@@ -405,7 +437,14 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-neutral-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-neutral-800">
+              <h1
+                className={cn(
+                  "text-neutral-800",
+                  isTodayDashboard
+                    ? "text-[26px] font-semibold leading-8 tracking-[-0.02em]"
+                    : "text-2xl font-bold",
+                )}
+              >
                 {pageTitle}
               </h1>
             </div>
