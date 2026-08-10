@@ -94,6 +94,7 @@ export default function ImportPage() {
   const [result, setResult] = useState<{
     imported: number;
     skipped: number;
+    requiresReview: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,9 +110,7 @@ export default function ImportPage() {
       }),
     [headers, mapping, rows],
   );
-  const valid = mapped.filter(
-    (lead) => lead.full_name || lead.email || lead.phone,
-  );
+  const valid = mapped.filter((lead) => lead.email || lead.phone);
 
   const loadFile = (file: File) => {
     setError(null);
@@ -142,7 +141,11 @@ export default function ImportPage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Import failed");
-      setResult({ imported: payload.imported, skipped: payload.skipped });
+      setResult({
+        imported: payload.imported,
+        skipped: payload.skipped,
+        requiresReview: payload.requires_review || 0,
+      });
       setHeaders([]);
       setRows([]);
     } catch (reason) {
@@ -176,7 +179,10 @@ export default function ImportPage() {
         <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
           <CheckCircle2 className="h-5 w-5" />
           Imported {result.imported} clients; skipped {result.skipped}{" "}
-          duplicates or empty rows.
+          duplicates or rows without an email/phone.
+          {result.requiresReview > 0
+            ? ` ${result.requiresReview} conflicting identities require manual review.`
+            : ""}
         </div>
       )}
 
@@ -253,9 +259,7 @@ export default function ImportPage() {
               </thead>
               <tbody className="divide-y">
                 {mapped.slice(0, 8).map((lead, index) => {
-                  const ready = Boolean(
-                    lead.full_name || lead.email || lead.phone,
-                  );
+                  const ready = Boolean(lead.email || lead.phone);
                   return (
                     <tr key={index}>
                       <td className="p-3">{lead.full_name || "—"}</td>
@@ -266,7 +270,7 @@ export default function ImportPage() {
                         {ready ? (
                           <span className="text-emerald-700">Ready</span>
                         ) : (
-                          <span className="text-red-700">Missing identity</span>
+                          <span className="text-red-700">Email or phone required</span>
                         )}
                       </td>
                     </tr>
