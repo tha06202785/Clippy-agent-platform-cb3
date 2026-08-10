@@ -4,16 +4,25 @@ import {
   recordGoogleSyncFailure,
   syncGoogleKnowledge,
 } from "@/lib/integrations/google-sync";
+import {
+  bearerToken,
+  readAutomationSecret,
+  secureSecretMatch,
+} from "@/lib/automation-security";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (
-    !cronSecret ||
-    req.headers.get("authorization") !== `Bearer ${cronSecret}`
-  ) {
+  const cronSecret = readAutomationSecret("CRON_SECRET");
+  if (!cronSecret) {
+    console.error("Google sync disabled: CRON_SECRET is not securely configured");
+    return NextResponse.json(
+      { error: "Automation is securely disabled" },
+      { status: 503 },
+    );
+  }
+  if (!secureSecretMatch(bearerToken(req), cronSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

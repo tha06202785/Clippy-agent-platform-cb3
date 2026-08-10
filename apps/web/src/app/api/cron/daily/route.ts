@@ -1,18 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  automationSecretIssues,
+  bearerToken,
+  readAutomationSecret,
+  secureSecretMatch,
+} from "@/lib/automation-security";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 async function runDailyCron(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.get("authorization");
-  if (!cronSecret || !authHeader || authHeader !== `Bearer ${cronSecret}`) {
+  const secretIssues = automationSecretIssues();
+  const cronSecret = readAutomationSecret("CRON_SECRET");
+  if (secretIssues.length || !cronSecret) {
+    console.error("Daily automation disabled: secure secrets are not configured");
+    return NextResponse.json(
+      { error: "Automation is securely disabled" },
+      { status: 503 },
+    );
+  }
+  if (!secureSecretMatch(bearerToken(req), cronSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const internalApiSecret = process.env.INTERNAL_API_SECRET;
+    const internalApiSecret = readAutomationSecret("INTERNAL_API_SECRET");
     if (!internalApiSecret) {
       return NextResponse.json(
         { error: "INTERNAL_API_SECRET is not configured" },
