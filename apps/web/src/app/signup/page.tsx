@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -63,14 +65,16 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div
+      className={`${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className} flex min-h-screen items-center justify-center bg-background px-4`}
+    >
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
+        <div className="mb-8 text-center">
           <BrandLogo size={48} priority className="mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-2xl font-semibold leading-8 tracking-[-0.02em] text-foreground">
             Create your account
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="mt-1 text-sm font-normal leading-6 text-muted-foreground">
             Create a workspace account. No paid plan is selected on this screen.
           </p>
         </div>
@@ -86,10 +90,13 @@ export default function SignUpPage() {
             className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-foreground"
             role="status"
           >
-            <p className="font-semibold">Check your email</p>
+            <p className="font-semibold tracking-[-0.01em]">Check your email</p>
             <p className="mt-1 text-muted-foreground">
-              We sent a confirmation link to {confirmationEmail}. Open the
-              newest email to finish creating your account.
+              We sent a confirmation link to{" "}
+              <span className="font-dashboard-mono text-xs text-foreground">
+                {confirmationEmail}
+              </span>
+              . Open the newest email to finish creating your account.
             </p>
           </div>
         )}
@@ -174,7 +181,7 @@ export default function SignUpPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             {loading ? "Creating account..." : "Create account"}
           </button>
