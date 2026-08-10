@@ -11,7 +11,7 @@ const config: Config = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        
+
         // Primary - Modern Emerald Green (Clippy's brand)
         primary: {
           DEFAULT: "#10B981",
@@ -27,13 +27,13 @@ const config: Config = {
           800: "#065F46",
           900: "#064E3B",
         },
-        
+
         // Secondary - Modern Blue
         secondary: {
           DEFAULT: "#5B8DEF",
           foreground: "#FFFFFF",
         },
-        
+
         // Pastel Palette - Module Identities
         pastel: {
           blue: "#DCEEFF",
@@ -44,7 +44,7 @@ const config: Config = {
           pink: "#FDE6F3",
           orange: "#FFE8D8",
         },
-        
+
         // Neutrals
         neutral: {
           50: "#FAFBFC",
@@ -59,7 +59,16 @@ const config: Config = {
           900: "#111827",
         },
       },
-      
+
+      fontFamily: {
+        dashboard: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
+        "dashboard-mono": [
+          "var(--font-geist-mono)",
+          "ui-monospace",
+          "monospace",
+        ],
+      },
+
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -68,7 +77,7 @@ const config: Config = {
         "2xl": "calc(var(--radius) + 8px)",
         "3xl": "calc(var(--radius) + 12px)",
       },
-      
+
       animation: {
         float: "float 6s ease-in-out infinite",
         pulse: "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
@@ -78,7 +87,7 @@ const config: Config = {
         "scale-in": "scaleIn 0.3s ease-out",
         glow: "glow 2s ease-in-out infinite alternate",
       },
-      
+
       keyframes: {
         float: {
           "0%, 100%": { transform: "translateY(0px)" },
@@ -105,17 +114,19 @@ const config: Config = {
           "100%": { boxShadow: "0 0 20px rgba(16, 185, 129, 0.4)" },
         },
       },
-      
+
       boxShadow: {
         soft: "0 2px 8px rgba(0, 0, 0, 0.04)",
         medium: "0 4px 16px rgba(0, 0, 0, 0.06)",
         large: "0 8px 32px rgba(0, 0, 0, 0.08)",
         glow: "0 0 20px rgba(16, 185, 129, 0.4)",
       },
-      
+
       backgroundImage: {
-        "gradient-hero": "linear-gradient(180deg, #FFFFFF 0%, #EEF4FF 25%, #F4EDFF 50%, #ECFDF5 75%, #FFFFFF 100%)",
-        "gradient-ai": "linear-gradient(135deg, #DCEEFF 0%, #EEE6FF 50%, #DCF8EC 100%)",
+        "gradient-hero":
+          "linear-gradient(180deg, #FFFFFF 0%, #EEF4FF 25%, #F4EDFF 50%, #ECFDF5 75%, #FFFFFF 100%)",
+        "gradient-ai":
+          "linear-gradient(135deg, #DCEEFF 0%, #EEE6FF 50%, #DCF8EC 100%)",
       },
     },
   },
