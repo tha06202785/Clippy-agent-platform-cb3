@@ -1,164 +1,319 @@
 "use client";
-export const dynamic = "force-dynamic";
-import { useEffect, useState } from "react";
-import { Sun, MessageCircle, Users, Calendar, TrendingUp, Zap, Clock, AlertTriangle, Sparkles } from "lucide-react";
 
-interface BriefingData {
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Calendar,
+  CheckCircle2,
+  Clock3,
+  Flame,
+  Inbox,
+  MessageCircle,
+  RefreshCw,
+  Sparkles,
+  Sun,
+  Users,
+} from "lucide-react";
+
+type DailyAction = {
+  id: string;
+  priority: "urgent" | "high" | "normal";
+  type: "follow_up" | "hot_lead" | "unread" | "inspection";
+  title: string;
+  reason: string;
+  href: string;
+  cta: string;
+};
+
+type BriefingData = {
   date: string;
   summary: string;
+  actions: DailyAction[];
   metrics: {
-    conversations_handled: number; new_leads: number; inspections_booked: number;
-    inspections_attended: number; applications_submitted: number; hot_leads: number;
-    warm_leads: number; pending_escalations: number; response_rate: number; avg_response_time: number;
+    conversations_handled: number;
+    new_leads: number;
+    inspections_booked: number;
+    hot_leads: number;
+    unread_messages: number;
+    overdue_followups: number;
+    response_rate: number;
   };
-  hot_leads_list: Array<{ name: string; stage: string; value: string }>;
-  new_leads_list: Array<{ name: string; source: string; time: string }>;
-  inspections_today: Array<{ time: string; address: string; lead: string }>;
-  escalations: Array<{ type: string; lead: string; reason: string }>;
-}
+};
+
+const priorityStyles = {
+  urgent: "border-red-200 bg-red-50 text-red-800",
+  high: "border-amber-200 bg-amber-50 text-amber-800",
+  normal: "border-border bg-card text-foreground",
+};
+
+const actionIcons = {
+  follow_up: Clock3,
+  hot_lead: Flame,
+  unread: Inbox,
+  inspection: Calendar,
+};
 
 export default function BriefingPage() {
   const [data, setData] = useState<BriefingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/briefing/daily")
-      .then(r => r.json())
-      .then(d => { if (d.error) { setError(d.error); return; } setData(d); })
-      .catch(() => setError("Failed to load briefing"))
-      .finally(() => setLoading(false));
+  const loadBriefing = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/briefing/daily", {
+        cache: "no-store",
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Failed to load briefing");
+      setData(result);
+    } catch (briefingError) {
+      setError(
+        briefingError instanceof Error
+          ? briefingError.message
+          : "Failed to load briefing",
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (loading) {
+  useEffect(() => {
+    loadBriefing();
+  }, [loadBriefing]);
+
+  if (loading && !data) {
     return (
       <div className="space-y-6">
-        <div className="h-8 w-64 bg-muted rounded animate-pulse" />
-        <div className="h-32 bg-muted rounded-xl animate-pulse" />
-        <div className="grid grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="h-20 bg-muted rounded-xl animate-pulse" />)}
+        <div className="h-10 w-72 animate-pulse rounded bg-muted" />
+        <div className="h-36 animate-pulse rounded-2xl bg-muted" />
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="h-24 animate-pulse rounded-xl bg-muted"
+            />
+          ))}
         </div>
-        <div className="h-48 bg-muted rounded-xl animate-pulse" />
+        <div className="h-64 animate-pulse rounded-2xl bg-muted" />
       </div>
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />
-        <h2 className="text-xl font-semibold text-foreground mb-2">No Briefing Available</h2>
-        <p className="text-muted-foreground max-w-md">{error}</p>
-        <p className="text-sm text-muted-foreground mt-4">Briefings are generated daily at 6:00 AM.</p>
+      <div className="flex h-64 flex-col items-center justify-center text-center">
+        <AlertTriangle className="mb-4 h-12 w-12 text-amber-500" />
+        <h2 className="text-xl font-semibold">Daily plan unavailable</h2>
+        <p className="mt-2 max-w-md text-muted-foreground">{error}</p>
+        <button
+          type="button"
+          onClick={loadBriefing}
+          className="mt-5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+        >
+          Try again
+        </button>
       </div>
     );
   }
 
   if (!data) return null;
 
-  const now = new Date();
-  const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const urgentCount = data.actions.filter(
+    (action) => action.priority === "urgent",
+  ).length;
+
+  const metrics = [
+    {
+      label: "Overdue",
+      value: data.metrics.overdue_followups,
+      icon: Clock3,
+      colour: "text-red-500",
+    },
+    {
+      label: "Unread",
+      value: data.metrics.unread_messages,
+      icon: Inbox,
+      colour: "text-blue-500",
+    },
+    {
+      label: "Hot clients",
+      value: data.metrics.hot_leads,
+      icon: Flame,
+      colour: "text-amber-500",
+    },
+    {
+      label: "Inspections",
+      value: data.metrics.inspections_booked,
+      icon: Calendar,
+      colour: "text-purple-500",
+    },
+  ];
 
   return (
-    <div className="space-y-8 max-w-7xl">
-      <div className="flex items-center gap-3">
-        <Sun className="w-8 h-8 text-amber-500" />
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">{greeting}</h1>
-          <p className="text-muted-foreground mt-1">{data.date} - Here is your daily briefing</p>
+    <div className="mx-auto max-w-7xl space-y-6 pb-20">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Sun className="h-8 w-8 text-amber-500" />
+          <div>
+            <h1 className="text-3xl font-bold">{greeting}</h1>
+            <p className="mt-1 text-muted-foreground">
+              {new Date(data.date).toLocaleDateString("en-AU", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              })}
+              {" · "}Your Copilot daily action plan
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={loadBriefing}
+          disabled={loading}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-semibold hover:bg-muted disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh plan
+        </button>
+      </div>
+
+      <div
+        className={`rounded-2xl border p-6 ${urgentCount ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}
+      >
+        <div className="flex items-start gap-3">
+          <Sparkles
+            className={`mt-0.5 h-5 w-5 ${urgentCount ? "text-red-600" : "text-emerald-600"}`}
+          />
+          <div>
+            <h2
+              className={`font-semibold ${urgentCount ? "text-red-900" : "text-emerald-900"}`}
+            >
+              Clippy recommends
+            </h2>
+            <p
+              className={`mt-1 leading-relaxed ${urgentCount ? "text-red-700" : "text-emerald-700"}`}
+            >
+              {data.summary}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
-        <div className="flex items-center gap-2 mb-3"><Sparkles className="w-5 h-5 text-emerald-600" /><h2 className="text-lg font-semibold text-emerald-800">While You Were Offline</h2></div>
-        <p className="text-emerald-700 leading-relaxed">{data.summary}</p>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <MessageCircle className="w-5 h-5 text-blue-500 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-foreground">{data.metrics.conversations_handled}</p>
-          <p className="text-xs text-muted-foreground">Conversations</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <Users className="w-5 h-5 text-emerald-500 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-foreground">{data.metrics.new_leads}</p>
-          <p className="text-xs text-muted-foreground">New Leads</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <Calendar className="w-5 h-5 text-purple-500 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-foreground">{data.metrics.inspections_booked}</p>
-          <p className="text-xs text-muted-foreground">Inspections</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <TrendingUp className="w-5 h-5 text-amber-500 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-foreground">{data.metrics.hot_leads}</p>
-          <p className="text-xs text-muted-foreground">Hot Leads</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <Zap className="w-5 h-5 text-blue-500 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-foreground">{data.metrics.response_rate}%</p>
-          <p className="text-xs text-muted-foreground">AI Response Rate</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {data.hot_leads_list && data.hot_leads_list.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2"><TrendingUp className="w-5 h-5 text-red-500" /> Hot Leads</h2>
-            <div className="space-y-3">
-              {data.hot_leads_list.map((lead, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-red-50">
-                  <div><p className="text-sm font-medium text-red-800">{lead.name}</p><p className="text-xs text-red-600">{lead.stage}</p></div>
-                  <span className="text-sm font-bold text-red-700">{lead.value}</span>
-                </div>
-              ))}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="rounded-xl border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">{metric.label}</p>
+              <metric.icon className={`h-5 w-5 ${metric.colour}`} />
             </div>
+            <p className="mt-2 text-3xl font-bold">{metric.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-5">
+          <h2 className="text-lg font-semibold">Today’s priorities</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ordered by urgency. Each action opens the correct CRM context;
+            nothing is sent automatically.
+          </p>
+        </div>
+
+        {data.actions.length ? (
+          <div className="divide-y">
+            {data.actions.map((action, index) => {
+              const Icon = actionIcons[action.type];
+              return (
+                <div
+                  key={action.id}
+                  className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold">
+                      {index + 1}
+                    </span>
+                    <div
+                      className={`rounded-xl border p-2 ${priorityStyles[action.priority]}`}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">{action.title}</p>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${priorityStyles[action.priority]}`}
+                        >
+                          {action.priority}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {action.reason}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href={action.href}
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                  >
+                    {action.cta}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center p-12 text-center">
+            <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+            <h3 className="mt-4 text-lg font-semibold">You are caught up</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              New client actions will appear here automatically.
+            </p>
           </div>
         )}
-
-        {data.inspections_today && data.inspections_today.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2"><Calendar className="w-5 h-5 text-purple-500" /> Inspections Today</h2>
-            <div className="space-y-3">
-              {data.inspections_today.map((ins, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-purple-50">
-                  <div><p className="text-sm font-medium text-purple-800">{ins.address}</p><p className="text-xs text-purple-600">{ins.lead}</p></div>
-                  <span className="text-sm font-bold text-purple-700">{ins.time}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {data.escalations && data.escalations.length > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-          <div className="flex items-center gap-2 mb-4"><AlertTriangle className="w-5 h-5 text-red-600" /><h2 className="text-lg font-semibold text-red-800">Needs Your Attention</h2></div>
-          <div className="space-y-3">
-            {data.escalations.map((esc, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white">
-                <div><p className="text-sm font-medium text-red-800">{esc.lead}</p><p className="text-xs text-red-600">{esc.reason}</p></div>
-                <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded">{esc.type}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {data.new_leads_list && data.new_leads_list.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-emerald-500" /> New Leads</h2>
-          <div className="space-y-3">
-            {data.new_leads_list.map((lead, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div><p className="text-sm font-medium text-foreground">{lead.name}</p><p className="text-xs text-muted-foreground">via {lead.source}</p></div>
-                <span className="text-xs text-muted-foreground">{lead.time}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Link
+          href="/clients"
+          className="rounded-xl border bg-card p-4 hover:bg-muted"
+        >
+          <Users className="h-5 w-5 text-primary" />
+          <p className="mt-2 font-semibold">Client 360</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Review every client and enquiry.
+          </p>
+        </Link>
+        <Link
+          href="/inbox"
+          className="rounded-xl border bg-card p-4 hover:bg-muted"
+        >
+          <MessageCircle className="h-5 w-5 text-primary" />
+          <p className="mt-2 font-semibold">Inbox</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Review conversations and approve replies.
+          </p>
+        </Link>
+        <Link
+          href="/calendar"
+          className="rounded-xl border bg-card p-4 hover:bg-muted"
+        >
+          <Calendar className="h-5 w-5 text-primary" />
+          <p className="mt-2 font-semibold">Calendar</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage reminders and inspections.
+          </p>
+        </Link>
+      </div>
     </div>
   );
 }
