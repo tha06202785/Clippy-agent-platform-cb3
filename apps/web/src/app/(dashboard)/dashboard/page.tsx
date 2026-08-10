@@ -198,13 +198,19 @@ export default function DashboardPage() {
     {
       label: "Verified deliveries",
       value: completed.verified_outbound_deliveries,
-      detail: "Outbound messages with provider or delivery evidence",
+      detail:
+        completed.verified_outbound_deliveries > 0
+          ? "Outbound messages with provider or delivery evidence"
+          : "No verified outbound messages today",
       icon: Send,
     },
     {
       label: "New leads today",
       value: dashboard.now.new_leads_today,
-      detail: "Organisation-scoped leads created today",
+      detail:
+        dashboard.now.new_leads_today > 0
+          ? "Organisation-scoped leads created today"
+          : "Waiting for the first new lead today",
       icon: Users,
     },
     {
@@ -216,13 +222,16 @@ export default function DashboardPage() {
       detail:
         performance.inbound_bursts > 0
           ? `${performance.answered_bursts} of ${performance.inbound_bursts} enquiry bursts answered`
-          : "No inbound enquiry burst recorded today",
+          : "Waiting for the first inbound enquiry",
       icon: MessageCircle,
     },
     {
       label: "Average response",
       value: formatResponseTime(performance.avg_response_time_seconds),
-      detail: "Across answered enquiry bursts today",
+      detail:
+        performance.avg_response_time_seconds === null
+          ? "Calculated after the first answered enquiry"
+          : "Across answered enquiry bursts today",
       icon: Clock,
     },
   ];
@@ -270,7 +279,7 @@ export default function DashboardPage() {
                 clippyNeedsAttention ? "text-amber-700" : "text-emerald-700"
               }`}
             >
-              How Clippy is doing
+              Today&apos;s activity
             </p>
             <h2 className="mt-1 text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-neutral-900">
               {dashboard.clippy.headline}
@@ -306,14 +315,14 @@ export default function DashboardPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-emerald-700">
-              Clippy recommends
+              Priority actions
             </p>
             <h2 className="mt-1 text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-neutral-900">
-              Your next best actions
+              Tasks requiring attention
             </h2>
             <p className="mt-1 text-[13px] font-normal leading-5 text-neutral-500">
-              Prioritised from unresolved exceptions and current opportunity
-              signals.
+              Ordered by urgency from unresolved tasks and current
+              opportunities.
             </p>
           </div>
           <div className="rounded-xl bg-emerald-50 p-3">
@@ -324,7 +333,11 @@ export default function DashboardPage() {
           {dashboard.clippy.recommendations.map((item, index) => (
             <article
               key={`${item.kind}-${item.title}`}
-              className="rounded-xl border border-neutral-200 bg-neutral-50 p-4"
+              className={`rounded-xl border border-neutral-200 bg-neutral-50 p-4 ${
+                dashboard.clippy.recommendations.length === 1
+                  ? "lg:col-span-3 lg:grid lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4"
+                  : ""
+              }`}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
@@ -342,15 +355,33 @@ export default function DashboardPage() {
                   </span>
                 )}
               </div>
-              <h3 className="mt-3 text-base font-semibold leading-[1.3] text-neutral-900">
-                {item.title}
-              </h3>
-              <p className="mt-1 min-h-10 text-[13px] font-normal leading-[1.5] text-neutral-600">
-                {item.detail}
-              </p>
+              <div>
+                <h3
+                  className={`mt-3 text-base font-semibold leading-[1.3] text-neutral-900 ${
+                    dashboard.clippy.recommendations.length === 1
+                      ? "lg:mt-0"
+                      : ""
+                  }`}
+                >
+                  {item.title}
+                </h3>
+                <p
+                  className={`mt-1 text-sm font-normal leading-[1.5] text-neutral-600 ${
+                    dashboard.clippy.recommendations.length === 1
+                      ? ""
+                      : "min-h-10"
+                  }`}
+                >
+                  {item.detail}
+                </p>
+              </div>
               <Link
                 href={item.href}
-                className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-emerald-700 hover:text-emerald-800"
+                className={`mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-emerald-700 hover:text-emerald-800 ${
+                  dashboard.clippy.recommendations.length === 1
+                    ? "lg:mt-0 lg:whitespace-nowrap"
+                    : ""
+                }`}
               >
                 {item.action}
                 <ArrowRight className="h-4 w-4" />
@@ -371,7 +402,7 @@ export default function DashboardPage() {
                 <p className="text-xs font-medium leading-5 text-neutral-500 md:text-[13px]">
                   {label}
                 </p>
-                <p className="mt-2 font-dashboard-mono text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
+                <p className="mt-2 text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
                   {value}
                 </p>
               </div>
@@ -436,7 +467,7 @@ export default function DashboardPage() {
               Opportunity pipeline
             </h2>
           </div>
-          <p className="mt-3 font-dashboard-mono text-[28px] font-semibold leading-none tracking-[-0.025em] text-emerald-700 tabular-nums">
+          <p className="mt-3 text-[28px] font-semibold leading-none tracking-[-0.025em] text-emerald-700 tabular-nums">
             {priorityLeads}
           </p>
           <p className="mt-1 text-sm text-neutral-600">Hot and warm leads</p>
@@ -473,14 +504,14 @@ export default function DashboardPage() {
       <section className="grid gap-3 sm:grid-cols-3">
         <article className="rounded-xl border border-neutral-200 bg-white p-4">
           <Users className="h-5 w-5 text-emerald-600" />
-          <p className="mt-2 font-dashboard-mono text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
+          <p className="mt-2 text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
             {dashboard.week.new_leads}
           </p>
           <p className="text-sm text-neutral-500">New leads this week</p>
         </article>
         <article className="rounded-xl border border-neutral-200 bg-white p-4">
           <MessageCircle className="h-5 w-5 text-emerald-600" />
-          <p className="mt-2 font-dashboard-mono text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
+          <p className="mt-2 text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
             {dashboard.performance.answered_bursts}
           </p>
           <p className="text-sm text-neutral-500">
@@ -489,7 +520,7 @@ export default function DashboardPage() {
         </article>
         <article className="rounded-xl border border-neutral-200 bg-white p-4">
           <Calendar className="h-5 w-5 text-emerald-600" />
-          <p className="mt-2 font-dashboard-mono text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
+          <p className="mt-2 text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
             {dashboard.now.due_tasks}
           </p>
           <p className="text-sm text-neutral-500">Tasks due or overdue</p>
