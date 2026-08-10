@@ -118,7 +118,7 @@ export function InboxPage() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-xs">
                       {(lead.full_name || "?")[0]}
                     </div>
                     <div>
@@ -126,7 +126,7 @@ export function InboxPage() {
                       <p className="text-xs text-muted-foreground">{lead.email || "No contact info"}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="font-dashboard-mono text-[10px] text-muted-foreground tabular-nums">
                     {new Date(lead.created_at).toLocaleDateString()}
                   </span>
                 </div>
