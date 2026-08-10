@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "sonner";
@@ -26,6 +26,8 @@ import {
   UserRound,
   ShieldCheck,
   LoaderCircle,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile-nav";
@@ -139,9 +141,67 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const previousUnread = useRef<number | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    const muted = window.localStorage.getItem("clippy:notifications-muted") === "true";
+    setNotificationsEnabled("Notification" in window && Notification.permission === "granted" && !muted);
+  }, []);
   useEffect(() => setPendingHref(null), [pathname]);
+
+  const refreshUnread = useCallback(async () => {
+    try {
+      const response = await fetch("/api/conversations/unread", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      const nextCount = typeof data.count === "number" ? data.count : 0;
+      if (
+        previousUnread.current !== null &&
+        nextCount > previousUnread.current &&
+        notificationsEnabled &&
+        "Notification" in window &&
+        Notification.permission === "granted" &&
+        pathname !== "/inbox"
+      ) {
+        const notification = new Notification("New Clippy conversation", {
+          body: data.latest?.text || "A client sent a new message.",
+          icon: "/icon.png",
+          tag: data.latest?.conversation_id || "clippy-inbox",
+        });
+        notification.onclick = () => {
+          window.focus();
+          router.push("/inbox");
+          notification.close();
+        };
+      }
+      previousUnread.current = nextCount;
+      setUnreadCount(nextCount);
+    } catch {
+      // Keep the last known badge when a background refresh fails.
+    }
+  }, [notificationsEnabled, pathname, router]);
+
+  useEffect(() => {
+    void refreshUnread();
+    const timer = window.setInterval(() => void refreshUnread(), 15_000);
+    return () => window.clearInterval(timer);
+  }, [refreshUnread]);
+
+  const toggleNotifications = async () => {
+    if (!("Notification" in window)) return;
+    if (notificationsEnabled) {
+      window.localStorage.setItem("clippy:notifications-muted", "true");
+      setNotificationsEnabled(false);
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    const enabled = permission === "granted";
+    window.localStorage.setItem("clippy:notifications-muted", enabled ? "false" : "true");
+    setNotificationsEnabled(enabled);
+  };
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -188,6 +248,11 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
           />
         )}
         <span className="text-sm font-medium">{item.label}</span>
+        {item.href === "/inbox" && unreadCount > 0 ? (
+          <span className="ml-auto min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[10px] font-bold text-white" aria-label={`${unreadCount} unread conversations`}>
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        ) : null}
       </Link>
     );
   };
@@ -224,6 +289,19 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
           <span className="font-bold text-sm text-neutral-800">Clippy</span>
         </Link>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => void toggleNotifications()}
+            className="relative rounded-xl p-2 hover:bg-neutral-100 transition-colors"
+            aria-label={notificationsEnabled ? "Mute conversation notifications" : "Enable conversation notifications"}
+            title={notificationsEnabled ? "Conversation notifications are on" : "Enable conversation notifications"}
+          >
+            {notificationsEnabled ? (
+              <Bell className="h-4 w-4 text-neutral-800" />
+            ) : (
+              <BellOff className="h-4 w-4 text-neutral-500" />
+            )}
+            {unreadCount > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
+          </button>
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             className="p-2 rounded-xl hover:bg-neutral-100 transition-colors"
@@ -301,8 +379,21 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
               </h1>
             </div>
             <div className="flex items-center gap-4">
+          <button
+            onClick={() => void toggleNotifications()}
+            className="relative rounded-xl p-2 hover:bg-neutral-100 transition-colors"
+            aria-label={notificationsEnabled ? "Mute conversation notifications" : "Enable conversation notifications"}
+            title={notificationsEnabled ? "Conversation notifications are on" : "Enable conversation notifications"}
+          >
+            {notificationsEnabled ? (
+              <Bell className="h-4 w-4 text-neutral-800" />
+            ) : (
+              <BellOff className="h-4 w-4 text-neutral-500" />
+            )}
+            {unreadCount > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
+          </button>
               <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")
                 className="p-2 rounded-xl hover:bg-neutral-100 transition-colors hidden md:block"
               >
                 {mounted && theme === "dark" ? (
