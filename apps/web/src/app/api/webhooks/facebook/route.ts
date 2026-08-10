@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { persistInboundMessage } from "@/lib/conversations/persist-inbound";
 import { updateDeliveryStatus, markConversationRead } from "@/lib/conversations/update-delivery-status";
+import { resolveOrCreateLead } from "@/lib/leads/resolve-or-create";
 
 export const dynamic = "force-dynamic";
 
@@ -97,39 +98,9 @@ export async function POST(req: NextRequest) {
           processed: false,
         });
 
-        // Resolve lead by Facebook PSID
-        const { data: identity } = await supabase
-          .from("lead_identities")
-          .select("lead_id")
-          .eq("org_id", orgId)
-          .eq("facebook_psid", pageScopedSenderId)
-          .maybeSingle();
-
-        let leadId = identity?.lead_id;
-
-        // Create lead if new
-        if (!leadId) {
-          const { data: lead } = await supabase
-            .from("leads")
-            .insert({
-              org_id: orgId,
-              full_name: null,
-              source: "facebook",
-              stage: "unknown",
-            })
-            .select()
-            .single();
-          leadId = lead?.id;
-
-          if (leadId) {
-            await supabase.from("lead_identities").insert({
-              org_id: orgId,
-              lead_id: leadId,
-              channel: "facebook",
-              facebook_psid: pageScopedSenderId,
-            });
-          }
-        }
+        const leadId = await resolveOrCreateLead({
+          supabase, orgId, channel: "facebook", identity: pageScopedSenderId,
+        });
 
         if (leadId) {
           await persistInboundMessage({
