@@ -63,6 +63,42 @@ describe("Google knowledge sync", () => {
     expect(item && isLikelyRealEstateLead(item)).toBe(false);
   });
 
+  it("rejects link-heavy marketing issues even when they mention property", () => {
+    const item = gmailMessageToKnowledge({
+      id: "chickpea-114",
+      threadId: "chickpea-114",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "The Chickpea Papers Issue #114" },
+          { name: "From", value: "Lean with Plants <info@chelseamae.com>" },
+        ],
+        body: {
+          data: encode(
+            "Read our property story https://example.com/1 https://example.com/2 https://example.com/3",
+          ),
+        },
+      },
+    });
+    expect(item && isLikelyRealEstateLead(item)).toBe(false);
+  });
+
+  it("accepts a trusted portal property enquiry from an automated sender", () => {
+    const item = gmailMessageToKnowledge({
+      id: "portal-enquiry",
+      threadId: "portal-enquiry",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "New buyer enquiry" },
+          { name: "From", value: "no-reply@realestate.com.au" },
+        ],
+        body: { data: encode("Buyer enquiry for the property at 10 Collins Street") },
+      },
+    });
+    expect(item && isLikelyRealEstateLead(item)).toBe(true);
+  });
+
   it("converts active calendar events and ignores cancellations", () => {
     const active = calendarEventToKnowledge({
       id: "event-123",
