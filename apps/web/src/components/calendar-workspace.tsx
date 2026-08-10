@@ -22,10 +22,11 @@ export type CalendarWorkspaceEvent = {
   starts_at: string;
   ends_at: string | null;
   location: string | null;
-  source: "google" | "inspection";
+  source: "google" | "inspection" | "reminder";
   status: string | null;
   client: { id: string; name: string | null } | null;
   property: { id: string; address: string | null } | null;
+  copilot_href?: string;
 };
 
 type CalendarConnection = {
@@ -170,6 +171,9 @@ export function CalendarWorkspace({
   const inspectionCount = events.filter(
     (event) => event.source === "inspection",
   ).length;
+  const reminderCount = events.filter(
+    (event) => event.source === "reminder",
+  ).length;
 
   const syncCalendar = () => {
     setSyncError(null);
@@ -210,7 +214,7 @@ export function CalendarWorkspace({
               One schedule. Every next action.
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-600 sm:text-base">
-              See Google Calendar events and Clippy inspection bookings
+              See Google Calendar events, inspections and follow-up reminders
               together, then open the linked client or property before taking
               action.
             </p>
@@ -287,8 +291,8 @@ export function CalendarWorkspace({
               icon: Building2,
             },
             {
-              label: "Indexed",
-              value: connection.itemsIndexed,
+              label: "Follow-ups",
+              value: reminderCount,
               icon: CheckCircle2,
             },
           ].map((metric) => (
@@ -409,12 +413,20 @@ export function CalendarWorkspace({
                           className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
                             event.source === "inspection"
                               ? "bg-emerald-100 text-emerald-700"
-                              : "bg-blue-100 text-blue-700"
+                              : event.source === "reminder"
+                                ? event.status === "overdue"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-amber-100 text-amber-700"
+                                : "bg-blue-100 text-blue-700"
                           }`}
                         >
                           {event.source === "inspection"
                             ? "Clippy inspection"
-                            : "Google Calendar"}
+                            : event.source === "reminder"
+                              ? event.status === "overdue"
+                                ? "Overdue follow-up"
+                                : "Follow-up"
+                              : "Google Calendar"}
                         </span>
                       </div>
 
@@ -451,7 +463,10 @@ export function CalendarWorkspace({
                       </div>
 
                       <Link
-                        href={`/copilot?calendar_event_id=${event.id}&calendar_source=${event.source === "google" ? "google" : "inspection"}`}
+                        href={
+                          event.copilot_href ||
+                          `/copilot?calendar_event_id=${event.id}&calendar_source=${event.source === "google" ? "google" : "inspection"}`
+                        }
                         className="inline-flex items-center justify-center gap-1 rounded-xl bg-neutral-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
                       >
                         <Sparkles className="h-3.5 w-3.5" />

@@ -20,7 +20,7 @@ function metadataText(metadata: Record<string, unknown> | null, key: string) {
 }
 
 function firstRelated<T>(value: T | T[] | null): T | null {
-  return Array.isArray(value) ? (value[0] ?? null) : value;
+  return Array.isArray(value) ? value[0] ?? null : value;
 }
 
 export default async function CalendarPage() {
@@ -41,38 +41,52 @@ export default async function CalendarPage() {
   if (!membership?.org_id) redirect("/onboarding");
 
   const admin = createAdminClient();
-  const [calendarResult, bookingsResult, integrationResult, healthResult] =
-    await Promise.all([
-      supabase
-        .from("knowledge_documents")
-        .select("id,title,source_metadata")
-        .eq("org_id", membership.org_id)
-        .eq("user_id", userId)
-        .eq("source", "calendar")
-        .eq("status", "indexed")
-        .limit(100),
-      supabase
-        .from("inspection_bookings")
-        .select(
-          "id,booking_status,leads(id,full_name),listings(id,address),inspection_time_slots(starts_at,ends_at,inspection_type,address)",
-        )
-        .eq("org_id", membership.org_id)
-        .neq("booking_status", "cancelled")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      admin
-        .from("integrations")
-        .select("status,connected_at,last_sync_at,items_indexed")
-        .eq("org_id", membership.org_id)
-        .eq("provider", "google-calendar")
-        .maybeSingle(),
-      admin
-        .from("integration_health")
-        .select("status,last_sync_at,items_indexed")
-        .eq("org_id", membership.org_id)
-        .eq("provider", "google-calendar")
-        .maybeSingle(),
-    ]);
+  const [
+    calendarResult,
+    bookingsResult,
+    tasksResult,
+    integrationResult,
+    healthResult,
+  ] = await Promise.all([
+    supabase
+      .from("knowledge_documents")
+      .select("id,title,source_metadata")
+      .eq("org_id", membership.org_id)
+      .eq("user_id", userId)
+      .eq("source", "calendar")
+      .eq("status", "indexed")
+      .limit(100),
+    supabase
+      .from("inspection_bookings")
+      .select(
+        "id,booking_status,leads(id,full_name),listings(id,address),inspection_time_slots(starts_at,ends_at,inspection_type,address)",
+      )
+      .eq("org_id", membership.org_id)
+      .neq("booking_status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("tasks")
+      .select(
+        "id,title,due_at,status,lead_id,listing_id,leads(id,full_name),listings(id,address)",
+      )
+      .eq("org_id", membership.org_id)
+      .eq("status", "pending")
+      .order("due_at", { ascending: true })
+      .limit(200),
+    admin
+      .from("integrations")
+      .select("status,connected_at,last_sync_at,items_indexed")
+      .eq("org_id", membership.org_id)
+      .eq("provider", "google-calendar")
+      .maybeSingle(),
+    admin
+      .from("integration_health")
+      .select("status,last_sync_at,items_indexed")
+      .eq("org_id", membership.org_id)
+      .eq("provider", "google-calendar")
+      .maybeSingle(),
+  ]);
 
   if (calendarResult.error) {
     console.error(
@@ -84,6 +98,12 @@ export default async function CalendarPage() {
     console.error(
       "Calendar workspace inspections failed",
       bookingsResult.error.code,
+    );
+  }
+  if (tasksResult.error) {
+    console.error(
+      "Calendar workspace reminders failed",
+      tasksResult.error.code,
     );
   }
   if (integrationResult.error) {
@@ -149,7 +169,39 @@ export default async function CalendarPage() {
     },
   );
 
-  const events = [...googleEvents, ...inspectionEvents].sort(
+  const reminderEvents = (tasksResult.data ?? []).flatMap(
+    (task): CalendarWorkspaceEvent[] => {
+      if (!task.due_at) return [];
+      const overdue = new Date(task.due_at).getTime() < now;
+      const client = firstRelated(task.leads);
+      const property = firstRelated(task.listings);
+      return [
+        {
+          id: task.id,
+          title: `${overdue ? "Overdue · " : ""}${task.title}`,
+          starts_at: overdue ? generatedAt : task.due_at,
+          ends_at: null,
+          location: null,
+          source: "reminder",
+          status: overdue ? "overdue" : "pending",
+          client: client
+            ? { id: client.id, name: client.full_name || null }
+            : null,
+          property: property
+            ? { id: property.id, address: property.address || null }
+            : null,
+          copilot_href: `/copilot?${[
+            task.lead_id ? `lead_id=${task.lead_id}` : "",
+            task.listing_id ? `listing_id=${task.listing_id}` : "",
+          ]
+            .filter(Boolean)
+            .join("&")}`,
+        },
+      ];
+    },
+  );
+
+  const events = [...googleEvents, ...inspectionEvents, ...reminderEvents].sort(
     (left, right) =>
       new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime(),
   );
