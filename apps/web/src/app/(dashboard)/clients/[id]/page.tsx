@@ -17,6 +17,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { CreateFollowUpButton } from "@/components/create-follow-up-button";
 
 export const dynamic = "force-dynamic";
 
@@ -127,35 +128,35 @@ export default async function Client360Page({
 
   const [clientResult, enquiriesResult, conversationsResult, tasksResult] =
     await Promise.all([
-    supabase
-      .from("leads")
-      .select("*")
-      .eq("id", id)
-      .eq("org_id", membership.org_id)
-      .maybeSingle(),
-    supabase
-      .from("property_enquiries")
-      .select(
-        "id,source,status,first_enquired_at,last_activity_at,listings(id,address,status,price,bedrooms,bathrooms,property_type),conversations(id,channel,last_message_at)",
-      )
-      .eq("lead_id", id)
-      .eq("org_id", membership.org_id)
-      .order("last_activity_at", { ascending: false }),
-    supabase
-      .from("conversations")
-      .select("id,channel,last_message_at,listing_id")
-      .eq("lead_id", id)
-      .eq("org_id", membership.org_id)
-      .order("last_message_at", { ascending: false, nullsFirst: false })
-      .limit(100),
-    supabase
-      .from("tasks")
-      .select("id,title,type,status,due_at,listing_id")
-      .eq("lead_id", id)
-      .eq("org_id", membership.org_id)
-      .order("due_at", { ascending: true })
-      .limit(20),
-  ]);
+      supabase
+        .from("leads")
+        .select("*")
+        .eq("id", id)
+        .eq("org_id", membership.org_id)
+        .maybeSingle(),
+      supabase
+        .from("property_enquiries")
+        .select(
+          "id,source,status,first_enquired_at,last_activity_at,listings(id,address,status,price,bedrooms,bathrooms,property_type),conversations(id,channel,last_message_at)",
+        )
+        .eq("lead_id", id)
+        .eq("org_id", membership.org_id)
+        .order("last_activity_at", { ascending: false }),
+      supabase
+        .from("conversations")
+        .select("id,channel,last_message_at,listing_id")
+        .eq("lead_id", id)
+        .eq("org_id", membership.org_id)
+        .order("last_message_at", { ascending: false, nullsFirst: false })
+        .limit(100),
+      supabase
+        .from("tasks")
+        .select("id,title,type,status,due_at,listing_id")
+        .eq("lead_id", id)
+        .eq("org_id", membership.org_id)
+        .order("due_at", { ascending: true })
+        .limit(20),
+    ]);
 
   if (clientResult.error) {
     console.error("Client 360 load failed", clientResult.error.code);
@@ -181,10 +182,11 @@ export default async function Client360Page({
   const enquiries = (enquiriesResult.data ?? []).map((enquiry) => ({
     ...enquiry,
     listings: Array.isArray(enquiry.listings)
-      ? (enquiry.listings[0] ?? null)
+      ? enquiry.listings[0] ?? null
       : enquiry.listings,
   })) as Enquiry[];
-  const conversations = (conversationsResult.data ?? []) as ClientConversation[];
+  const conversations = (conversationsResult.data ??
+    []) as ClientConversation[];
   const tasks = (tasksResult.data ?? []) as Task[];
   const conversationContext = new Map<
     string,
@@ -207,9 +209,7 @@ export default async function Client360Page({
   const { data: messageData, error: messagesError } = conversationIds.length
     ? await supabase
         .from("messages")
-        .select(
-          "id,conversation_id,direction_in_out,text,created_at,read_at",
-        )
+        .select("id,conversation_id,direction_in_out,text,created_at,read_at")
         .eq("org_id", membership.org_id)
         .in("conversation_id", conversationIds)
         .order("created_at", { ascending: false })
@@ -403,20 +403,22 @@ export default async function Client360Page({
                     </p>
                     {enquiry.conversations?.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {enquiry.conversations.slice(0, 3).map((conversation) => (
-                          <Link
-                            key={conversation.id}
-                            href={`/copilot?lead_id=${client.id}&enquiry_id=${enquiry.id}&conversation_id=${conversation.id}${
-                              enquiry.listings
-                                ? `&listing_id=${enquiry.listings.id}`
-                                : ""
-                            }`}
-                            className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold capitalize text-blue-700 transition hover:bg-blue-100"
-                          >
-                            <MessageCircle className="h-3 w-3" />
-                            {conversation.channel} thread
-                          </Link>
-                        ))}
+                        {enquiry.conversations
+                          .slice(0, 3)
+                          .map((conversation) => (
+                            <Link
+                              key={conversation.id}
+                              href={`/copilot?lead_id=${client.id}&enquiry_id=${enquiry.id}&conversation_id=${conversation.id}${
+                                enquiry.listings
+                                  ? `&listing_id=${enquiry.listings.id}`
+                                  : ""
+                              }`}
+                              className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold capitalize text-blue-700 transition hover:bg-blue-100"
+                            >
+                              <MessageCircle className="h-3 w-3" />
+                              {conversation.channel} thread
+                            </Link>
+                          ))}
                       </div>
                     )}
                     <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
@@ -516,9 +518,15 @@ export default async function Client360Page({
           </div>
 
           <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-soft sm:p-6">
-            <h2 className="text-lg font-bold text-neutral-900">
-              Follow-ups and reminders
-            </h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <h2 className="text-lg font-bold text-neutral-900">
+                Follow-ups and reminders
+              </h2>
+              <CreateFollowUpButton
+                leadId={client.id}
+                defaultTitle={`Follow up with ${client.full_name || "client"}`}
+              />
+            </div>
             <div className="mt-4 space-y-3">
               {pendingTasks.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-800">

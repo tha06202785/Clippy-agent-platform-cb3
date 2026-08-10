@@ -21,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { CreateFollowUpButton } from "@/components/create-follow-up-button";
 
 export const dynamic = "force-dynamic";
 
@@ -697,9 +698,15 @@ export default async function Property360Page({
           </div>
 
           <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-soft sm:p-6">
-            <h2 className="text-lg font-bold text-neutral-900">
-              Follow-ups and reminders
-            </h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <h2 className="text-lg font-bold text-neutral-900">
+                Follow-ups and reminders
+              </h2>
+              <CreateFollowUpButton
+                listingId={listing.id}
+                defaultTitle={`Follow up on ${listing.address}`}
+              />
+            </div>
             <div className="mt-4 space-y-3">
               {pendingTasks.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-800">
