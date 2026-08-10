@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { z } from "zod";
+import {
+  readAutomationSecret,
+  secureSecretMatch,
+} from "@/lib/automation-security";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +44,7 @@ interface IncomingMessage {
   conversationId?: string; message: string;
   attachments?: any[]; metadata?: Record<string, any>;
   externalId?: string; externalConversationId?: string;
+  orgId?: string;
 }
 
 // Identity resolution
@@ -188,14 +193,36 @@ export async function POST(req: NextRequest) {
 
     // If no authenticated user, require internal service secret
     if (!orgId) {
-      const internalSecret = process.env.INTERNAL_API_SECRET;
+      const internalSecret = readAutomationSecret("INTERNAL_API_SECRET");
       const internalHeader = req.headers.get("x-internal-secret");
-      if (!internalSecret || !internalHeader || internalHeader !== internalSecret) {
+      if (!internalSecret) {
+        console.error("Internal AI automation disabled: secret is not securely configured");
+        return NextResponse.json(
+          { error: "Automation is securely disabled" },
+          { status: 503 },
+        );
+      }
+      if (!secureSecretMatch(internalHeader, internalSecret)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      const { data: orgs } = await supabase.from("orgs").select("id").limit(1);
-      if (orgs && orgs.length > 0) orgId = orgs[0].id;
-      else return NextResponse.json({ error: "No org found" }, { status: 500 });
+      if (!body.orgId || !z.string().uuid().safeParse(body.orgId).success) {
+        return NextResponse.json(
+          { error: "A valid organisation is required" },
+          { status: 400 },
+        );
+      }
+      const { data: organisation } = await supabase
+        .from("orgs")
+        .select("id")
+        .eq("id", body.orgId)
+        .maybeSingle();
+      if (!organisation) {
+        return NextResponse.json(
+          { error: "Organisation not found" },
+          { status: 404 },
+        );
+      }
+      orgId = organisation.id;
     }
 
     // Check opt-out and channel preferences before processing
