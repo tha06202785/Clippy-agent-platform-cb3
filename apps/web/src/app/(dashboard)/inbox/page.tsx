@@ -7,7 +7,7 @@ import { ArrowLeft, Bot, Check, Copy, Inbox, Loader2, Mail, MessageCircle, Searc
 type Related<T> = T | T[] | null;
 type Person = { id: string; full_name: string | null; email: string | null; phone: string | null; priority?: string | null; stage?: string | null };
 type Listing = { id: string; address: string | null; status?: string | null };
-type Message = { id: string; direction_in_out: string; text: string | null; created_at: string; read_at: string | null };
+type Message = { id: string; direction_in_out: string; text: string | null; created_at: string; read_at: string | null; raw_json?: Record<string, unknown> | null };
 type Thread = {
   id: string; lead_id: string | null; listing_id: string | null; enquiry_id: string | null;
   channel: string; last_message_at: string | null; updated_at: string;
@@ -18,6 +18,13 @@ type Thread = {
 const one = <T,>(value: Related<T>): T | null => Array.isArray(value) ? value[0] || null : value;
 const channelLabel = (value: string) => value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 const shortTime = (value?: string | null) => value ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "";
+const deliveryLabel = (message: Message) => {
+  const status = typeof message.raw_json?.delivery_status === "string" ? message.raw_json.delivery_status : "";
+  if (status === "read") return "Read";
+  if (status === "delivered") return "Delivered";
+  if (status === "failed") return "Failed";
+  return status === "sent" ? "Sent" : "";
+};
 
 export default function InboxPage() {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -47,6 +54,21 @@ export default function InboxPage() {
   }, []);
 
   useEffect(() => { void loadThreads(); }, [loadThreads]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(`/api/conversations/${selectedId}/messages`, { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (Array.isArray(data.messages)) setMessages(data.messages);
+      } catch {
+        // Keep the existing history visible when a background refresh fails.
+      }
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [selectedId]);
 
   const selectThread = useCallback(async (id: string) => {
     setSelectedId(id); setLoadingMessages(true); setError(""); setDraft(""); setDraftId(null); setApproved(false); setInstruction("");
@@ -151,7 +173,7 @@ export default function InboxPage() {
       <main className={`${selected ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col`}>
         {!selected ? <div className="flex h-full flex-col items-center justify-center p-8 text-center"><MessageCircle className="mb-4 h-12 w-12 text-muted-foreground/40" /><h2 className="font-semibold">Select a conversation</h2><p className="mt-1 max-w-sm text-sm text-muted-foreground">View the complete client and property message history in one place.</p></div> : <>
           <header className="flex items-center gap-3 border-b border-border bg-card px-4 py-3"><button onClick={() => { setSelectedId(null); setMessages([]); }} className="rounded-md p-2 hover:bg-muted md:hidden" aria-label="Back to conversations"><ArrowLeft className="h-4 w-4" /></button><div className="min-w-0 flex-1"><h2 className="truncate font-semibold">{lead?.full_name || lead?.email || "Unknown client"}</h2><p className="truncate text-xs text-muted-foreground">{channelLabel(selected.channel)}{listing?.address ? ` · ${listing.address}` : ""}</p></div><Link href={`/copilot?${copilotParams.toString()}`} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"><Bot className="h-4 w-4" /><span className="hidden sm:inline">Open Clippy</span></Link></header>
-          <section className="flex-1 overflow-y-auto p-4 md:p-6">{loadingMessages ? <div className="text-center text-sm text-muted-foreground">Loading message history…</div> : messages.length === 0 ? <div className="text-center text-sm text-muted-foreground">No messages in this conversation yet.</div> : <div className="mx-auto flex max-w-3xl flex-col gap-3">{messages.map((message) => <div key={message.id} className={`flex ${message.direction_in_out === "out" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${message.direction_in_out === "out" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md border border-border bg-card"}`}><p className="whitespace-pre-wrap break-words">{message.text || "(No text content)"}</p><p className={`mt-1 text-[10px] ${message.direction_in_out === "out" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{shortTime(message.created_at)}</p></div></div>)}</div>}</section>
+          <section className="flex-1 overflow-y-auto p-4 md:p-6">{loadingMessages ? <div className="text-center text-sm text-muted-foreground">Loading message history…</div> : messages.length === 0 ? <div className="text-center text-sm text-muted-foreground">No messages in this conversation yet.</div> : <div className="mx-auto flex max-w-3xl flex-col gap-3">{messages.map((message) => <div key={message.id} className={`flex ${message.direction_in_out === "out" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${message.direction_in_out === "out" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md border border-border bg-card"}`}><p className="whitespace-pre-wrap break-words">{message.text || "(No text content)"}</p><p className={`mt-1 text-[10px] ${message.direction_in_out === "out" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{shortTime(message.created_at)}{message.direction_in_out === "out" && deliveryLabel(message) ? ` · ${deliveryLabel(message)}` : ""}</p></div></div>)}</div>}</section>
           <footer className="border-t border-border bg-card p-4"><div className="mx-auto max-w-3xl rounded-lg border border-border bg-muted/40 p-3">{draft ? <div className="space-y-3"><div className="flex items-center justify-between"><div><p className="flex items-center gap-2 text-sm font-medium"><Bot className="h-4 w-4 text-primary" />Clippy draft</p><p className="text-xs text-muted-foreground">Review and edit before approval.</p></div><button onClick={() => { setDraft(""); setDraftId(null); setApproved(false); }} className="rounded-md p-2 hover:bg-muted" aria-label="Close draft"><X className="h-4 w-4" /></button></div><textarea aria-label="Edit Clippy reply" value={draft} onChange={(event) => { setDraft(event.target.value); setApproved(false); }} rows={5} className="w-full resize-y rounded-lg border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">Facebook and WhatsApp send only after approval. Email and SMS open your messaging app.</p><div className="flex gap-2"><button onClick={() => void navigator.clipboard.writeText(draft)} className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium"><Copy className="h-3.5 w-3.5" />Copy</button><button disabled={approving || !draft.trim()} onClick={() => void approveDraft()} className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50">{approving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : approved ? <Check className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}{approved ? "Approved" : selected.channel === "email" ? "Approve & open email" : selected.channel === "sms" ? "Approve & open SMS" : selected.channel === "whatsapp" || selected.channel === "facebook" || selected.channel === "facebook_messenger" ? "Approve & send" : "Approve & copy"}</button></div></div></div> : <div className="space-y-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-sm font-medium">Draft safely with Clippy</p><p className="truncate text-xs text-muted-foreground">Uses this client, property and message history.</p></div>{lead?.email && <a href={`mailto:${lead.email}`} className="rounded-md border border-border bg-background p-2" aria-label="Open email"><Mail className="h-4 w-4" /></a>}</div><div className="flex gap-2"><input value={instruction} onChange={(event) => setInstruction(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void createDraft(); }} placeholder="Optional instruction, e.g. offer Tuesday at 4pm" className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" /><button disabled={drafting} onClick={() => void createDraft()} className="inline-flex items-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50">{drafting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}{drafting ? "Drafting…" : "Create draft"}</button></div></div>}</div></footer>
         </>}
         {error && <div className="absolute bottom-4 right-4 rounded-lg bg-destructive px-4 py-2 text-sm text-destructive-foreground shadow-lg">{error}</div>}

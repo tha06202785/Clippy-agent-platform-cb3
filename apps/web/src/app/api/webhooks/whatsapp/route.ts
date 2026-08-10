@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { persistInboundMessage } from "@/lib/conversations/persist-inbound";
+import { updateDeliveryStatus } from "@/lib/conversations/update-delivery-status";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
       for (const change of changes) {
         const value = change.value;
         const messages = value.messages || [];
+        const statuses = value.statuses || [];
 
         // Resolve org once per change (same phone_number_id for all msgs in a change)
         const phoneNumberId = value.metadata?.phone_number_id || "";
@@ -87,6 +89,18 @@ export async function POST(req: NextRequest) {
         }
 
         const orgId = resolvedOrgId;
+
+        for (const receipt of statuses) {
+          if (!receipt.id || !receipt.status) continue;
+          await updateDeliveryStatus({
+            supabase,
+            orgId,
+            externalMessageId: receipt.id,
+            status: receipt.status,
+            timestamp: receipt.timestamp,
+            error: receipt.errors?.[0]?.message || receipt.errors?.[0]?.title,
+          });
+        }
 
         for (const msg of messages) {
           const from = msg.from; // sender phone in E.164

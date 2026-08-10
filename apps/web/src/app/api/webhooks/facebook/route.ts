@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { persistInboundMessage } from "@/lib/conversations/persist-inbound";
+import { updateDeliveryStatus, markConversationRead } from "@/lib/conversations/update-delivery-status";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,26 @@ export async function POST(req: NextRequest) {
         const pageScopedSenderId = event.sender?.page_scoped_id || senderId;
         const message = event.message?.text;
         const msgId = event.message?.mid;
-        if (!pageScopedSenderId || !message) continue;
+        if (!pageScopedSenderId) continue;
+
+        if (event.delivery?.mids) {
+          for (const externalMessageId of event.delivery.mids) {
+            await updateDeliveryStatus({
+              supabase, orgId, externalMessageId, status: "delivered",
+              timestamp: event.delivery.watermark,
+            });
+          }
+          continue;
+        }
+        if (event.read?.watermark) {
+          await markConversationRead({
+            supabase, orgId, channel: "facebook",
+            externalThreadId: pageScopedSenderId,
+            watermark: event.read.watermark,
+          });
+          continue;
+        }
+        if (!message) continue;
 
         await supabase.from("webhook_events").insert({
           org_id: orgId,
