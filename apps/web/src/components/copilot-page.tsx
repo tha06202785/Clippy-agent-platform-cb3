@@ -181,7 +181,7 @@ function DraftApprovalCard({
         <div>
           <div className="flex items-center gap-2">
             <Mail className="h-4 w-4 text-amber-700" />
-            <h3 className="text-sm font-bold text-neutral-900">
+            <h3 className="text-sm font-semibold text-neutral-900">
               {action.title}
             </h3>
           </div>
@@ -192,7 +192,7 @@ function DraftApprovalCard({
           </p>
         </div>
         <span
-          className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.05em] ${
             action.status === "approved"
               ? "bg-emerald-100 text-emerald-700"
               : "bg-amber-100 text-amber-700"
@@ -205,7 +205,7 @@ function DraftApprovalCard({
       <div className="space-y-3 p-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-neutral-400">
               Channel
             </span>
             <p className="mt-1 text-xs font-semibold text-neutral-800">
@@ -213,7 +213,7 @@ function DraftApprovalCard({
             </p>
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-neutral-400">
               Recipient
             </span>
             <p className="mt-1 truncate text-xs font-semibold text-neutral-800">
@@ -227,7 +227,7 @@ function DraftApprovalCard({
 
         {action.channel === "email" && (
           <label className="block">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-neutral-400">
               Subject
             </span>
             <input
@@ -240,7 +240,7 @@ function DraftApprovalCard({
         )}
 
         <label className="block">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-neutral-400">
             Draft
           </span>
           <textarea
@@ -268,7 +268,7 @@ function DraftApprovalCard({
                 <button
                   type="button"
                   onClick={openDraft}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Open {channelLabel}
@@ -277,7 +277,7 @@ function DraftApprovalCard({
               <button
                 type="button"
                 onClick={() => void copyDraft()}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 transition hover:bg-neutral-50"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50"
               >
                 <Clipboard className="h-4 w-4" />
                 {copied ? "Copied" : "Copy approved text"}
@@ -294,7 +294,7 @@ function DraftApprovalCard({
               type="button"
               onClick={onApprove}
               disabled={action.status === "approving" || !action.content.trim()}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
             >
               <CheckCircle2 className="h-4 w-4" />
               {action.status === "approving"
@@ -533,7 +533,7 @@ export function CopilotPage({
         <div className="mx-auto max-w-4xl">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-neutral-400">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
                 Working context
               </div>
@@ -541,7 +541,7 @@ export function CopilotPage({
                 <div className="mt-1 flex min-w-0 items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-neutral-900">
+                    <p className="truncate text-sm font-semibold text-neutral-900">
                       {activeContext.label}
                     </p>
                     <p className="truncate text-xs text-neutral-500">
@@ -551,7 +551,7 @@ export function CopilotPage({
                 </div>
               ) : (
                 <div className="mt-1">
-                  <p className="text-sm font-bold text-neutral-800">
+                  <p className="text-sm font-semibold text-neutral-800">
                     No client or property selected
                   </p>
                   <p className="text-xs text-neutral-500">
@@ -568,7 +568,7 @@ export function CopilotPage({
                   type="button"
                   onClick={clearContext}
                   disabled={loading}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-neutral-200 px-3 text-xs font-bold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-neutral-200 px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
                 >
                   <X className="h-4 w-4" />
                   Clear
@@ -579,7 +579,7 @@ export function CopilotPage({
                 onClick={() => setContextOpen((open) => !open)}
                 disabled={loading}
                 aria-expanded={contextOpen}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-neutral-800 disabled:opacity-50"
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-neutral-800 disabled:opacity-50"
               >
                 {activeContext ? "Change context" : "Choose context"}
                 <ChevronDown
@@ -621,7 +621,7 @@ export function CopilotPage({
                       <div className="flex items-center gap-2 px-2 pb-2">
                         <Icon className="h-4 w-4 text-emerald-600" />
                         <div>
-                          <h3 className="text-xs font-bold text-neutral-800">
+                          <h3 className="text-xs font-semibold text-neutral-800">
                             {group.label}
                           </h3>
                           <p className="text-[11px] text-neutral-400">
@@ -641,7 +641,7 @@ export function CopilotPage({
                                 : "border-transparent hover:border-neutral-200 hover:bg-neutral-50"
                             }`}
                           >
-                            <span className="block truncate text-sm font-bold text-neutral-900">
+                            <span className="block truncate text-sm font-semibold text-neutral-900">
                               {item.label}
                             </span>
                             <span className="mt-0.5 block truncate text-xs text-neutral-500">
@@ -657,7 +657,7 @@ export function CopilotPage({
                 {visibleContextItems.length === 0 && (
                   <div className="px-4 py-10 text-center">
                     <Search className="mx-auto h-7 w-7 text-neutral-300" />
-                    <p className="mt-3 text-sm font-bold text-neutral-800">
+                    <p className="mt-3 text-sm font-semibold text-neutral-800">
                       No matching context
                     </p>
                     <p className="mt-1 text-xs text-neutral-500">
@@ -695,7 +695,7 @@ export function CopilotPage({
             >
               {message.contextLabel && (
                 <div
-                  className={`mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider ${
+                  className={`mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] ${
                     message.role === "user"
                       ? "text-white/70"
                       : "text-emerald-700"
