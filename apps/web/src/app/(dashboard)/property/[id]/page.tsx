@@ -70,8 +70,24 @@ type Task = {
   lead_id: string | null;
 };
 
+type PropertyConversation = {
+  id: string;
+  lead_id: string;
+  channel: string;
+  last_message_at: string | null;
+};
+
+type RecentMessage = {
+  id: string;
+  conversation_id: string;
+  direction_in_out: string;
+  text: string | null;
+  created_at: string;
+  read_at: string | null;
+};
+
 function firstRelated<T>(value: T | T[] | null): T | null {
-  return Array.isArray(value) ? (value[0] ?? null) : value;
+  return Array.isArray(value) ? value[0] ?? null : value;
 }
 
 function formatDate(value: string | null) {
@@ -143,41 +159,53 @@ export default async function Property360Page({
     .maybeSingle();
   if (!membership?.org_id) redirect("/onboarding");
 
-  const [listingResult, enquiriesResult, bookingsResult, tasksResult] =
-    await Promise.all([
-      supabase
-        .from("listings")
-        .select(
-          "id,address,price,bedrooms,bathrooms,property_type,status,stage,description,features,images,created_at",
-        )
-        .eq("id", id)
-        .eq("org_id", membership.org_id)
-        .maybeSingle(),
-      supabase
-        .from("property_enquiries")
-        .select(
-          "id,source,status,first_enquired_at,last_activity_at,leads(id,full_name,email,phone,priority,stage,ai_score),conversations(id,channel,last_message_at)",
-        )
-        .eq("listing_id", id)
-        .eq("org_id", membership.org_id)
-        .order("last_activity_at", { ascending: false }),
-      supabase
-        .from("inspection_bookings")
-        .select(
-          "id,booking_status,attendance_status,attendee_count,leads(id,full_name),inspection_time_slots(starts_at,ends_at,inspection_type)",
-        )
-        .eq("listing_id", id)
-        .eq("org_id", membership.org_id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("tasks")
-        .select("id,title,type,status,due_at,lead_id")
-        .eq("listing_id", id)
-        .eq("org_id", membership.org_id)
-        .order("due_at", { ascending: true })
-        .limit(30),
-    ]);
+  const [
+    listingResult,
+    enquiriesResult,
+    bookingsResult,
+    conversationsResult,
+    tasksResult,
+  ] = await Promise.all([
+    supabase
+      .from("listings")
+      .select(
+        "id,address,price,bedrooms,bathrooms,property_type,status,stage,description,features,images,created_at",
+      )
+      .eq("id", id)
+      .eq("org_id", membership.org_id)
+      .maybeSingle(),
+    supabase
+      .from("property_enquiries")
+      .select(
+        "id,source,status,first_enquired_at,last_activity_at,leads(id,full_name,email,phone,priority,stage,ai_score),conversations(id,channel,last_message_at)",
+      )
+      .eq("listing_id", id)
+      .eq("org_id", membership.org_id)
+      .order("last_activity_at", { ascending: false }),
+    supabase
+      .from("inspection_bookings")
+      .select(
+        "id,booking_status,attendance_status,attendee_count,leads(id,full_name),inspection_time_slots(starts_at,ends_at,inspection_type)",
+      )
+      .eq("listing_id", id)
+      .eq("org_id", membership.org_id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("conversations")
+      .select("id,lead_id,channel,last_message_at")
+      .eq("listing_id", id)
+      .eq("org_id", membership.org_id)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(100),
+    supabase
+      .from("tasks")
+      .select("id,title,type,status,due_at,lead_id")
+      .eq("listing_id", id)
+      .eq("org_id", membership.org_id)
+      .order("due_at", { ascending: true })
+      .limit(30),
+  ]);
 
   if (listingResult.error) {
     console.error("Property 360 listing load failed", listingResult.error.code);
@@ -196,6 +224,12 @@ export default async function Property360Page({
   }
   if (tasksResult.error) {
     console.error("Property 360 task load failed", tasksResult.error.code);
+  }
+  if (conversationsResult.error) {
+    console.error(
+      "Property 360 conversations load failed",
+      conversationsResult.error.code,
+    );
   }
   if (!listingResult.data) notFound();
 
@@ -219,7 +253,41 @@ export default async function Property360Page({
     leads: firstRelated(booking.leads),
     inspection_time_slots: firstRelated(booking.inspection_time_slots),
   })) as InspectionBooking[];
+  const conversations = (conversationsResult.data ??
+    []) as PropertyConversation[];
   const tasks = (tasksResult.data ?? []) as Task[];
+  const clientById = new Map(
+    enquiries
+      .filter((enquiry) => enquiry.leads)
+      .map((enquiry) => [
+        enquiry.leads!.id,
+        enquiry.leads!.full_name || "Unnamed client",
+      ]),
+  );
+  const conversationContext = new Map(
+    conversations.map((conversation) => [
+      conversation.id,
+      {
+        channel: conversation.channel,
+        client: clientById.get(conversation.lead_id) || "Client",
+        leadId: conversation.lead_id,
+      },
+    ]),
+  );
+  const conversationIds = [...conversationContext.keys()];
+  const { data: messageData, error: messagesError } = conversationIds.length
+    ? await supabase
+        .from("messages")
+        .select("id,conversation_id,direction_in_out,text,created_at,read_at")
+        .eq("org_id", membership.org_id)
+        .in("conversation_id", conversationIds)
+        .order("created_at", { ascending: false })
+        .limit(50)
+    : { data: [], error: null };
+  if (messagesError) {
+    console.error("Property 360 activity load failed", messagesError.code);
+  }
+  const recentMessages = (messageData ?? []) as RecentMessage[];
   const pendingTasks = tasks.filter((task) => task.status !== "completed");
   const now = Date.now();
   const upcomingBookings = bookings
@@ -234,10 +302,7 @@ export default async function Property360Page({
         new Date(left.inspection_time_slots!.starts_at).getTime() -
         new Date(right.inspection_time_slots!.starts_at).getTime(),
     );
-  const conversationCount = enquiries.reduce(
-    (total, enquiry) => total + (enquiry.conversations?.length || 0),
-    0,
-  );
+  const conversationCount = conversations.length;
   const offerCount = enquiries.filter((enquiry) =>
     ["offer", "won"].includes(enquiry.status),
   ).length;
@@ -430,16 +495,18 @@ export default async function Property360Page({
 
                       {client && enquiry.conversations?.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {enquiry.conversations.slice(0, 3).map((conversation) => (
-                            <Link
-                              key={conversation.id}
-                              href={`/copilot?lead_id=${client.id}&listing_id=${listing.id}&enquiry_id=${enquiry.id}&conversation_id=${conversation.id}`}
-                              className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold capitalize text-blue-700 transition hover:bg-blue-100"
-                            >
-                              <MessageCircle className="h-3 w-3" />
-                              {conversation.channel} thread
-                            </Link>
-                          ))}
+                          {enquiry.conversations
+                            .slice(0, 3)
+                            .map((conversation) => (
+                              <Link
+                                key={conversation.id}
+                                href={`/copilot?lead_id=${client.id}&listing_id=${listing.id}&enquiry_id=${enquiry.id}&conversation_id=${conversation.id}`}
+                                className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold capitalize text-blue-700 transition hover:bg-blue-100"
+                              >
+                                <MessageCircle className="h-3 w-3" />
+                                {conversation.channel} thread
+                              </Link>
+                            ))}
                         </div>
                       )}
 
@@ -491,6 +558,81 @@ export default async function Property360Page({
                         )}
                       </div>
                     </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-soft sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-neutral-900">
+                  Property activity
+                </h2>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Recent messages across every client and connected channel.
+                </p>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                {recentMessages.length} messages
+              </span>
+            </div>
+
+            {recentMessages.length === 0 ? (
+              <div className="mt-4 flex items-center gap-3 rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">
+                <MessageCircle className="h-5 w-5 text-neutral-400" />
+                No messages linked to this property yet.
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {recentMessages.slice(0, 12).map((message) => {
+                  const context = conversationContext.get(
+                    message.conversation_id,
+                  );
+                  const inbound = message.direction_in_out === "in";
+                  return (
+                    <div
+                      key={message.id}
+                      className={`rounded-2xl border p-4 ${
+                        inbound
+                          ? "border-blue-200 bg-blue-50/70"
+                          : "border-emerald-200 bg-emerald-50/70"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                        <span
+                          className={`rounded-full px-2 py-0.5 ${
+                            inbound
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {inbound ? "Client" : "Agency"}
+                        </span>
+                        <span className="font-bold text-neutral-700">
+                          {context?.client || "Client"}
+                        </span>
+                        <span className="capitalize text-neutral-500">
+                          {context?.channel || "conversation"}
+                        </span>
+                        <span className="ml-auto text-neutral-400">
+                          {formatDateTime(message.created_at)}
+                        </span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-700">
+                        {message.text || "Message content unavailable"}
+                      </p>
+                      {context?.leadId && (
+                        <Link
+                          href={`/clients/${context.leadId}`}
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-blue-700"
+                        >
+                          Open Client 360
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      )}
+                    </div>
                   );
                 })}
               </div>
