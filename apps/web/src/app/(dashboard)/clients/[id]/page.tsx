@@ -51,12 +51,38 @@ type Task = {
   listing_id: string | null;
 };
 
+type RecentMessage = {
+  id: string;
+  conversation_id: string;
+  direction_in_out: string;
+  text: string | null;
+  created_at: string;
+  read_at: string | null;
+};
+
+type ClientConversation = {
+  id: string;
+  channel: string;
+  last_message_at: string | null;
+  listing_id: string | null;
+};
+
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";
   return new Intl.DateTimeFormat("en-AU", {
     day: "numeric",
     month: "short",
     year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Australia/Melbourne",
   }).format(new Date(value));
 }
 
@@ -99,7 +125,8 @@ export default async function Client360Page({
     .maybeSingle();
   if (!membership?.org_id) redirect("/onboarding");
 
-  const [clientResult, enquiriesResult, tasksResult] = await Promise.all([
+  const [clientResult, enquiriesResult, conversationsResult, tasksResult] =
+    await Promise.all([
     supabase
       .from("leads")
       .select("*")
@@ -114,6 +141,13 @@ export default async function Client360Page({
       .eq("lead_id", id)
       .eq("org_id", membership.org_id)
       .order("last_activity_at", { ascending: false }),
+    supabase
+      .from("conversations")
+      .select("id,channel,last_message_at,listing_id")
+      .eq("lead_id", id)
+      .eq("org_id", membership.org_id)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(100),
     supabase
       .from("tasks")
       .select("id,title,type,status,due_at,listing_id")
@@ -135,6 +169,12 @@ export default async function Client360Page({
   if (tasksResult.error) {
     console.error("Client 360 tasks load failed", tasksResult.error.code);
   }
+  if (conversationsResult.error) {
+    console.error(
+      "Client 360 conversations load failed",
+      conversationsResult.error.code,
+    );
+  }
   if (!clientResult.data) notFound();
 
   const client = clientResult.data;
@@ -144,12 +184,43 @@ export default async function Client360Page({
       ? (enquiry.listings[0] ?? null)
       : enquiry.listings,
   })) as Enquiry[];
+  const conversations = (conversationsResult.data ?? []) as ClientConversation[];
   const tasks = (tasksResult.data ?? []) as Task[];
-  const pendingTasks = tasks.filter((task) => task.status !== "completed");
-  const conversationCount = enquiries.reduce(
-    (total, enquiry) => total + (enquiry.conversations?.length || 0),
-    0,
+  const conversationContext = new Map<
+    string,
+    { channel: string; property: string }
+  >();
+  const propertyById = new Map(
+    enquiries
+      .filter((enquiry) => enquiry.listings)
+      .map((enquiry) => [enquiry.listings!.id, enquiry.listings!.address]),
   );
+  for (const conversation of conversations) {
+    conversationContext.set(conversation.id, {
+      channel: conversation.channel,
+      property: conversation.listing_id
+        ? propertyById.get(conversation.listing_id) || "Linked property"
+        : "General enquiry",
+    });
+  }
+  const conversationIds = [...conversationContext.keys()];
+  const { data: messageData, error: messagesError } = conversationIds.length
+    ? await supabase
+        .from("messages")
+        .select(
+          "id,conversation_id,direction_in_out,text,created_at,read_at",
+        )
+        .eq("org_id", membership.org_id)
+        .in("conversation_id", conversationIds)
+        .order("created_at", { ascending: false })
+        .limit(50)
+    : { data: [], error: null };
+  if (messagesError) {
+    console.error("Client 360 activity load failed", messagesError.code);
+  }
+  const recentMessages = (messageData ?? []) as RecentMessage[];
+  const pendingTasks = tasks.filter((task) => task.status !== "completed");
+  const conversationCount = conversations.length;
   const overdueTasks = pendingTasks.filter(
     (task) => new Date(task.due_at).getTime() < Date.now(),
   );
@@ -373,6 +444,73 @@ export default async function Client360Page({
                     </div>
                   </article>
                 ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-soft sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-neutral-900">
+                  Recent activity
+                </h2>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Messages from every linked channel, kept in property context.
+                </p>
+              </div>
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                {recentMessages.length} messages
+              </span>
+            </div>
+
+            {recentMessages.length === 0 ? (
+              <div className="mt-4 flex items-center gap-3 rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">
+                <MessageCircle className="h-5 w-5 text-neutral-400" />
+                No linked conversation messages yet.
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {recentMessages.slice(0, 12).map((message) => {
+                  const context = conversationContext.get(
+                    message.conversation_id,
+                  );
+                  const inbound = message.direction_in_out === "in";
+                  return (
+                    <div
+                      key={message.id}
+                      className={`rounded-2xl border p-4 ${
+                        inbound
+                          ? "border-blue-200 bg-blue-50/70"
+                          : "border-emerald-200 bg-emerald-50/70"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                        <span
+                          className={`rounded-full px-2 py-0.5 ${
+                            inbound
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {inbound ? "Client" : "Agency"}
+                        </span>
+                        <span className="capitalize text-neutral-500">
+                          {context?.channel || "conversation"}
+                        </span>
+                        <span className="text-neutral-300">•</span>
+                        <span className="truncate text-neutral-500">
+                          {context?.property || "General enquiry"}
+                        </span>
+                        <span className="ml-auto text-neutral-400">
+                          {formatDateTime(message.created_at)}
+                        </span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-700">
+                        {message.text || "Message content unavailable"}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
