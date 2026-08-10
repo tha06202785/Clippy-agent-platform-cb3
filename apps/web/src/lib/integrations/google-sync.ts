@@ -25,7 +25,19 @@ const REAL_ESTATE_TERMS = [
 const NON_LEAD_TERMS = [
   "unsubscribe", "newsletter", "receipt", "invoice", "security alert", "password",
   "verification code", "one-time code", "order confirmation", "delivery update",
-  "statement available", "marketing preferences",
+  "statement available", "marketing preferences", "manage preferences",
+  "email preferences", "view in browser", "view this email", "read online",
+  "weekly digest", "issue #",
+];
+const LEAD_INTENT_TERMS = [
+  "i'm interested", "i am interested", "interested in", "would like to inspect",
+  "book an inspection", "arrange an inspection", "request an inspection",
+  "inspection still available", "available for inspection", "make an offer",
+  "want to buy", "want to rent", "looking to buy", "looking to rent",
+  "enquiring about", "inquiring about", "contact me",
+];
+const LEAD_SUBJECT_TERMS = [
+  "enquiry", "inquiry", "inspection", "buyer", "rental application", "offer",
 ];
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -190,10 +202,32 @@ function extractSenderName(from: string): string | null {
 export function isLikelyRealEstateLead(item: GoogleKnowledgeItem): boolean {
   if (item.source !== "email") return false;
   const email = String(item.metadata.email_address || "");
+  const subject = item.title.toLowerCase();
   const content = `${item.title} ${item.content}`.toLowerCase();
-  if (!email || /^(no-?reply|notifications?|mailer-daemon)@/i.test(email)) return false;
+  if (!email) return false;
+
+  const trustedPortal =
+    /@(domain\.com\.au|realestate\.com\.au)$/i.test(email);
+  const automatedSender =
+    /^(no-?reply|notifications?|mailer-daemon)@/i.test(email);
+  if (automatedSender && !trustedPortal) return false;
   if (NON_LEAD_TERMS.some((term) => content.includes(term))) return false;
-  return REAL_ESTATE_TERMS.some((term) => content.includes(term));
+
+  const hasIntent = LEAD_INTENT_TERMS.some((term) => content.includes(term));
+  const hasRealEstateContext = REAL_ESTATE_TERMS.some((term) =>
+    content.includes(term),
+  );
+  const subjectLooksLikeLead = LEAD_SUBJECT_TERMS.some((term) =>
+    subject.includes(term),
+  );
+  const linkCount = content.match(/https?:\/\//g)?.length || 0;
+  if (linkCount >= 3 && !hasIntent && !trustedPortal) return false;
+
+  return (
+    hasIntent ||
+    (subjectLooksLikeLead && hasRealEstateContext) ||
+    (trustedPortal && hasRealEstateContext)
+  );
 }
 
 export function calendarEventToKnowledge(
