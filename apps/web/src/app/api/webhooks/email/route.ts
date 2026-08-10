@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMessage, trackDelivery } from "@/lib/channels/router";
 import { registerEmailChannel } from "@/lib/channels/email";
+import { resolveOrCreateLead } from "@/lib/leads/resolve-or-create";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ registerEmailChannel();
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const from = formData.get("from") as string;
     const text = formData.get("text") as string;
@@ -46,28 +47,9 @@ export async function POST(req: NextRequest) {
       processed: false,
     });
 
-    // Resolve lead by email
-    const { data: identity } = await supabase
-      .from("lead_identities")
-      .select("lead_id")
-      .eq("email_normalized", email.toLowerCase())
-      .maybeSingle();
-
-    let leadId = identity?.lead_id;
-
-    if (!leadId) {
-      const { data: lead } = await supabase.from("leads").insert({
-        org_id: orgId, full_name: null,
-        email: email, source: "email", stage: "unknown",
-      }).select().single();
-      leadId = lead?.id;
-      if (leadId) {
-        await supabase.from("lead_identities").insert({
-          org_id: orgId, lead_id: leadId,
-          channel: "email", email_normalized: email.toLowerCase(),
-        });
-      }
-    }
+    const leadId = await resolveOrCreateLead({
+      supabase, orgId, channel: "email", identity: email,
+    });
 
     if (leadId) {
       const aiRes = await fetch("https://useclippy.com/api/ai/message", {
