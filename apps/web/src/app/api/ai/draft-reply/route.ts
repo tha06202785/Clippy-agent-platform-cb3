@@ -1,67 +1,108 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { requestCopilotCompletion } from "@/lib/ai/copilot-provider";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+const requestSchema = z.object({
+  conversation_id: z.string().uuid(),
+  instruction: z.string().trim().max(1000).optional(),
+});
+
+const one = <T,>(value: T | T[] | null): T | null =>
+  Array.isArray(value) ? value[0] || null : value;
+
 export async function POST(req: NextRequest) {
-  // Rate limit check
   const ip = await getClientIp();
   const { allowed, remaining, resetAt } = checkRateLimit(ip, "ai");
   if (!allowed) {
     return NextResponse.json(
-      { error: "Too many requests. Try again in " + Math.ceil((resetAt - Date.now()) / 1000) + " seconds." },
-      {
-        status: 429,
-        headers: {
-          "X-RateLimit-Remaining": String(remaining),
-          "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
-        },
-      }
+      { error: `Too many requests. Try again in ${Math.ceil((resetAt - Date.now()) / 1000)} seconds.` },
+      { status: 429, headers: { "X-RateLimit-Remaining": String(remaining) } },
     );
   }
 
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const parsed = requestSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "A valid conversation is required." }, { status: 400 });
     }
 
-    const { leadName, leadMessage, context } = await req.json();
+    const { data: membership } = await supabase
+      .from("user_org_roles")
+      .select("org_id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    if (!membership?.org_id) {
+      return NextResponse.json({ error: "No organisation is linked to this account." }, { status: 409 });
+    }
 
-    const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
-    const OLLAMA_ENDPOINT = "https://ollama.com/v1/chat/completions";
-    const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "kimi-k2.6";
+    const [{ data: conversation, error: conversationError }, { data: messages, error: messagesError }] = await Promise.all([
+      supabase
+        .from("conversations")
+        .select("id,channel,lead_id,listing_id,leads(full_name,email,phone),listings(address,status)")
+        .eq("id", parsed.data.conversation_id)
+        .eq("org_id", membership.org_id)
+        .maybeSingle(),
+      supabase
+        .from("messages")
+        .select("direction_in_out,text,created_at")
+        .eq("conversation_id", parsed.data.conversation_id)
+        .eq("org_id", membership.org_id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+    if (conversationError || messagesError) throw conversationError || messagesError;
+    if (!conversation) return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
 
-    const systemPrompt = "You are Clippy, an AI co-agent for real estate agents. Draft a professional reply to a lead. Be concise, warm, and helpful.";
+    const lead = one(conversation.leads);
+    const listing = one(conversation.listings);
+    const history = (messages || []).toReversed().map((message) =>
+      `${message.direction_in_out === "out" ? "Agent" : "Client"}: ${message.text || "(no text)"}`,
+    ).join("\n");
 
-    const response = await fetch(OLLAMA_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + OLLAMA_API_KEY,
-      },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: "Lead: " + leadName + "\nMessage: " + leadMessage + "\nContext: " + (context || "No additional context") + "\n\nDraft a reply:" },
-        ],
-        max_tokens: 400,
-      }),
+    const completion = await requestCopilotCompletion({
+      userId: user.id,
+      messages: [
+        {
+          role: "system",
+          content: "You are Clippy, an Australian real-estate co-agent. Draft only the reply message—no preamble, analysis or invented facts. Be concise, warm, professional and compliant. If essential information is missing, ask a clear question. Never promise availability, price, approval or an inspection time unless it appears in the supplied context.",
+        },
+        {
+          role: "user",
+          content: [
+            `Channel: ${conversation.channel}`,
+            `Client: ${lead?.full_name || "Unknown"}`,
+            `Property: ${listing?.address || "Not linked"}`,
+            listing?.status ? `Property status: ${listing.status}` : "",
+            parsed.data.instruction ? `Agent instruction: ${parsed.data.instruction}` : "",
+            "Conversation history:",
+            history || "No message history.",
+            "Draft the next agent reply.",
+          ].filter(Boolean).join("\n"),
+        },
+      ],
     });
+    const reply = completion.data.choices?.[0]?.message?.content?.trim();
+    if (!reply) throw new Error("AI service returned an empty draft");
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return NextResponse.json({ error: "AI error" }, { status: 502 });
-    }
-
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || data.message?.content || "No response";
-
-    return NextResponse.json({ reply });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      draft_id: randomUUID(),
+      reply,
+      channel: conversation.channel,
+      model: completion.model,
+      provider: completion.provider,
+    });
+  } catch (error) {
+    console.error("Conversation draft failed", error instanceof Error ? error.message : error);
+    return NextResponse.json({ error: "Clippy could not draft a reply right now. Please try again." }, { status: 502 });
   }
 }
