@@ -393,7 +393,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
             {unreadCount > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
           </button>
               <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className="p-2 rounded-xl hover:bg-neutral-100 transition-colors hidden md:block"
               >
                 {mounted && theme === "dark" ? (
