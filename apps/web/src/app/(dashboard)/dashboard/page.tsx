@@ -228,22 +228,22 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6 bg-neutral-50 p-4 pb-32 sm:p-6 md:pb-6">
+    <div className="space-y-6 bg-neutral-50 p-4 pb-32 font-dashboard sm:p-6 md:pb-6">
       <section className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 p-5 shadow-sm md:p-8">
         <div className="flex items-start gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 shadow-md">
             <Sparkles className="h-7 w-7 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900 md:text-3xl">
+            <h1 className="text-2xl font-semibold leading-[1.2] tracking-[-0.02em] text-neutral-900 md:text-[26px]">
               {greeting}, {dashboard.viewer.name}
             </h1>
-            <p className="mt-1 text-neutral-600">
+            <p className="mt-1 text-sm font-normal leading-5 text-neutral-600">
               {dashboard.viewer.agency_name
                 ? `${dashboard.viewer.agency_name} · ${dashboard.viewer.role}`
                 : dashboard.viewer.role}
             </p>
-            <p className="mt-3 text-sm text-neutral-500">
+            <p className="mt-3 text-[13px] font-normal leading-5 text-neutral-500">
               {new Date(dashboard.generated_at).toLocaleDateString("en-AU", {
                 timeZone: dashboard.reporting_time_zone,
                 weekday: "long",
@@ -266,16 +266,16 @@ export default function DashboardPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p
-              className={`text-xs font-semibold uppercase tracking-wider ${
+              className={`text-[11px] font-semibold uppercase tracking-[0.06em] ${
                 clippyNeedsAttention ? "text-amber-700" : "text-emerald-700"
               }`}
             >
               How Clippy is doing
             </p>
-            <h2 className="mt-1 text-xl font-bold text-neutral-900">
+            <h2 className="mt-1 text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-neutral-900">
               {dashboard.clippy.headline}
             </h2>
-            <p className="mt-2 text-sm text-neutral-600">
+            <p className="mt-2 text-sm font-normal leading-[1.5] text-neutral-600">
               {completed.verified_outbound_deliveries} verified outbound{" "}
               {completed.verified_outbound_deliveries === 1
                 ? "delivery"
@@ -305,13 +305,13 @@ export default function DashboardPage() {
       <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm md:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-emerald-700">
               Clippy recommends
             </p>
-            <h2 className="mt-1 text-xl font-bold text-neutral-900">
+            <h2 className="mt-1 text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-neutral-900">
               Your next best actions
             </h2>
-            <p className="mt-1 text-sm text-neutral-500">
+            <p className="mt-1 text-[13px] font-normal leading-5 text-neutral-500">
               Prioritised from unresolved exceptions and current opportunity
               signals.
             </p>
@@ -327,12 +327,12 @@ export default function DashboardPage() {
               className="rounded-xl border border-neutral-200 bg-neutral-50 p-4"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
                   {index + 1}
                 </div>
                 {item.priority !== "normal" && (
                   <span
-                    className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                    className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.05em] ${
                       item.priority === "urgent"
                         ? "bg-red-100 text-red-700"
                         : "bg-amber-100 text-amber-700"
@@ -342,15 +342,15 @@ export default function DashboardPage() {
                   </span>
                 )}
               </div>
-              <h3 className="mt-3 font-semibold text-neutral-900">
+              <h3 className="mt-3 text-base font-semibold leading-[1.3] text-neutral-900">
                 {item.title}
               </h3>
-              <p className="mt-1 min-h-10 text-sm text-neutral-600">
+              <p className="mt-1 min-h-10 text-[13px] font-normal leading-[1.5] text-neutral-600">
                 {item.detail}
               </p>
               <Link
                 href={item.href}
-                className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-emerald-700 hover:text-emerald-800"
               >
                 {item.action}
                 <ArrowRight className="h-4 w-4" />
@@ -368,8 +368,10 @@ export default function DashboardPage() {
           >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-xs text-neutral-500 md:text-sm">{label}</p>
-                <p className="mt-2 text-2xl font-bold text-neutral-900">
+                <p className="text-xs font-medium leading-5 text-neutral-500 md:text-[13px]">
+                  {label}
+                </p>
+                <p className="mt-2 font-dashboard-mono text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
                   {value}
                 </p>
               </div>
@@ -377,7 +379,9 @@ export default function DashboardPage() {
                 <Icon className="h-5 w-5 text-emerald-600" />
               </div>
             </div>
-            <p className="mt-3 text-xs leading-5 text-neutral-500">{detail}</p>
+            <p className="mt-3 text-xs font-normal leading-5 text-neutral-500">
+              {detail}
+            </p>
           </article>
         ))}
       </section>
@@ -386,7 +390,7 @@ export default function DashboardPage() {
         <article className="rounded-xl border border-neutral-200 bg-white p-5 lg:col-span-2">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-emerald-600" />
-            <h2 className="font-semibold text-neutral-900">
+            <h2 className="text-base font-semibold leading-[1.3] text-neutral-900">
               Verified Clippy activity
             </h2>
           </div>
@@ -428,29 +432,37 @@ export default function DashboardPage() {
         <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-700" />
-            <h2 className="font-semibold text-neutral-900">
+            <h2 className="text-base font-semibold leading-[1.3] text-neutral-900">
               Opportunity pipeline
             </h2>
           </div>
-          <p className="mt-3 text-3xl font-bold text-emerald-700">
+          <p className="mt-3 font-dashboard-mono text-[28px] font-semibold leading-none tracking-[-0.025em] text-emerald-700 tabular-nums">
             {priorityLeads}
           </p>
           <p className="mt-1 text-sm text-neutral-600">Hot and warm leads</p>
           <div className="mt-4 space-y-2 text-sm text-neutral-700">
             <p>
-              <strong>{dashboard.pipeline.hot_leads}</strong> hot leads
+              <strong className="font-dashboard-mono font-medium tabular-nums">
+                {dashboard.pipeline.hot_leads}
+              </strong>{" "}
+              hot leads
             </p>
             <p>
-              <strong>{dashboard.pipeline.warm_leads}</strong> warm leads
+              <strong className="font-dashboard-mono font-medium tabular-nums">
+                {dashboard.pipeline.warm_leads}
+              </strong>{" "}
+              warm leads
             </p>
             <p>
-              <strong>{dashboard.pipeline.total_leads}</strong> total leads
-              tracked
+              <strong className="font-dashboard-mono font-medium tabular-nums">
+                {dashboard.pipeline.total_leads}
+              </strong>{" "}
+              total leads tracked
             </p>
           </div>
           <Link
             href="/copilot"
-            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-emerald-700"
           >
             Ask Clippy what to do next
             <ArrowRight className="h-4 w-4" />
@@ -461,21 +473,23 @@ export default function DashboardPage() {
       <section className="grid gap-3 sm:grid-cols-3">
         <article className="rounded-xl border border-neutral-200 bg-white p-4">
           <Users className="h-5 w-5 text-emerald-600" />
-          <p className="mt-2 text-2xl font-bold text-neutral-900">
+          <p className="mt-2 font-dashboard-mono text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
             {dashboard.week.new_leads}
           </p>
           <p className="text-sm text-neutral-500">New leads this week</p>
         </article>
         <article className="rounded-xl border border-neutral-200 bg-white p-4">
           <MessageCircle className="h-5 w-5 text-emerald-600" />
-          <p className="mt-2 text-2xl font-bold text-neutral-900">
+          <p className="mt-2 font-dashboard-mono text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
             {dashboard.performance.answered_bursts}
           </p>
-          <p className="text-sm text-neutral-500">Enquiry bursts answered today</p>
+          <p className="text-sm text-neutral-500">
+            Enquiry bursts answered today
+          </p>
         </article>
         <article className="rounded-xl border border-neutral-200 bg-white p-4">
           <Calendar className="h-5 w-5 text-emerald-600" />
-          <p className="mt-2 text-2xl font-bold text-neutral-900">
+          <p className="mt-2 font-dashboard-mono text-[26px] font-semibold leading-none tracking-[-0.025em] text-neutral-900 tabular-nums">
             {dashboard.now.due_tasks}
           </p>
           <p className="text-sm text-neutral-500">Tasks due or overdue</p>
