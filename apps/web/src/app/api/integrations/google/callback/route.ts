@@ -88,9 +88,24 @@ export async function GET(req: NextRequest) {
       }),
     });
     if (!tokenResponse.ok) {
-      console.error("Google token exchange failed", tokenResponse.status);
+      const provider = (await tokenResponse.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      const errorCode =
+        provider.error === "invalid_client"
+          ? "google_invalid_client"
+          : provider.error === "redirect_uri_mismatch"
+            ? "google_redirect_mismatch"
+            : provider.error === "invalid_grant"
+              ? "google_invalid_grant"
+              : "token_exchange_failed";
+      console.error(
+        "Google token exchange failed",
+        tokenResponse.status,
+        provider.error || "unknown_error",
+      );
       return redirectAndClearState(
-        new URL("/integrations?error=token_exchange_failed", origin),
+        new URL(`/integrations?error=${errorCode}`, origin),
       );
     }
 

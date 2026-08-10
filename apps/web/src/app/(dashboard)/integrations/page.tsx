@@ -18,6 +18,19 @@ import {
 } from "lucide-react";
 
 type Status = "healthy" | "warning" | "error" | "not_connected";
+type DiagnosticCheck = {
+  id: string;
+  status: "pass" | "warning" | "error";
+  label: string;
+  detail: string;
+  action?: string;
+};
+type GoogleDiagnostic = {
+  overall: "pass" | "warning" | "error";
+  expected_redirect_uri: string;
+  checks: DiagnosticCheck[];
+  checked_at: string;
+};
 
 type IntegrationStatus = {
   id?: string;
@@ -88,7 +101,17 @@ const OAUTH_ERRORS: Record<string, string> = {
   whatsapp_phone_not_found:
     "No WhatsApp Business phone number was found in the selected Meta portfolio.",
   token_exchange_failed:
-    "Meta could not complete the secure connection. Please try connecting again.",
+    "The provider could not complete the secure connection. Please try connecting again.",
+  google_invalid_client:
+    "Google rejected the OAuth client. Replace GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel with credentials from the same Google Web application.",
+  google_redirect_mismatch:
+    "Google rejected Clippy's callback URL. Add https://useclippy.com/api/integrations/google/callback as an authorised redirect URI.",
+  google_invalid_grant:
+    "Google rejected or expired the authorisation code. Start the Google connection again.",
+  access_denied:
+    "Google access was denied. Approve the consent screen, or add this account as a test user while the app is in testing.",
+  not_configured:
+    "Google OAuth is not configured in the production environment.",
   invalid_state:
     "The connection session expired. Please start the connection again.",
 };
@@ -118,6 +141,9 @@ export default function IntegrationsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [googleDiagnostic, setGoogleDiagnostic] =
+    useState<GoogleDiagnostic | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -269,6 +295,28 @@ export default function IntegrationsPage() {
     }
   };
 
+  const diagnoseGoogle = async () => {
+    setDiagnosing(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/integrations/google/diagnostic", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || "Google diagnostic failed");
+      }
+      setGoogleDiagnostic(result as GoogleDiagnostic);
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : "Google diagnostic failed",
+      );
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
   const connect = (provider: keyof typeof CONFIG) => {
     window.location.assign(CONFIG[provider].connectUrl);
   };
@@ -307,13 +355,27 @@ export default function IntegrationsPage() {
             Connect channels, test their health and see what Clippy has indexed.
           </p>
         </div>
-        <button
-          onClick={() => void load()}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh status
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            disabled={diagnosing}
+            onClick={() => void diagnoseGoogle()}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-800 disabled:opacity-50"
+          >
+            {diagnosing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Activity className="h-4 w-4" />
+            )}
+            Diagnose Google
+          </button>
+          <button
+            onClick={() => void load()}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh status
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -326,6 +388,82 @@ export default function IntegrationsPage() {
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
           {notice}
         </div>
+      )}
+
+      {googleDiagnostic && (
+        <section className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-neutral-900">
+                Google connection diagnostic
+              </h2>
+              <p className="text-sm text-neutral-500">
+                Checked {relativeTime(googleDiagnostic.checked_at)}
+              </p>
+            </div>
+            <span
+              className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold ${
+                googleDiagnostic.overall === "pass"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : googleDiagnostic.overall === "error"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-amber-200 bg-amber-50 text-amber-700"
+              }`}
+            >
+              {googleDiagnostic.overall === "pass"
+                ? "All checks passed"
+                : googleDiagnostic.overall === "error"
+                  ? "Action required"
+                  : "Review required"}
+            </span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {googleDiagnostic.checks.map((check) => {
+              const CheckIcon =
+                check.status === "pass"
+                  ? CheckCircle2
+                  : check.status === "error"
+                    ? XCircle
+                    : AlertCircle;
+              const checkClass =
+                check.status === "pass"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : check.status === "error"
+                    ? "border-red-200 bg-red-50 text-red-800"
+                    : "border-amber-200 bg-amber-50 text-amber-800";
+              return (
+                <div
+                  key={check.id}
+                  className={`flex items-start gap-3 rounded-xl border p-3 ${checkClass}`}
+                >
+                  <CheckIcon className="mt-0.5 h-5 w-5 shrink-0" />
+                  <div className="min-w-0 text-sm">
+                    <p className="font-semibold">{check.label}</p>
+                    <p className="break-words">{check.detail}</p>
+                    {check.action && (
+                      <p className="mt-1 font-medium">Next: {check.action}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => connect("gmail")}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Reconnect Google
+            </button>
+            <button
+              disabled={diagnosing}
+              onClick={() => void diagnoseGoogle()}
+              className="rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+            >
+              Run again
+            </button>
+          </div>
+        </section>
       )}
 
       <section className="grid grid-cols-3 gap-3">
