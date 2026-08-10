@@ -28,6 +28,7 @@ import {
   LoaderCircle,
   Bell,
   BellOff,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile-nav";
@@ -106,6 +107,12 @@ const workspaceNav: NavItem[] = [
     icon: Plug,
     color: "text-blue-500",
   },
+  {
+    href: "/automation",
+    label: "Automation",
+    icon: Workflow,
+    color: "text-purple-600",
+  },
   { href: "/team", label: "Team", icon: Users, color: "text-blue-500" },
   {
     href: "/admin",
@@ -127,6 +134,7 @@ const pageTitles: Array<[string, string]> = [
   ["/knowledge", "Agency brain"],
   ["/analytics", "Performance"],
   ["/integrations", "Connections"],
+  ["/automation", "Automation"],
   ["/team", "Team"],
   ["/import", "Import"],
   ["/onboarding", "Setup"],
@@ -147,14 +155,21 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const muted = window.localStorage.getItem("clippy:notifications-muted") === "true";
-    setNotificationsEnabled("Notification" in window && Notification.permission === "granted" && !muted);
+    const muted =
+      window.localStorage.getItem("clippy:notifications-muted") === "true";
+    setNotificationsEnabled(
+      "Notification" in window &&
+        Notification.permission === "granted" &&
+        !muted,
+    );
   }, []);
   useEffect(() => setPendingHref(null), [pathname]);
 
   const refreshUnread = useCallback(async () => {
     try {
-      const response = await fetch("/api/conversations/unread", { cache: "no-store" });
+      const response = await fetch("/api/conversations/unread", {
+        cache: "no-store",
+      });
       if (!response.ok) return;
       const data = await response.json();
       const nextCount = typeof data.count === "number" ? data.count : 0;
@@ -199,7 +214,10 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
     }
     const permission = await Notification.requestPermission();
     const enabled = permission === "granted";
-    window.localStorage.setItem("clippy:notifications-muted", enabled ? "false" : "true");
+    window.localStorage.setItem(
+      "clippy:notifications-muted",
+      enabled ? "false" : "true",
+    );
     setNotificationsEnabled(enabled);
   };
 
@@ -249,7 +267,10 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         )}
         <span className="text-sm font-medium">{item.label}</span>
         {item.href === "/inbox" && unreadCount > 0 ? (
-          <span className="ml-auto min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[10px] font-bold text-white" aria-label={`${unreadCount} unread conversations`}>
+          <span
+            className="ml-auto min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[10px] font-bold text-white"
+            aria-label={`${unreadCount} unread conversations`}
+          >
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         ) : null}
@@ -292,15 +313,25 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
           <button
             onClick={() => void toggleNotifications()}
             className="relative rounded-xl p-2 hover:bg-neutral-100 transition-colors"
-            aria-label={notificationsEnabled ? "Mute conversation notifications" : "Enable conversation notifications"}
-            title={notificationsEnabled ? "Conversation notifications are on" : "Enable conversation notifications"}
+            aria-label={
+              notificationsEnabled
+                ? "Mute conversation notifications"
+                : "Enable conversation notifications"
+            }
+            title={
+              notificationsEnabled
+                ? "Conversation notifications are on"
+                : "Enable conversation notifications"
+            }
           >
             {notificationsEnabled ? (
               <Bell className="h-4 w-4 text-neutral-800" />
             ) : (
               <BellOff className="h-4 w-4 text-neutral-500" />
             )}
-            {unreadCount > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
+            {unreadCount > 0 ? (
+              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+            ) : null}
           </button>
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -379,19 +410,29 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
               </h1>
             </div>
             <div className="flex items-center gap-4">
-          <button
-            onClick={() => void toggleNotifications()}
-            className="relative rounded-xl p-2 hover:bg-neutral-100 transition-colors"
-            aria-label={notificationsEnabled ? "Mute conversation notifications" : "Enable conversation notifications"}
-            title={notificationsEnabled ? "Conversation notifications are on" : "Enable conversation notifications"}
-          >
-            {notificationsEnabled ? (
-              <Bell className="h-4 w-4 text-neutral-800" />
-            ) : (
-              <BellOff className="h-4 w-4 text-neutral-500" />
-            )}
-            {unreadCount > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
-          </button>
+              <button
+                onClick={() => void toggleNotifications()}
+                className="relative rounded-xl p-2 hover:bg-neutral-100 transition-colors"
+                aria-label={
+                  notificationsEnabled
+                    ? "Mute conversation notifications"
+                    : "Enable conversation notifications"
+                }
+                title={
+                  notificationsEnabled
+                    ? "Conversation notifications are on"
+                    : "Enable conversation notifications"
+                }
+              >
+                {notificationsEnabled ? (
+                  <Bell className="h-4 w-4 text-neutral-800" />
+                ) : (
+                  <BellOff className="h-4 w-4 text-neutral-500" />
+                )}
+                {unreadCount > 0 ? (
+                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+                ) : null}
+              </button>
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className="p-2 rounded-xl hover:bg-neutral-100 transition-colors hidden md:block"
