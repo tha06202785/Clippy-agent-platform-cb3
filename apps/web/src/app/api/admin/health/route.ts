@@ -378,7 +378,7 @@ export async function GET() {
         const identities = [
           lead.email ? `email:${String(lead.email).trim().toLowerCase()}` : "",
           lead.phone ? `phone:${String(lead.phone).replace(/\D/g, "")}` : "",
-        ].filter((identity) => !identity.endsWith(":"));
+        ].filter((identity) => identity.length > 0 && !identity.endsWith(":"));
         for (const identity of new Set(identities)) {
           identityCounts.set(identity, (identityCounts.get(identity) || 0) + 1);
         }
