@@ -1,322 +1,312 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
-  Upload, FileSpreadsheet, CheckCircle, AlertCircle,
-  Download, ArrowRight, X, User, Mail, Phone, Home
+  AlertCircle,
+  CheckCircle2,
+  FileSpreadsheet,
+  Loader2,
+  Upload,
+  X,
 } from "lucide-react";
 
-const CSV_TEMPLATE = "full_name,email,phone,source,buyer_type,notes\nSarah Mitchell,sarah@email.com,+61 400 000 000,Facebook,upgrader,Looking to upgrade from unit\nJames Chen,james@email.com,+61 412 345 678,Website,first_buyer,First home buyer, registered interest\n";
+const TARGETS = [
+  ["ignore", "Do not import"],
+  ["full_name", "Client name"],
+  ["email", "Email"],
+  ["phone", "Phone"],
+  ["source", "Lead source"],
+  ["buyer_type", "Buyer type"],
+  ["notes", "Notes"],
+] as const;
+type Target = (typeof TARGETS)[number][0];
+type Row = Record<string, string>;
 
-const SAMPLE_LEADS = [
-  { full_name: "Sarah Mitchell", email: "sarah@email.com", phone: "+61 400 000 000", source: "Facebook", buyer_type: "upgrader", notes: "Looking to upgrade" },
-  { full_name: "James Chen", email: "james@email.com", phone: "+61 412 345 678", source: "Website", buyer_type: "first_buyer", notes: "First home buyer" },
-];
+const ALIASES: Record<Exclude<Target, "ignore">, string[]> = {
+  full_name: ["full_name", "name", "contact_name", "client_name", "lead_name"],
+  email: ["email", "email_address", "contact_email"],
+  phone: ["phone", "mobile", "telephone", "phone_number", "contact_phone"],
+  source: ["source", "lead_source", "channel", "origin"],
+  buyer_type: ["buyer_type", "contact_type", "lead_type", "category"],
+  notes: ["notes", "note", "comments", "description"],
+};
 
-interface ParsedLead {
-  full_name: string;
-  email: string;
-  phone: string;
-  source: string;
-  buyer_type: string;
-  notes: string;
-  valid: boolean;
-  errors: string[];
-}
-
-function validateLead(row: Record<string, string>): { lead: ParsedLead; errors: string[] } {
-  const errors: string[] = [];
-  if (!row.full_name && !row.email && !row.phone) {
-    errors.push("Row has no name, email or phone — skipped");
+function parseCsv(text: string) {
+  const records: string[][] = [];
+  let row: string[] = [];
+  let value = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"') {
+      if (quoted && text[index + 1] === '"') {
+        value += '"';
+        index += 1;
+      } else quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      row.push(value.trim());
+      value = "";
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && text[index + 1] === "\n") index += 1;
+      row.push(value.trim());
+      if (row.some(Boolean)) records.push(row);
+      row = [];
+      value = "";
+    } else value += character;
   }
-  if (row.email && !row.email.includes("@")) {
-    errors.push("Invalid email");
-  }
+  row.push(value.trim());
+  if (row.some(Boolean)) records.push(row);
+  const headers = records[0]?.map((header) => header.trim()) ?? [];
   return {
-    lead: {
-      full_name: row.full_name || "",
-      email: row.email || "",
-      phone: row.phone || "",
-      source: row.source || "manual",
-      buyer_type: row.buyer_type || "",
-      notes: row.notes || "",
-      valid: errors.length === 0,
-      errors,
-    },
-    errors,
+    headers,
+    rows: records
+      .slice(1, 501)
+      .map((values) =>
+        Object.fromEntries(
+          headers.map((header, index) => [header, values[index] || ""]),
+        ),
+      ),
   };
 }
 
-function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.trim().split("\n");
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ""));
-  return lines.slice(1).map(line => {
-    const values = line.split(",").map(v => v.trim().replace(/"/g, ""));
-    const row: Record<string, string> = {};
-    headers.forEach((h, i) => { row[h] = values[i] || ""; });
-    return row;
-  });
+function inferMapping(headers: string[]) {
+  return Object.fromEntries(
+    headers.map((header) => {
+      const normalised = header
+        .toLowerCase()
+        .trim()
+        .replace(/[\s-]+/g, "_");
+      const target = Object.entries(ALIASES).find(([, aliases]) =>
+        aliases.includes(normalised),
+      )?.[0];
+      return [header, (target || "ignore") as Target];
+    }),
+  ) as Record<string, Target>;
 }
 
 export default function ImportPage() {
-  const [dragOver, setDragOver] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [results, setResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
-  const [preview, setPreview] = useState<ParsedLead[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [mapping, setMapping] = useState<Record<string, Target>>({});
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{
+    imported: number;
+    skipped: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const processFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const rows = parseCSV(text);
-      const validated = rows.map(row => {
-        const { lead, errors } = validateLead(row);
+  const mapped = useMemo(
+    () =>
+      rows.map((row) => {
+        const lead: Row = {};
+        for (const header of headers) {
+          const target = mapping[header];
+          if (target && target !== "ignore") lead[target] = row[header] || "";
+        }
         return lead;
-      });
-      setPreview(validated);
-      setResults(null);
+      }),
+    [headers, mapping, rows],
+  );
+  const valid = mapped.filter(
+    (lead) => lead.full_name || lead.email || lead.phone,
+  );
+
+  const loadFile = (file: File) => {
+    setError(null);
+    setResult(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const parsed = parseCsv(String(reader.result || ""));
+      if (!parsed.headers.length || !parsed.rows.length) {
+        setError("The CSV needs a header row and at least one client row.");
+        return;
+      }
+      setFileName(file.name);
+      setHeaders(parsed.headers);
+      setRows(parsed.rows);
+      setMapping(inferMapping(parsed.headers));
     };
     reader.readAsText(file);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file && (file.name.endsWith(".csv") || file.name.endsWith(".txt"))) {
-      processFile(file);
+  const importRows = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/leads/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leads: valid }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Import failed");
+      setResult({ imported: payload.imported, skipped: payload.skipped });
+      setHeaders([]);
+      setRows([]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Import failed");
+    } finally {
+      setBusy(false);
     }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
-  };
-
-  const handleImport = async () => {
-    if (!preview) return;
-    setImporting(true);
-    setResults(null);
-
-    const validLeads = preview.filter(l => l.valid);
-    let success = 0;
-    let failed = 0;
-    const errors: string[] = [];
-
-    for (const lead of validLeads) {
-      try {
-        const res = await fetch("/api/leads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(lead),
-        });
-        if (res.ok) success++;
-        else {
-          failed++;
-          const data = await res.json();
-          errors.push(`${lead.full_name}: ${data.error}`);
-        }
-      } catch {
-        failed++;
-        errors.push(`${lead.full_name}: Network error`);
-      }
-    }
-
-    setResults({ success, failed, errors: errors.slice(0, 10) });
-    setImporting(false);
-    setPreview(null);
-  };
-
-  const handleSampleImport = async () => {
-    setImporting(true);
-    let success = 0;
-    let failed = 0;
-    for (const lead of SAMPLE_LEADS) {
-      try {
-        const res = await fetch("/api/leads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(lead),
-        });
-        if (res.ok) success++;
-        else failed++;
-      } catch {
-        failed++;
-      }
-    }
-    setResults({ success, failed, errors: [] });
-    setImporting(false);
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Import leads</h1>
-        <p className="text-muted-foreground mt-1">Upload a CSV or add leads one-by-one</p>
-      </div>
-
-      {/* Download template */}
-      <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">CSV template</p>
-            <p className="text-xs text-muted-foreground">Required columns: full_name, email, phone, source</p>
-          </div>
+    <main className="mx-auto max-w-7xl space-y-6">
+      <section className="rounded-3xl border bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-soft sm:p-8">
+        <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold text-blue-700">
+          <FileSpreadsheet className="h-4 w-4" /> CRM field mapper
         </div>
-        <button
-          onClick={() => {
-            const blob = new Blob([CSV_TEMPLATE], { type: "text/csv" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "clippy_leads_template.csv";
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <Download className="w-4 h-4" />
-          Download
-        </button>
-      </div>
+        <h1 className="mt-4 text-3xl font-bold text-neutral-900">
+          Import clients safely.
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+          Upload a CSV, match your CRM columns to Clippy, review the preview and
+          import without duplicating existing email addresses or phone numbers.
+        </p>
+      </section>
 
-      {/* Drop zone */}
-      {!preview && (
-        <div
-          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileRef.current?.click()}
-          className={
-            "rounded-xl border-2 border-dashed p-16 text-center cursor-pointer transition-all " +
-            (dragOver
-              ? "border-primary bg-primary/5"
-              : "border-border hover:border-primary/50 hover:bg-muted/30")
-          }
-        >
-          <Upload className={"w-12 h-12 mx-auto mb-4 " + (dragOver ? "text-primary" : "text-muted-foreground/50")} />
-          <p className="text-foreground font-medium mb-1">Drop your CSV here</p>
-          <p className="text-sm text-muted-foreground">or click to browse files</p>
-          <p className="text-xs text-muted-foreground mt-2">Supports .csv files</p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.txt"
-            onChange={handleFileChange}
-            className="hidden"
-          />
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+      {result && (
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          <CheckCircle2 className="h-5 w-5" />
+          Imported {result.imported} clients; skipped {result.skipped}{" "}
+          duplicates or empty rows.
         </div>
       )}
 
-      {/* Preview */}
-      {preview && (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="p-4 border-b border-border flex items-center justify-between">
+      {!headers.length ? (
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="w-full rounded-3xl border-2 border-dashed border-neutral-300 bg-white px-6 py-16 text-center transition hover:border-emerald-400 hover:bg-emerald-50/30"
+        >
+          <Upload className="mx-auto h-10 w-10 text-emerald-600" />
+          <span className="mt-3 block font-bold text-neutral-900">
+            Choose CRM CSV file
+          </span>
+          <span className="mt-1 block text-sm text-neutral-500">
+            Up to 500 clients per import
+          </span>
+        </button>
+      ) : (
+        <section className="space-y-5 rounded-3xl border bg-white p-5 shadow-soft sm:p-6">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-foreground">{preview.length} leads found</p>
-              <p className="text-xs text-muted-foreground">
-                {preview.filter(l => l.valid).length} valid · {preview.filter(l => !l.valid).length} with issues
+              <h2 className="font-bold text-neutral-900">Map CRM fields</h2>
+              <p className="text-xs text-neutral-500">
+                {fileName} · {rows.length} rows
               </p>
             </div>
-            <button onClick={() => setPreview(null)} className="p-2 rounded-lg hover:bg-muted transition-colors">
-              <X className="w-4 h-4 text-muted-foreground" />
+            <button
+              type="button"
+              onClick={() => {
+                setHeaders([]);
+                setRows([]);
+              }}
+              aria-label="Close import"
+            >
+              <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  {["Name", "Email", "Phone", "Source", "Type", "Status"].map(h => (
-                    <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {headers.map((header) => (
+              <label
+                key={header}
+                className="rounded-xl border bg-neutral-50 p-3 text-xs font-bold text-neutral-600"
+              >
+                {header}
+                <select
+                  value={mapping[header] || "ignore"}
+                  onChange={(event) =>
+                    setMapping((current) => ({
+                      ...current,
+                      [header]: event.target.value as Target,
+                    }))
+                  }
+                  className="mt-2 w-full rounded-lg border bg-white px-3 py-2 text-sm font-medium text-neutral-800"
+                >
+                  {TARGETS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
                   ))}
+                </select>
+              </label>
+            ))}
+          </div>
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-neutral-50 text-xs text-neutral-500">
+                <tr>
+                  <th className="p-3">Name</th>
+                  <th className="p-3">Email</th>
+                  <th className="p-3">Phone</th>
+                  <th className="p-3">Source</th>
+                  <th className="p-3">Status</th>
                 </tr>
               </thead>
-              <tbody>
-                {preview.map((lead, i) => (
-                  <tr key={i} className={"border-b border-border last:border-0 " + (!lead.valid ? "bg-red-50/50" : "")}>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {lead.valid
-                          ? <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                          : <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                        }
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{lead.full_name || "—"}</p>
-                          {lead.errors.map(e => <p key={e} className="text-[10px] text-red-500">{e}</p>)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{lead.email || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{lead.phone || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{lead.source || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{lead.buyer_type || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className={"inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold " +
-                        (lead.valid ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>
-                        {lead.valid ? "Ready" : "Invalid"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y">
+                {mapped.slice(0, 8).map((lead, index) => {
+                  const ready = Boolean(
+                    lead.full_name || lead.email || lead.phone,
+                  );
+                  return (
+                    <tr key={index}>
+                      <td className="p-3">{lead.full_name || "—"}</td>
+                      <td className="p-3">{lead.email || "—"}</td>
+                      <td className="p-3">{lead.phone || "—"}</td>
+                      <td className="p-3">{lead.source || "crm_import"}</td>
+                      <td className="p-3">
+                        {ready ? (
+                          <span className="text-emerald-700">Ready</span>
+                        ) : (
+                          <span className="text-red-700">Missing identity</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-          <div className="p-4 border-t border-border flex gap-3">
-            <button onClick={() => setPreview(null)}
-              className="px-5 py-2.5 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted transition-colors">
-              Cancel
-            </button>
-            <button onClick={handleImport} disabled={importing || preview.filter(l => l.valid).length === 0}
-              className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-              {importing ? (
-                <><div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Importing…</>
+          <div className="flex items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-xs text-neutral-500">
+              <AlertCircle className="h-4 w-4" /> {valid.length} of{" "}
+              {rows.length} rows ready
+            </p>
+            <button
+              type="button"
+              disabled={busy || valid.length === 0}
+              onClick={() => void importRows()}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <><Upload className="w-4 h-4" /> Import {preview.filter(l => l.valid).length} leads</>
-              )}
+                <Upload className="h-4 w-4" />
+              )}{" "}
+              Import {valid.length} clients
             </button>
           </div>
-        </div>
+        </section>
       )}
-
-      {/* Results */}
-      {results && (
-        <div className={"rounded-xl border p-5 " + (results.failed === 0 ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50")}>
-          <div className="flex items-center gap-3 mb-3">
-            {results.failed === 0
-              ? <CheckCircle className="w-6 h-6 text-emerald-600" />
-              : <AlertCircle className="w-6 h-6 text-amber-600" />
-            }
-            <div>
-              <p className={"font-semibold " + (results.failed === 0 ? "text-emerald-800" : "text-amber-800")}>
-                {results.success} lead{results.success !== 1 ? "s" : ""} imported successfully
-                {results.failed > 0 && `, ${results.failed} failed`}
-              </p>
-            </div>
-          </div>
-          {results.errors.length > 0 && (
-            <div className="mt-2 space-y-1">
-              {results.errors.map((e, i) => (
-                <p key={i} className="text-xs text-amber-700">• {e}</p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Quick sample import */}
-      <div className="rounded-xl border border-dashed border-border p-6 text-center">
-        <p className="text-sm text-muted-foreground mb-4">No file handy? Try the sample data.</p>
-        <button onClick={handleSampleImport} disabled={importing}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-muted text-foreground rounded-xl text-sm font-semibold hover:bg-muted/80 transition-colors disabled:opacity-50">
-          <User className="w-4 h-4" />
-          Import 2 sample leads
-        </button>
-      </div>
-    </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) loadFile(file);
+          event.target.value = "";
+        }}
+      />
+    </main>
   );
 }
