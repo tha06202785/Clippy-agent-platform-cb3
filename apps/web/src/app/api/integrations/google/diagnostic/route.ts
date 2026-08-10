@@ -312,7 +312,7 @@ export async function GET() {
     apiCheck(
       "calendar_api",
       "Google Calendar API",
-      "https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1",
+      "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1&singleEvents=true",
       credentials.access_token,
     ),
   ]);
