@@ -79,7 +79,11 @@ export async function markConversationRead({
     .limit(50);
   if (messagesError) throw messagesError;
 
-  await Promise.all((messages || []).map((message) => {
+  await Promise.all((messages || []).map((message: {
+    id: string;
+    raw_json: Record<string, unknown> | null;
+    created_at: string;
+  }) => {
     const raw = message.raw_json && typeof message.raw_json === "object"
       ? message.raw_json
       : {};
