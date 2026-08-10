@@ -4,9 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Clock3,
+  Download,
   RefreshCw,
+  Rocket,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
@@ -39,6 +42,29 @@ const statusStyles: Record<HealthState, string> = {
   healthy: "border-emerald-200 bg-emerald-50 text-emerald-700",
   warning: "border-amber-200 bg-amber-50 text-amber-700",
   error: "border-red-200 bg-red-50 text-red-700",
+};
+
+const nextActions: Record<string, string> = {
+  authentication: "Sign out and sign in again with an Owner or Admin account.",
+  release: "Deploy the latest main branch to production.",
+  database: "Check Supabase availability, credentials and organisation access.",
+  organisation: "Assign the signed-in user to the correct organisation.",
+  knowledge: "Add approved agency knowledge before starting the pilot.",
+  integrations: "Reconnect or test the affected channel in Integrations.",
+  ai: "Configure a production AI provider before using Copilot.",
+  automation: "Configure the automation secrets in Vercel.",
+  "google-oauth": "Correct the Google OAuth credentials and redirect URL.",
+  "client-360-data": "Import or add one genuine client to exercise Client 360.",
+  "property-separation": "Repair enquiries missing a client or property link.",
+  "copilot-context":
+    "Review conversations with missing or mismatched CRM context.",
+  "follow-up-workflow":
+    "Add a due date and client or property to each active follow-up.",
+  "crm-duplicate-protection":
+    "Review repeated email and phone identities before importing again.",
+  "knowledge-email-filter":
+    "Review and archive emails that fail the real-estate relevance policy.",
+  "automation-pause-state": "Confirm the agency-wide automation setting.",
 };
 
 function StatusIcon({
@@ -91,6 +117,45 @@ export default function AdminQaPage() {
     data?.checks.filter((check) => check.status === "warning").length || 0;
   const failures =
     data?.checks.filter((check) => check.status === "error").length || 0;
+  const attentionChecks =
+    data?.checks.filter((check) => check.status !== "healthy") || [];
+  const pilotState: HealthState = failures
+    ? "error"
+    : warnings
+      ? "warning"
+      : "healthy";
+  const pilotLabel = failures
+    ? "Not ready for pilot"
+    : warnings
+      ? "Ready with actions"
+      : "Ready for pilot";
+
+  const downloadReport = useCallback(() => {
+    if (!data) return;
+    const lines = [
+      "CLIPPY PILOT READINESS REPORT",
+      `Generated: ${new Date(data.checkedAt).toLocaleString("en-AU")}`,
+      `Release: ${data.build?.commitRef || "unknown"} @ ${data.build?.commitSha?.slice(0, 7) || "unknown"}`,
+      `Score: ${data.score}%`,
+      `Verdict: ${pilotLabel}`,
+      "",
+      ...data.checks.flatMap((check) => [
+        `[${check.status.toUpperCase()}] ${check.name}`,
+        check.message,
+        check.status === "healthy"
+          ? ""
+          : `Next action: ${nextActions[check.key] || "Investigate this check before the pilot."}`,
+        "",
+      ]),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `clippy-pilot-readiness-${new Date(data.checkedAt).toISOString().slice(0, 10)}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [data, pilotLabel]);
 
   return (
     <div className="min-h-screen bg-background px-4 py-6 pb-24 md:px-8 md:py-10">
@@ -180,6 +245,67 @@ export default function AdminQaPage() {
             <p className="mt-3 text-3xl font-bold">{failures}</p>
           </div>
         </div>
+
+        {data && (
+          <div
+            className={`rounded-2xl border p-5 shadow-sm ${statusStyles[pilotState]}`}
+          >
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl border border-current/20 bg-white/60 p-2.5">
+                  <Rocket className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide opacity-80">
+                    Pilot readiness decision
+                  </p>
+                  <h2 className="mt-1 text-2xl font-bold">{pilotLabel}</h2>
+                  <p className="mt-1 text-sm opacity-90">
+                    {failures
+                      ? `${failures} blocker${failures === 1 ? "" : "s"} must be resolved before inviting pilot agencies.`
+                      : warnings
+                        ? `${warnings} action${warnings === 1 ? "" : "s"} can be completed during controlled pilot preparation.`
+                        : "All live checks passed. The current release is ready for a controlled pilot."}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={downloadReport}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-current/25 bg-white/70 px-4 text-sm font-semibold transition hover:bg-white"
+              >
+                <Download className="h-4 w-4" />
+                Download report
+              </button>
+            </div>
+
+            {attentionChecks.length > 0 && (
+              <div className="mt-5 rounded-xl border border-current/15 bg-white/60 p-4">
+                <h3 className="font-semibold">Prioritised next actions</h3>
+                <div className="mt-3 space-y-3">
+                  {attentionChecks.map((check, index) => (
+                    <div
+                      key={check.key}
+                      className="flex items-start gap-3 text-sm"
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white font-bold shadow-sm">
+                        {index + 1}
+                      </span>
+                      <div>
+                        <p className="font-semibold">{check.name}</p>
+                        <p className="mt-0.5 flex items-start gap-1.5 opacity-90">
+                          <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          {nextActions[check.key] ||
+                            "Investigate this check before the pilot."}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {data?.build && (
           <div className="rounded-2xl border bg-card p-5 shadow-sm">
