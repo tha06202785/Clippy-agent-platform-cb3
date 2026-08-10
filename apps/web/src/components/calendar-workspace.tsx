@@ -210,7 +210,7 @@ export function CalendarWorkspace({
               <CalendarDays className="h-3.5 w-3.5" />
               Agent calendar workspace
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
+            <h1 className="text-2xl font-semibold leading-8 tracking-[-0.02em] text-neutral-900 sm:text-[26px]">
               One schedule. Every next action.
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-600 sm:text-base">
@@ -234,7 +234,7 @@ export function CalendarWorkspace({
                     connection.connected ? "bg-emerald-500" : "bg-orange-500"
                   }`}
                 />
-                <span className="text-xs font-bold text-neutral-800">
+                <span className="text-xs font-semibold text-neutral-800">
                   {connection.connected
                     ? "Google Calendar connected"
                     : "Calendar needs attention"}
@@ -249,7 +249,7 @@ export function CalendarWorkspace({
                 type="button"
                 onClick={syncCalendar}
                 disabled={isSyncing}
-                className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
               >
                 <RefreshCw
                   className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`}
@@ -259,7 +259,7 @@ export function CalendarWorkspace({
             ) : (
               <Link
                 href="/integrations"
-                className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+                className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700"
               >
                 Connect calendar
                 <ArrowRight className="h-4 w-4" />
@@ -301,7 +301,7 @@ export function CalendarWorkspace({
               className="rounded-2xl border border-white bg-white/80 p-3 shadow-sm backdrop-blur sm:p-4"
             >
               <metric.icon className="h-4 w-4 text-emerald-600" />
-              <div className="mt-2 text-2xl font-bold text-neutral-900">
+              <div className="mt-2 text-2xl font-semibold text-neutral-900 tabular-nums">
                 {metric.value}
               </div>
               <div className="text-[11px] font-medium text-neutral-500">
@@ -369,7 +369,7 @@ export function CalendarWorkspace({
                         : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300"
                   }`}
                 >
-                  <span className="block truncate text-[10px] font-bold sm:text-xs">
+                  <span className="block truncate text-[10px] font-semibold sm:text-xs">
                     {shortDayLabel(date)}
                   </span>
                   <span className="mt-1 block text-[9px] text-neutral-400">
@@ -396,7 +396,7 @@ export function CalendarWorkspace({
           <div className="divide-y divide-neutral-100">
             {groups.map(([key, dayEvents]) => (
               <div key={key} className="p-4 sm:p-5">
-                <h2 className="text-sm font-bold text-neutral-900">
+                <h2 className="text-sm font-semibold text-neutral-900">
                   {dayLabel(dayEvents[0].starts_at)}
                 </h2>
                 <div className="mt-3 space-y-3">
@@ -406,11 +406,11 @@ export function CalendarWorkspace({
                       className="grid gap-3 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4 transition hover:border-emerald-300 hover:bg-white hover:shadow-md sm:grid-cols-[100px_minmax(0,1fr)_auto] sm:items-center [&]:[content-visibility:auto]"
                     >
                       <div>
-                        <p className="text-sm font-bold text-neutral-900">
+                        <p className="text-sm font-semibold text-neutral-900">
                           {eventDuration(event.starts_at, event.ends_at)}
                         </p>
                         <span
-                          className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                          className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] ${
                             event.source === "inspection"
                               ? "bg-emerald-100 text-emerald-700"
                               : event.source === "reminder"
@@ -467,7 +467,7 @@ export function CalendarWorkspace({
                           event.copilot_href ||
                           `/copilot?calendar_event_id=${event.id}&calendar_source=${event.source === "google" ? "google" : "inspection"}`
                         }
-                        className="inline-flex items-center justify-center gap-1 rounded-xl bg-neutral-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+                        className="inline-flex items-center justify-center gap-1 rounded-xl bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
                       >
                         <Sparkles className="h-3.5 w-3.5" />
                         Open Clippy
