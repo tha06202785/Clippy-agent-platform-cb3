@@ -13,6 +13,8 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 
 const workflow = [
   {
@@ -75,7 +77,9 @@ const capabilities = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-hero text-neutral-800">
+    <div
+      className={`${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className} min-h-screen bg-gradient-hero text-neutral-800`}
+    >
       <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link
@@ -84,7 +88,9 @@ export default function LandingPage() {
             aria-label="Clippy home"
           >
             <BrandLogo alt="" size={40} priority />
-            <span className="text-xl font-bold">Clippy</span>
+            <span className="text-xl font-semibold tracking-[-0.015em]">
+              Clippy
+            </span>
           </Link>
 
           <nav
@@ -93,7 +99,7 @@ export default function LandingPage() {
           >
             <Link
               href="/sign-in"
-              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:border-primary hover:text-primary"
+              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-primary hover:text-primary"
             >
               Sign in
             </Link>
@@ -150,10 +156,10 @@ export default function LandingPage() {
               <Sparkles className="h-4 w-4" />
               An operating layer for Australian real estate teams
             </div>
-            <h1 className="mx-auto mt-8 max-w-5xl text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl">
+            <h1 className="mx-auto mt-8 max-w-5xl text-5xl font-semibold leading-[1.08] tracking-[-0.035em] md:text-6xl">
               Turn every enquiry into a clear next action.
             </h1>
-            <p className="mx-auto mt-7 max-w-3xl text-lg leading-8 text-neutral-600 md:text-xl">
+            <p className="mx-auto mt-7 max-w-3xl text-lg font-normal leading-8 text-neutral-600">
               Clippy brings conversations, opportunities, properties, and agency
               knowledge into one workspace—so agents can respond with context
               and principals can see what needs attention.
@@ -161,14 +167,14 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
                 href="/signup"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-7 py-3.5 font-semibold text-white transition hover:bg-primary/90"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-7 py-3.5 text-sm font-medium text-white transition hover:bg-primary/90"
               >
                 Create a workspace
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
                 href="/demo"
-                className="rounded-xl border-2 border-neutral-200 bg-white px-7 py-3.5 font-semibold transition hover:border-primary hover:text-primary"
+                className="rounded-xl border-2 border-neutral-200 bg-white px-7 py-3.5 text-sm font-medium transition hover:border-primary hover:text-primary"
               >
                 Explore the product
               </Link>
@@ -195,10 +201,10 @@ export default function LandingPage() {
         <section id="workflow" className="border-y bg-white px-6 py-24">
           <div className="mx-auto max-w-7xl">
             <div className="max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-primary">
                 One working rhythm
               </p>
-              <h2 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
+              <h2 className="mt-4 text-4xl font-semibold leading-[1.12] tracking-[-0.025em] md:text-[44px]">
                 Know what happened, decide what matters, keep work moving.
               </h2>
             </div>
@@ -208,7 +214,7 @@ export default function LandingPage() {
                   key={step.number}
                   className="rounded-2xl border bg-neutral-50 p-7"
                 >
-                  <span className="text-sm font-bold text-primary">
+                  <span className="font-dashboard-mono text-xs font-medium text-primary tabular-nums">
                     {step.number}
                   </span>
                   <h3 className="mt-5 text-xl font-semibold">{step.title}</h3>
@@ -225,10 +231,10 @@ export default function LandingPage() {
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
               <div className="max-w-3xl">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-primary">
                   Focused product surface
                 </p>
-                <h2 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
+                <h2 className="mt-4 text-4xl font-semibold leading-[1.12] tracking-[-0.025em] md:text-[44px]">
                   Six places to run the day—not sixty disconnected features.
                 </h2>
               </div>
@@ -263,7 +269,7 @@ export default function LandingPage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
                 <ClipboardCheck className="h-6 w-6" />
               </div>
-              <h2 className="mt-6 text-4xl font-bold tracking-tight md:text-5xl">
+              <h2 className="mt-6 text-4xl font-semibold leading-[1.12] tracking-[-0.025em] md:text-[44px]">
                 Trust starts with honest product behaviour.
               </h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-neutral-300">
@@ -284,7 +290,7 @@ export default function LandingPage() {
               </p>
               <Link
                 href="/security"
-                className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300 hover:text-emerald-200"
+                className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-emerald-300 hover:text-emerald-200"
               >
                 Read the security foundations
                 <ArrowRight className="h-4 w-4" />
@@ -295,7 +301,7 @@ export default function LandingPage() {
 
         <section className="px-6 py-24 text-center">
           <div className="mx-auto max-w-3xl">
-            <h2 className="text-4xl font-bold tracking-tight md:text-5xl">
+            <h2 className="text-4xl font-semibold leading-[1.12] tracking-[-0.025em] md:text-[44px]">
               Build the agency operating rhythm in one place.
             </h2>
             <p className="mt-5 text-lg leading-8 text-neutral-600">
@@ -304,7 +310,7 @@ export default function LandingPage() {
             </p>
             <Link
               href="/signup"
-              className="mt-9 inline-flex items-center gap-2 rounded-xl bg-primary px-7 py-3.5 font-semibold text-white transition hover:bg-primary/90"
+              className="mt-9 inline-flex items-center gap-2 rounded-xl bg-primary px-7 py-3.5 text-sm font-medium text-white transition hover:bg-primary/90"
             >
               Create a workspace
               <ArrowRight className="h-5 w-5" />
