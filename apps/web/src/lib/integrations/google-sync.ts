@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveOrCreateLead } from "@/lib/leads/resolve-or-create";
 import {
   decryptIntegrationCredentials,
   encryptIntegrationCredentials,
@@ -379,30 +380,14 @@ async function importGmailLeads(
 
     const email = String(item.metadata.email_address || "");
     if (!email) continue;
-    let { data: lead } = await admin
-      .from("leads")
-      .select("id")
-      .eq("org_id", orgId)
-      .ilike("email", email)
-      .limit(1)
-      .maybeSingle();
-    if (!lead) {
-      const created = await admin.from("leads").insert({
-        org_id: orgId,
-        full_name: item.metadata.sender_name || null,
-        email,
-        source: "gmail",
-        status: "new",
-        stage: "new",
-        last_contact_at: new Date().toISOString(),
-        source_data: { gmail_thread_id: item.metadata.thread_id, subject: item.title },
-      }).select("id").single();
-      if (created.error || !created.data) throw new Error(`Gmail lead creation failed: ${created.error?.code}`);
-      lead = created.data;
-      await admin.from("lead_identities").insert({
-        org_id: orgId, lead_id: lead.id, channel: "email", email_normalized: email,
-      });
-    }
+    const leadId = await resolveOrCreateLead({
+      supabase: admin,
+      orgId,
+      channel: "email",
+      identity: email,
+      name: String(item.metadata.sender_name || "") || null,
+    });
+    const lead = { id: leadId };
 
     const threadId = String(item.metadata.thread_id || item.externalId);
     let { data: conversation } = await admin.from("conversations").select("id")
