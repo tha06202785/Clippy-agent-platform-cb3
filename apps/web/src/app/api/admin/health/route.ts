@@ -4,6 +4,7 @@ import {
   getGoogleOAuthConfig,
   getGoogleOAuthRedirectUri,
 } from "@/lib/google-oauth-config";
+import { automationSecretIssues } from "@/lib/automation-security";
 
 export const dynamic = "force-dynamic";
 
@@ -468,18 +469,15 @@ export async function GET() {
         : "No AI provider configuration detected",
     });
 
-    const missingAutomationSecrets = [
-      !process.env.CRON_SECRET ? "CRON_SECRET" : null,
-      !process.env.INTERNAL_API_SECRET ? "INTERNAL_API_SECRET" : null,
-    ].filter((key): key is string => Boolean(key));
+    const automationIssues = automationSecretIssues();
 
     checks.push({
       key: "automation",
       name: "Automation security",
-      status: missingAutomationSecrets.length ? "warning" : "healthy",
-      message: missingAutomationSecrets.length
-        ? `Missing production secret${missingAutomationSecrets.length === 1 ? "" : "s"}: ${missingAutomationSecrets.join(", ")}`
-        : "Cron and internal API secrets configured",
+      status: automationIssues.length ? "warning" : "healthy",
+      message: automationIssues.length
+        ? `Automation securely disabled: ${automationIssues.join("; ")}`
+        : "Strong, separate cron and internal API secrets configured",
     });
 
     try {
