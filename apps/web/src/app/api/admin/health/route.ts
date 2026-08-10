@@ -468,17 +468,18 @@ export async function GET() {
         : "No AI provider configuration detected",
     });
 
+    const missingAutomationSecrets = [
+      !process.env.CRON_SECRET ? "CRON_SECRET" : null,
+      !process.env.INTERNAL_API_SECRET ? "INTERNAL_API_SECRET" : null,
+    ].filter((key): key is string => Boolean(key));
+
     checks.push({
       key: "automation",
       name: "Automation security",
-      status:
-        process.env.CRON_SECRET && process.env.INTERNAL_API_SECRET
-          ? "healthy"
-          : "warning",
-      message:
-        process.env.CRON_SECRET && process.env.INTERNAL_API_SECRET
-          ? "Cron and internal API secrets configured"
-          : "One or more automation secrets are missing",
+      status: missingAutomationSecrets.length ? "warning" : "healthy",
+      message: missingAutomationSecrets.length
+        ? `Missing production secret${missingAutomationSecrets.length === 1 ? "" : "s"}: ${missingAutomationSecrets.join(", ")}`
+        : "Cron and internal API secrets configured",
     });
 
     try {
