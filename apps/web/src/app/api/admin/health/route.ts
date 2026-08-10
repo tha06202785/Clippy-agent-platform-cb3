@@ -193,7 +193,7 @@ export async function GET() {
       const integrationStarted = Date.now();
       const { data: integrations, error: integrationError } = await supabase
         .from("integrations")
-        .select("provider, status, last_sync_at")
+        .select("provider, status")
         .eq("org_id", orgId)
         .limit(50);
 
