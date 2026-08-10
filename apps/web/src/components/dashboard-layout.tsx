@@ -232,8 +232,6 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
     pageTitles.find(
       ([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     )?.[1] ?? "Clippy";
-  const isTodayDashboard = pathname === "/dashboard";
-
   const renderNavItem = (item: NavItem) => {
     const isActive =
       pathname === item.href ||
@@ -285,8 +283,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
     <div
       className={cn(
         "min-h-screen bg-gradient-hero",
-        isTodayDashboard &&
-          `${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className}`,
+        `${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className}`,
       )}
     >
       {pendingHref ? (
@@ -316,14 +313,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
           className="flex items-center gap-2"
         >
           <BrandLogo alt="" size={32} priority />
-          <span
-            className={cn(
-              "text-sm text-neutral-800",
-              isTodayDashboard
-                ? "font-semibold tracking-[-0.01em]"
-                : "font-bold",
-            )}
-          >
+          <span className="text-sm font-semibold tracking-[-0.01em] text-neutral-800">
             Clippy
           </span>
         </Link>
@@ -392,14 +382,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
               priority
               className="transition-transform duration-300 group-hover:scale-105"
             />
-            <span
-              className={cn(
-                "text-lg text-neutral-800",
-                isTodayDashboard
-                  ? "font-semibold tracking-[-0.015em]"
-                  : "font-bold",
-              )}
-            >
+            <span className="text-lg font-semibold tracking-[-0.015em] text-neutral-800">
               Clippy
             </span>
           </Link>
@@ -408,12 +391,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         {/* Nav Items */}
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
           {primaryNav.map(renderNavItem)}
-          <p
-            className={cn(
-              "px-3 pb-1 pt-6 text-[11px] font-semibold uppercase text-neutral-400",
-              isTodayDashboard ? "tracking-[0.06em]" : "tracking-[0.18em]",
-            )}
-          >
+          <p className="px-3 pb-1 pt-6 text-[11px] font-semibold uppercase tracking-[0.06em] text-neutral-400">
             Workspace
           </p>
           {workspaceNav.map(renderNavItem)}
@@ -437,14 +415,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-neutral-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h1
-                className={cn(
-                  "text-neutral-800",
-                  isTodayDashboard
-                    ? "text-[26px] font-semibold leading-8 tracking-[-0.02em]"
-                    : "text-2xl font-bold",
-                )}
-              >
+              <h1 className="text-[26px] font-semibold leading-8 tracking-[-0.02em] text-neutral-800">
                 {pageTitle}
               </h1>
             </div>
