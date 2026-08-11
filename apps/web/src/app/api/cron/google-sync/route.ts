@@ -15,18 +15,27 @@ export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const cronSecret = readAutomationSecret("CRON_SECRET");
-  if (!cronSecret) {
-    console.error("Google sync disabled: CRON_SECRET is not securely configured");
-    return NextResponse.json(
-      { error: "Automation is securely disabled" },
-      { status: 503 },
-    );
+  const requestSecret = bearerToken(req);
+  const admin = createAdminClient();
+  let authorised = cronSecret
+    ? secureSecretMatch(requestSecret, cronSecret)
+    : false;
+
+  if (!authorised && requestSecret) {
+    const { data, error } = await admin.rpc("verify_automation_secret", {
+      p_name: "google-sync",
+      p_secret: requestSecret,
+    });
+    if (error) {
+      console.error("Google sync database secret verification failed", error.code);
+    }
+    authorised = data === true;
   }
-  if (!secureSecretMatch(bearerToken(req), cronSecret)) {
+
+  if (!authorised) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const admin = createAdminClient();
   const { data: integrations, error } = await admin
     .from("integrations")
     .select("org_id")
