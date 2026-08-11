@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSafeDraftFallback } from "../src/lib/ai/draft-reply-fallback";
+import { createSafeDraftFallback, enforceFirstPersonAgentVoice } from "../src/lib/ai/draft-reply-fallback";
 
 describe("safe draft fallback", () => {
   it("uses details already supplied without promising a call", () => {
@@ -14,5 +14,14 @@ describe("safe draft fallback", () => {
     expect(reply).toContain("for Saturday");
     expect(reply).toContain("Teddy Thamel");
     expect(reply).not.toMatch(/confirm the exact address|call you/i);
+  });
+
+  it("converts third-person agent wording to first person", () => {
+    expect(
+      enforceFirstPersonAgentVoice(
+        "Teddy will check the inspection options. Teddy can contact you soon.",
+        "Teddy Thamel",
+      ),
+    ).toBe("I will check the inspection options. I can contact you soon.");
   });
 });
