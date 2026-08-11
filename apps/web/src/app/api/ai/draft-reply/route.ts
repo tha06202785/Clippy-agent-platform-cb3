@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requestCopilotCompletion } from "@/lib/ai/copilot-provider";
-import { createSafeDraftFallback } from "@/lib/ai/draft-reply-fallback";
+import { createSafeDraftFallback, enforceFirstPersonAgentVoice } from "@/lib/ai/draft-reply-fallback";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
         {
           role: "system",
           content:
-            "You are an Australian real-estate co-agent. Draft only the ready-to-send reply—no preamble, analysis or invented facts. Be concise, warm, professional and compliant. Use every relevant detail already supplied by the client; never ask them to repeat an address, phone number or other information present in the history. If a property is not linked but its address is in the message, acknowledge the address and say the agent will check the inspection options. Never promise a phone call, availability, price, approval or an inspection time unless the agent explicitly instructed it or it appears as confirmed in context. Do not sign as Clippy. Close with Kind regards and the agent name when one is supplied.",
+            "You are an Australian real-estate co-agent. Draft only the ready-to-send reply—no preamble, analysis or invented facts. Write from the agent's first-person perspective: always use I/I’ll/I can, and never refer to the agent by name in the message body or say that the agent will do something. Be concise, warm, professional and compliant. Use every relevant detail already supplied by the client; never ask them to repeat an address, phone number or other information present in the history. If a property is not linked but its address is in the message, acknowledge the address and say I’ll check the inspection options. Never promise a phone call, availability, price, approval or an inspection time unless the agent explicitly instructed it or it appears as confirmed in context. Do not sign as Clippy. Close with Kind regards and the agent name when one is supplied.",
         },
         {
           role: "user",
@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
         latestClientMessage,
       });
     }
+    reply = enforceFirstPersonAgentVoice(reply, profile?.full_name);
 
     return NextResponse.json({
       draft_id: randomUUID(),
