@@ -4,6 +4,8 @@ import {
   extractGmailText,
   gmailMessageToKnowledge,
   extractLeadName,
+  extractLeadPhone,
+  extractPropertyAddress,
   isLikelyRealEstateLead,
   stripQuotedReply,
 } from "@/lib/integrations/google-sync";
@@ -48,6 +50,13 @@ describe("Google knowledge sync", () => {
     ).toBe("James Taylor");
   });
 
+  it("extracts the client phone and property address from an enquiry", () => {
+    const body =
+      "Hi, I’m James Taylor. I’m interested in 12 Test Street and would like an inspection this Saturday. Please contact me on 0412 345 678.";
+    expect(extractLeadPhone(body)).toBe("0412 345 678");
+    expect(extractPropertyAddress(body)).toBe("12 Test Street");
+  });
+
   it("converts Gmail metadata and body into a stable knowledge item", () => {
     const item = gmailMessageToKnowledge({
       id: "message-123",
@@ -74,15 +83,34 @@ describe("Google knowledge sync", () => {
   });
 
   it.each([
-    ["Your receipt", "Thanks for your payment. View your receipt and unsubscribe.", "no-reply@shop.test"],
-    ["Security alert", "A new device signed into your account.", "alerts@example.com"],
-    ["Weekly newsletter", "Here is this week's market newsletter. Unsubscribe here.", "news@example.com"],
+    [
+      "Your receipt",
+      "Thanks for your payment. View your receipt and unsubscribe.",
+      "no-reply@shop.test",
+    ],
+    [
+      "Security alert",
+      "A new device signed into your account.",
+      "alerts@example.com",
+    ],
+    [
+      "Weekly newsletter",
+      "Here is this week's market newsletter. Unsubscribe here.",
+      "news@example.com",
+    ],
     ["Lunch tomorrow", "Are we still meeting at 12?", "friend@example.com"],
   ])("does not treat unrelated Gmail as a lead: %s", (subject, body, from) => {
     const item = gmailMessageToKnowledge({
-      id: subject, threadId: subject, payload: { mimeType: "text/plain",
-        headers: [{ name: "Subject", value: subject }, { name: "From", value: from }],
-        body: { data: encode(body) } },
+      id: subject,
+      threadId: subject,
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: subject },
+          { name: "From", value: from },
+        ],
+        body: { data: encode(body) },
+      },
     });
     expect(item && isLikelyRealEstateLead(item)).toBe(false);
   });
@@ -117,7 +145,9 @@ describe("Google knowledge sync", () => {
           { name: "Subject", value: "New buyer enquiry" },
           { name: "From", value: "no-reply@realestate.com.au" },
         ],
-        body: { data: encode("Buyer enquiry for the property at 10 Collins Street") },
+        body: {
+          data: encode("Buyer enquiry for the property at 10 Collins Street"),
+        },
       },
     });
     expect(item && isLikelyRealEstateLead(item)).toBe(true);
