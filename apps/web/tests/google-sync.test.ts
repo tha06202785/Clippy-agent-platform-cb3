@@ -3,7 +3,9 @@ import {
   calendarEventToKnowledge,
   extractGmailText,
   gmailMessageToKnowledge,
+  extractLeadName,
   isLikelyRealEstateLead,
+  stripQuotedReply,
 } from "@/lib/integrations/google-sync";
 
 const encode = (value: string) => Buffer.from(value).toString("base64url");
@@ -22,6 +24,28 @@ describe("Google knowledge sync", () => {
     });
 
     expect(text).toBe("Inspection at 2pm");
+  });
+
+  it("keeps only the new reply and removes quoted Gmail history", () => {
+    const body = [
+      "Thanks Teddy. Saturday at 11 am works for me.",
+      "",
+      "On Wed, 12 Aug 2026 at 9:03 am, Teddy Thamel <agent@example.com> wrote:",
+      "> Hi James,",
+      "> I’ll check the inspection options.",
+    ].join("\n");
+    expect(stripQuotedReply(body)).toBe(
+      "Thanks Teddy. Saturday at 11 am works for me.",
+    );
+  });
+
+  it("uses a client name explicitly supplied in the enquiry", () => {
+    expect(
+      extractLeadName(
+        "Hi, I’m James Taylor. I’m interested in 12 Test Street.",
+        "ira tha",
+      ),
+    ).toBe("James Taylor");
   });
 
   it("converts Gmail metadata and body into a stable knowledge item", () => {
