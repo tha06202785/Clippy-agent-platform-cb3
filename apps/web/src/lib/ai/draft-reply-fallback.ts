@@ -29,3 +29,22 @@ export function createSafeDraftFallback({
 
   return `Hi ${greetingName},\n\n${opening} ${nextStep}\n\n${signature}`;
 }
+
+export function enforceFirstPersonAgentVoice(
+  draft: string,
+  agentName?: string | null,
+): string {
+  const names = [agentName?.trim(), agentName?.trim().split(/\s+/)[0]]
+    .filter((name): name is string => Boolean(name))
+    .sort((a, b) => b.length - a.length);
+  let result = draft;
+  for (const name of names) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    result = result
+      .replace(new RegExp(`\\b${escaped}\\s+will\\b`, "gi"), "I will")
+      .replace(new RegExp(`\\b${escaped}\\s+can\\b`, "gi"), "I can")
+      .replace(new RegExp(`\\b${escaped}\\s+has\\b`, "gi"), "I have")
+      .replace(new RegExp(`\\b${escaped}\\s+is\\b`, "gi"), "I am");
+  }
+  return result;
+}
