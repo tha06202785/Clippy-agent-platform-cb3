@@ -162,7 +162,10 @@ function stripHtml(value: string): string {
   return value
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<div[^>]+class=["'][^"']*gmail_quote[^"']*["'][^>]*>[\s\S]*$/gi, " ")
+    .replace(
+      /<div[^>]+class=["'][^"']*gmail_quote[^"']*["'][^>]*>[\s\S]*$/gi,
+      " ",
+    )
     .replace(/<blockquote[\s\S]*?<\/blockquote>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
@@ -200,14 +203,20 @@ export function stripQuotedReply(value: string): string {
     const trimmed = line.trim();
     if (
       /^On .+wrote:$/i.test(trimmed) ||
-      /^-{2,}\s*(?:Original Message|Forwarded message)\s*-{2,}$/i.test(trimmed) ||
+      /^-{2,}\s*(?:Original Message|Forwarded message)\s*-{2,}$/i.test(
+        trimmed,
+      ) ||
       /^_{5,}$/.test(trimmed) ||
-      /^From:\s.+/i.test(trimmed) && kept.some((item) => item.trim() === "")
-    ) break;
+      (/^From:\s.+/i.test(trimmed) && kept.some((item) => item.trim() === ""))
+    )
+      break;
     if (/^>/.test(trimmed)) continue;
     kept.push(line);
   }
-  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return kept
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function gmailHeader(message: GmailMessage, name: string): string {
@@ -279,10 +288,131 @@ export function extractLeadName(
   body: string,
   senderName?: string | null,
 ): string | null {
-  const explicit = body.match(
-    /\b(?:I['’]m|I am|My name is)\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,2})\b/,
-  )?.[1] || body.match(/(?:^|\n)\s*Name:\s*([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,2})\b/)?.[1];
+  const explicit =
+    body.match(
+      /\b(?:I['’]m|I am|My name is)\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,2})\b/,
+    )?.[1] ||
+    body.match(
+      /(?:^|\n)\s*Name:\s*([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,2})\b/,
+    )?.[1];
   return explicit?.trim() || senderName?.trim() || null;
+}
+
+export function extractLeadPhone(body: string): string | null {
+  const match = body.match(
+    /(?:\+?61\s?4|04)(?:[\s.-]?\d){8}\b|(?:\+?61\s?[2378]|0[2378])(?:[\s.-]?\d){8}\b/,
+  )?.[0];
+  return match?.replace(/\s+/g, " ").trim() || null;
+}
+
+export function extractPropertyAddress(body: string): string | null {
+  const match = body.match(
+    /\b(\d{1,6}\s+[A-Za-z0-9'’-]+(?:\s+[A-Za-z0-9'’-]+){0,7}\s+(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Court|Ct|Crescent|Cres|Lane|Ln|Place|Pl|Parade|Pde|Boulevard|Blvd|Highway|Hwy|Way|Terrace|Tce)(?:,\s*[A-Za-z][A-Za-z'’ -]{1,40})?)(?=[.!?\n]|\s+(?:and|for|this|on|to|please|would|is|at)\b|$)/i,
+  )?.[1];
+  return match?.replace(/\s+/g, " ").replace(/,$/, "").trim() || null;
+}
+
+function normaliseAddress(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\bstreet\b/g, "st")
+    .replace(/\broad\b/g, "rd")
+    .replace(/\bavenue\b/g, "ave")
+    .replace(/\bdrive\b/g, "dr")
+    .replace(/\bcourt\b/g, "ct")
+    .replace(/\bcrescent\b/g, "cres")
+    .replace(/\blane\b/g, "ln")
+    .replace(/\bplace\b/g, "pl")
+    .replace(/\bparade\b/g, "pde")
+    .replace(/\bboulevard\b/g, "blvd")
+    .replace(/\bhighway\b/g, "hwy")
+    .replace(/\bterrace\b/g, "tce")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+async function resolveGmailEnquiry({
+  admin,
+  orgId,
+  leadId,
+  threadId,
+  subject,
+  body,
+}: {
+  admin: AdminClient;
+  orgId: string;
+  leadId: string;
+  threadId: string;
+  subject: string;
+  body: string;
+}) {
+  const propertyAddress = extractPropertyAddress(body);
+  let listingId: string | null = null;
+  if (propertyAddress) {
+    const { data: listings } = await admin
+      .from("listings")
+      .select("id,address")
+      .eq("org_id", orgId)
+      .limit(200);
+    const target = normaliseAddress(propertyAddress);
+    listingId =
+      listings?.find(
+        (listing) => normaliseAddress(listing.address || "") === target,
+      )?.id || null;
+  }
+
+  const { data: existing } = await admin
+    .from("property_enquiries")
+    .select("id,listing_id,metadata")
+    .eq("org_id", orgId)
+    .eq("source", "gmail")
+    .eq("external_enquiry_id", threadId)
+    .maybeSingle();
+  const now = new Date().toISOString();
+  const existingMetadata =
+    existing?.metadata && typeof existing.metadata === "object"
+      ? existing.metadata
+      : {};
+  const metadata = {
+    ...existingMetadata,
+    subject,
+    ...(propertyAddress ? { property_address: propertyAddress } : {}),
+    inspection_intent: /\b(?:inspect|inspection|open home|open house)\b/i.test(
+      body,
+    ),
+  };
+
+  if (existing?.id) {
+    const resolvedListingId = existing.listing_id || listingId;
+    await admin
+      .from("property_enquiries")
+      .update({
+        listing_id: resolvedListingId,
+        last_activity_at: now,
+        updated_at: now,
+        metadata,
+      })
+      .eq("id", existing.id)
+      .eq("org_id", orgId);
+    return { enquiryId: existing.id, listingId: resolvedListingId };
+  }
+
+  const { data: created, error } = await admin
+    .from("property_enquiries")
+    .insert({
+      org_id: orgId,
+      lead_id: leadId,
+      listing_id: listingId,
+      source: "gmail",
+      external_enquiry_id: threadId,
+      status: "active",
+      metadata,
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    throw new Error(`Property enquiry creation failed: ${error?.code}`);
+  }
+  return { enquiryId: created.id, listingId };
 }
 
 export function isLikelyRealEstateLead(item: GoogleKnowledgeItem): boolean {
@@ -506,6 +636,7 @@ async function importGmailLeads(
       body,
       String(item.metadata.sender_name || "") || null,
     );
+    const detectedPhone = extractLeadPhone(body);
     const leadId = await resolveOrCreateLead({
       supabase: admin,
       orgId,
@@ -513,16 +644,29 @@ async function importGmailLeads(
       identity: email,
       name: detectedName,
     });
-    if (detectedName) {
-      await admin
-        .from("leads")
-        .update({ full_name: detectedName })
-        .eq("id", leadId)
-        .eq("org_id", orgId);
-    }
+    await admin
+      .from("leads")
+      .update({
+        ...(detectedName ? { full_name: detectedName } : {}),
+        ...(detectedPhone ? { phone: detectedPhone } : {}),
+        email,
+        source: "email",
+        stage: "new",
+        last_activity_at: new Date().toISOString(),
+      })
+      .eq("id", leadId)
+      .eq("org_id", orgId);
     const lead = { id: leadId };
 
     const threadId = String(item.metadata.thread_id || item.externalId);
+    const { enquiryId, listingId } = await resolveGmailEnquiry({
+      admin,
+      orgId,
+      leadId,
+      threadId,
+      subject: item.title,
+      body,
+    });
     let { data: conversation } = await admin
       .from("conversations")
       .select("id")
@@ -539,6 +683,8 @@ async function importGmailLeads(
           lead_id: lead.id,
           channel: "email",
           external_thread_id: threadId,
+          enquiry_id: enquiryId,
+          listing_id: listingId,
           last_message_at: new Date().toISOString(),
         })
         .select("id")
@@ -568,6 +714,8 @@ async function importGmailLeads(
     await admin
       .from("conversations")
       .update({
+        enquiry_id: enquiryId,
+        listing_id: listingId,
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
