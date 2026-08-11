@@ -17,32 +17,82 @@ const MAX_EMAILS_PER_SYNC = 20;
 const MAX_EVENTS_PER_SYNC = 50;
 const MAX_ITEM_CONTENT = 8_000;
 const REAL_ESTATE_TERMS = [
-  "property", "inspection", "inspect", "open home", "open house", "listing",
-  "buyer", "buying", "vendor", "selling", "rental", "rent", "lease", "tenant",
-  "apartment", "townhouse", "auction", "offer", "real estate", "enquiry", "inquiry",
-  "domain.com.au", "realestate.com.au",
+  "property",
+  "inspection",
+  "inspect",
+  "open home",
+  "open house",
+  "listing",
+  "buyer",
+  "buying",
+  "vendor",
+  "selling",
+  "rental",
+  "rent",
+  "lease",
+  "tenant",
+  "apartment",
+  "townhouse",
+  "auction",
+  "offer",
+  "real estate",
+  "enquiry",
+  "inquiry",
+  "domain.com.au",
+  "realestate.com.au",
 ];
 const NON_LEAD_TERMS = [
-  "unsubscribe", "newsletter", "receipt", "invoice", "security alert", "password",
-  "verification code", "one-time code", "order confirmation", "delivery update",
-  "statement available", "marketing preferences", "manage preferences",
-  "email preferences", "view in browser", "view this email", "read online",
-  "weekly digest", "issue #",
+  "unsubscribe",
+  "newsletter",
+  "receipt",
+  "invoice",
+  "security alert",
+  "password",
+  "verification code",
+  "one-time code",
+  "order confirmation",
+  "delivery update",
+  "statement available",
+  "marketing preferences",
+  "manage preferences",
+  "email preferences",
+  "view in browser",
+  "view this email",
+  "read online",
+  "weekly digest",
+  "issue #",
 ];
 const LEAD_INTENT_TERMS = [
-  "i'm interested", "i am interested", "interested in", "would like to inspect",
-  "book an inspection", "arrange an inspection", "request an inspection",
-  "inspection still available", "available for inspection", "make an offer",
-  "want to buy", "want to rent", "looking to buy", "looking to rent",
-  "enquiring about", "inquiring about", "contact me",
+  "i'm interested",
+  "i am interested",
+  "interested in",
+  "would like to inspect",
+  "book an inspection",
+  "arrange an inspection",
+  "request an inspection",
+  "inspection still available",
+  "available for inspection",
+  "make an offer",
+  "want to buy",
+  "want to rent",
+  "looking to buy",
+  "looking to rent",
+  "enquiring about",
+  "inquiring about",
+  "contact me",
 ];
 const LEAD_SUBJECT_TERMS = [
-  "enquiry", "inquiry", "inspection", "buyer", "rental application", "offer",
+  "enquiry",
+  "inquiry",
+  "inspection",
+  "buyer",
+  "rental application",
+  "offer",
 ];
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-type GoogleCredentials = {
+export type GoogleCredentials = {
   access_token?: string;
   refresh_token?: string;
   expires_in?: number;
@@ -190,12 +240,17 @@ export function gmailMessageToKnowledge(
 }
 
 function extractEmailAddress(from: string): string {
-  const match = from.match(/<([^>]+)>/) || from.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  const match =
+    from.match(/<([^>]+)>/) ||
+    from.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   return (match?.[1] || match?.[0] || "").toLowerCase().trim();
 }
 
 function extractSenderName(from: string): string | null {
-  const name = from.replace(/<[^>]+>/, "").replace(/^"|"$/g, "").trim();
+  const name = from
+    .replace(/<[^>]+>/, "")
+    .replace(/^"|"$/g, "")
+    .trim();
   return name && !name.includes("@") ? name : null;
 }
 
@@ -206,10 +261,10 @@ export function isLikelyRealEstateLead(item: GoogleKnowledgeItem): boolean {
   const content = `${item.title} ${item.content}`.toLowerCase();
   if (!email) return false;
 
-  const trustedPortal =
-    /@(domain\.com\.au|realestate\.com\.au)$/i.test(email);
-  const automatedSender =
-    /^(no-?reply|notifications?|mailer-daemon)@/i.test(email);
+  const trustedPortal = /@(domain\.com\.au|realestate\.com\.au)$/i.test(email);
+  const automatedSender = /^(no-?reply|notifications?|mailer-daemon)@/i.test(
+    email,
+  );
   if (automatedSender && !trustedPortal) return false;
   if (NON_LEAD_TERMS.some((term) => content.includes(term))) return false;
 
@@ -275,7 +330,7 @@ export function calendarEventToKnowledge(
   };
 }
 
-async function refreshGoogleCredentials(
+export async function refreshGoogleCredentials(
   admin: AdminClient,
   orgId: string,
   credentials: GoogleCredentials,
@@ -354,9 +409,7 @@ async function googleJson<T>(url: URL, accessToken: string): Promise<T> {
       message = responseText.slice(0, 200);
     }
 
-    const detail = [reason && `[${reason}]`, message]
-      .filter(Boolean)
-      .join(" ");
+    const detail = [reason && `[${reason}]`, message].filter(Boolean).join(" ");
     throw new Error(
       `${service} API request failed (${response.status})${detail ? `: ${detail}` : ""}`,
     );
@@ -410,7 +463,10 @@ async function importGmailLeads(
       .contains("raw_json", { external_message_id: item.externalId })
       .limit(1)
       .maybeSingle();
-    if (existingMessage) { unchanged += 1; continue; }
+    if (existingMessage) {
+      unchanged += 1;
+      continue;
+    }
 
     const email = String(item.metadata.email_address || "");
     if (!email) continue;
@@ -424,31 +480,62 @@ async function importGmailLeads(
     const lead = { id: leadId };
 
     const threadId = String(item.metadata.thread_id || item.externalId);
-    let { data: conversation } = await admin.from("conversations").select("id")
-      .eq("org_id", orgId).eq("channel", "email")
-      .eq("external_thread_id", threadId).limit(1).maybeSingle();
+    let { data: conversation } = await admin
+      .from("conversations")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("channel", "email")
+      .eq("external_thread_id", threadId)
+      .limit(1)
+      .maybeSingle();
     if (!conversation) {
-      const created = await admin.from("conversations").insert({
-        org_id: orgId, lead_id: lead.id, channel: "email",
-        external_thread_id: threadId, last_message_at: new Date().toISOString(),
-      }).select("id").single();
-      if (created.error || !created.data) throw new Error(`Gmail conversation creation failed: ${created.error?.code}`);
+      const created = await admin
+        .from("conversations")
+        .insert({
+          org_id: orgId,
+          lead_id: lead.id,
+          channel: "email",
+          external_thread_id: threadId,
+          last_message_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (created.error || !created.data)
+        throw new Error(
+          `Gmail conversation creation failed: ${created.error?.code}`,
+        );
       conversation = created.data;
     }
     const { error: messageError } = await admin.from("messages").insert({
-      org_id: orgId, conversation_id: conversation.id, direction_in_out: "in",
-      text: String(item.metadata.body || item.content), read_at: null,
-      raw_json: { channel: "email", external_message_id: item.externalId, subject: item.title, from: item.metadata.from, gmail_thread_id: threadId },
+      org_id: orgId,
+      conversation_id: conversation.id,
+      direction_in_out: "in",
+      text: String(item.metadata.body || item.content),
+      read_at: null,
+      raw_json: {
+        channel: "email",
+        external_message_id: item.externalId,
+        subject: item.title,
+        from: item.metadata.from,
+        gmail_thread_id: threadId,
+      },
     });
-    if (messageError) throw new Error(`Gmail message import failed: ${messageError.code}`);
-    await admin.from("conversations").update({
-      last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    }).eq("id", conversation.id);
+    if (messageError)
+      throw new Error(`Gmail message import failed: ${messageError.code}`);
+    await admin
+      .from("conversations")
+      .update({
+        last_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", conversation.id);
     imported += 1;
   }
-  const { count } = await admin.from("messages")
+  const { count } = await admin
+    .from("messages")
     .select("id", { count: "exact", head: true })
-    .eq("org_id", orgId).contains("raw_json", { channel: "email" });
+    .eq("org_id", orgId)
+    .contains("raw_json", { channel: "email" });
   return { indexed: imported, unchanged, total: count || 0 };
 }
 

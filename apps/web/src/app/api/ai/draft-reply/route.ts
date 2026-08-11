@@ -12,7 +12,7 @@ const requestSchema = z.object({
   instruction: z.string().trim().max(1000).optional(),
 });
 
-const one = <T,>(value: T | T[] | null): T | null =>
+const one = <T>(value: T | T[] | null): T | null =>
   Array.isArray(value) ? value[0] || null : value;
 
 export async function POST(req: NextRequest) {
@@ -20,19 +20,27 @@ export async function POST(req: NextRequest) {
   const { allowed, remaining, resetAt } = checkRateLimit(ip, "ai");
   if (!allowed) {
     return NextResponse.json(
-      { error: `Too many requests. Try again in ${Math.ceil((resetAt - Date.now()) / 1000)} seconds.` },
+      {
+        error: `Too many requests. Try again in ${Math.ceil((resetAt - Date.now()) / 1000)} seconds.`,
+      },
       { status: 429, headers: { "X-RateLimit-Remaining": String(remaining) } },
     );
   }
 
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const parsed = requestSchema.safeParse(await req.json());
     if (!parsed.success) {
-      return NextResponse.json({ error: "A valid conversation is required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "A valid conversation is required." },
+        { status: 400 },
+      );
     }
 
     const { data: membership } = await supabase
@@ -42,13 +50,22 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
     if (!membership?.org_id) {
-      return NextResponse.json({ error: "No organisation is linked to this account." }, { status: 409 });
+      return NextResponse.json(
+        { error: "No organisation is linked to this account." },
+        { status: 409 },
+      );
     }
 
-    const [{ data: conversation, error: conversationError }, { data: messages, error: messagesError }] = await Promise.all([
+    const [
+      { data: conversation, error: conversationError },
+      { data: messages, error: messagesError },
+      { data: profile },
+    ] = await Promise.all([
       supabase
         .from("conversations")
-        .select("id,channel,lead_id,listing_id,leads(full_name,email,phone),listings(address,status)")
+        .select(
+          "id,channel,lead_id,listing_id,leads(full_name,email,phone),listings(address,status)",
+        )
         .eq("id", parsed.data.conversation_id)
         .eq("org_id", membership.org_id)
         .maybeSingle(),
@@ -59,22 +76,37 @@ export async function POST(req: NextRequest) {
         .eq("org_id", membership.org_id)
         .order("created_at", { ascending: false })
         .limit(20),
+      supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .maybeSingle(),
     ]);
-    if (conversationError || messagesError) throw conversationError || messagesError;
-    if (!conversation) return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
+    if (conversationError || messagesError)
+      throw conversationError || messagesError;
+    if (!conversation)
+      return NextResponse.json(
+        { error: "Conversation not found." },
+        { status: 404 },
+      );
 
     const lead = one(conversation.leads);
     const listing = one(conversation.listings);
-    const history = (messages || []).toReversed().map((message) =>
-      `${message.direction_in_out === "out" ? "Agent" : "Client"}: ${message.text || "(no text)"}`,
-    ).join("\n");
+    const history = (messages || [])
+      .toReversed()
+      .map(
+        (message) =>
+          `${message.direction_in_out === "out" ? "Agent" : "Client"}: ${message.text || "(no text)"}`,
+      )
+      .join("\n");
 
     const completion = await requestCopilotCompletion({
       userId: user.id,
       messages: [
         {
           role: "system",
-          content: "You are Clippy, an Australian real-estate co-agent. Draft only the reply message—no preamble, analysis or invented facts. Be concise, warm, professional and compliant. If essential information is missing, ask a clear question. Never promise availability, price, approval or an inspection time unless it appears in the supplied context.",
+          content:
+            "You are an Australian real-estate co-agent. Draft only the ready-to-send reply—no preamble, analysis or invented facts. Be concise, warm, professional and compliant. Use every relevant detail already supplied by the client; never ask them to repeat an address, phone number or other information present in the history. If a property is not linked but its address is in the message, acknowledge the address and say the agent will check the inspection options. Never promise a phone call, availability, price, approval or an inspection time unless the agent explicitly instructed it or it appears as confirmed in context. Do not sign as Clippy. Close with Kind regards and the agent name when one is supplied.",
         },
         {
           role: "user",
@@ -83,11 +115,18 @@ export async function POST(req: NextRequest) {
             `Client: ${lead?.full_name || "Unknown"}`,
             `Property: ${listing?.address || "Not linked"}`,
             listing?.status ? `Property status: ${listing.status}` : "",
-            parsed.data.instruction ? `Agent instruction: ${parsed.data.instruction}` : "",
+            parsed.data.instruction
+              ? `Agent instruction: ${parsed.data.instruction}`
+              : "",
+            profile?.full_name
+              ? `Agent name: ${profile.full_name}`
+              : "Agent name: not supplied; use Kind regards without inventing a name",
             "Conversation history:",
             history || "No message history.",
             "Draft the next agent reply.",
-          ].filter(Boolean).join("\n"),
+          ]
+            .filter(Boolean)
+            .join("\n"),
         },
       ],
     });
@@ -102,7 +141,13 @@ export async function POST(req: NextRequest) {
       provider: completion.provider,
     });
   } catch (error) {
-    console.error("Conversation draft failed", error instanceof Error ? error.message : error);
-    return NextResponse.json({ error: "Clippy could not draft a reply right now. Please try again." }, { status: 502 });
+    console.error(
+      "Conversation draft failed",
+      error instanceof Error ? error.message : error,
+    );
+    return NextResponse.json(
+      { error: "Clippy could not draft a reply right now. Please try again." },
+      { status: 502 },
+    );
   }
 }

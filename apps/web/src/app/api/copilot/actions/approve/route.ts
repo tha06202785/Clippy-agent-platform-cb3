@@ -112,10 +112,19 @@ export async function POST(req: NextRequest) {
     parsed.data.channel === "facebook" &&
     !["facebook", "facebook_messenger"].includes(conversationChannel || "")
   ) {
-    return NextResponse.json({ error: "The selected channel does not match this conversation." }, { status: 400 });
+    return NextResponse.json(
+      { error: "The selected channel does not match this conversation." },
+      { status: 400 },
+    );
   }
-  if (parsed.data.channel === "whatsapp" && conversationChannel !== "whatsapp") {
-    return NextResponse.json({ error: "The selected channel does not match this conversation." }, { status: 400 });
+  if (
+    parsed.data.channel === "whatsapp" &&
+    conversationChannel !== "whatsapp"
+  ) {
+    return NextResponse.json(
+      { error: "The selected channel does not match this conversation." },
+      { status: 400 },
+    );
   }
 
   if (parsed.data.channel === "email" && !recipient.email) {
@@ -152,10 +161,25 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
     if (delivered) {
-      return NextResponse.json({ approved: true, sent: true, approval_id: existing.id, approved_at: existing.created_at, recipient, duplicate: true, message: delivered });
+      return NextResponse.json({
+        approved: true,
+        sent: true,
+        approval_id: existing.id,
+        approved_at: existing.created_at,
+        recipient,
+        duplicate: true,
+        message: delivered,
+      });
     }
   } else if (existing) {
-    return NextResponse.json({ approved: true, sent: false, approval_id: existing.id, approved_at: existing.created_at, recipient, duplicate: true });
+    return NextResponse.json({
+      approved: true,
+      sent: false,
+      approval_id: existing.id,
+      approved_at: existing.created_at,
+      recipient,
+      duplicate: true,
+    });
   }
 
   const inputSummary = [
@@ -163,20 +187,24 @@ export async function POST(req: NextRequest) {
     `approved_by:${user.id};`,
     `subject:${parsed.data.subject || ""};`,
   ].join("");
-  const approval = existing || (await admin
-    .from("ai_actions")
-    .insert({
-      org_id: membership.org_id,
-      lead_id: leadId || null,
-      conversation_id: parsed.data.conversation_id || null,
-      action_type: `draft_approved_${parsed.data.channel}`,
-      input_summary: inputSummary,
-      output_summary: parsed.data.content,
-      confidence: 1,
-      escalated: false,
-    })
-    .select("id,created_at")
-    .single()).data;
+  const approval =
+    existing ||
+    (
+      await admin
+        .from("ai_actions")
+        .insert({
+          org_id: membership.org_id,
+          lead_id: leadId || null,
+          conversation_id: parsed.data.conversation_id || null,
+          action_type: `draft_approved_${parsed.data.channel}`,
+          input_summary: inputSummary,
+          output_summary: parsed.data.content,
+          confidence: 1,
+          escalated: false,
+        })
+        .select("id,created_at")
+        .single()
+    ).data;
 
   if (!approval) {
     console.error("Draft approval audit failed");
@@ -186,19 +214,48 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const isDirectChannel = parsed.data.channel === "facebook" || parsed.data.channel === "whatsapp";
+  const isDirectChannel = ["email", "facebook", "whatsapp"].includes(
+    parsed.data.channel,
+  );
   if (isDirectChannel && parsed.data.conversation_id) {
     try {
-      const directRecipient = parsed.data.channel === "facebook"
-        ? conversationRecipient
-        : recipient.phone;
+      const directRecipient =
+        parsed.data.channel === "facebook"
+          ? conversationRecipient
+          : parsed.data.channel === "email"
+            ? recipient.email
+            : recipient.phone;
       if (!directRecipient) throw new Error("Recipient is unavailable");
+      let emailSubject = parsed.data.subject || null;
+      if (parsed.data.channel === "email" && !emailSubject) {
+        const { data: latestInbound } = await admin
+          .from("messages")
+          .select("raw_json")
+          .eq("org_id", membership.org_id)
+          .eq("conversation_id", parsed.data.conversation_id)
+          .eq("direction_in_out", "in")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        emailSubject =
+          typeof latestInbound?.raw_json?.subject === "string"
+            ? latestInbound.raw_json.subject
+            : null;
+      }
       const delivery = await deliverApprovedMessage({
         admin,
         orgId: membership.org_id,
-        channel: parsed.data.channel === "facebook" ? "facebook" : "whatsapp",
+        channel:
+          parsed.data.channel === "facebook"
+            ? "facebook"
+            : parsed.data.channel === "email"
+              ? "email"
+              : "whatsapp",
         recipient: directRecipient,
         content: parsed.data.content,
+        subject: emailSubject,
+        threadId:
+          parsed.data.channel === "email" ? conversationRecipient : null,
       });
       const sentAt = new Date().toISOString();
       const { data: sentMessage, error: messageError } = await admin
@@ -214,24 +271,51 @@ export async function POST(req: NextRequest) {
             approval_id: approval.id,
             external_message_id: delivery.externalId,
             delivery_status: "sent",
+            ...(parsed.data.channel === "email"
+              ? {
+                  gmail_thread_id: delivery.threadId || conversationRecipient,
+                  subject: emailSubject,
+                }
+              : {}),
           },
         })
         .select("id,created_at,direction_in_out,text,read_at,raw_json")
         .single();
-      if (messageError || !sentMessage) throw messageError || new Error("Delivery record failed");
-      await admin.from("conversations").update({ last_message_at: sentAt, updated_at: sentAt })
-        .eq("id", parsed.data.conversation_id).eq("org_id", membership.org_id);
-      return NextResponse.json({ approved: true, sent: true, approval_id: approval.id, approved_at: approval.created_at, recipient, duplicate: false, message: sentMessage });
-    } catch (deliveryError) {
-      console.error("Approved message delivery failed", deliveryError instanceof Error ? deliveryError.message : deliveryError);
+      if (messageError || !sentMessage)
+        throw messageError || new Error("Delivery record failed");
+      await admin
+        .from("conversations")
+        .update({ last_message_at: sentAt, updated_at: sentAt })
+        .eq("id", parsed.data.conversation_id)
+        .eq("org_id", membership.org_id);
       return NextResponse.json({
         approved: true,
-        sent: false,
+        sent: true,
         approval_id: approval.id,
         approved_at: approval.created_at,
         recipient,
-        error: deliveryError instanceof Error ? deliveryError.message : "Channel delivery failed",
-      }, { status: 502 });
+        duplicate: false,
+        message: sentMessage,
+      });
+    } catch (deliveryError) {
+      console.error(
+        "Approved message delivery failed",
+        deliveryError instanceof Error ? deliveryError.message : deliveryError,
+      );
+      return NextResponse.json(
+        {
+          approved: true,
+          sent: false,
+          approval_id: approval.id,
+          approved_at: approval.created_at,
+          recipient,
+          error:
+            deliveryError instanceof Error
+              ? deliveryError.message
+              : "Channel delivery failed",
+        },
+        { status: 502 },
+      );
     }
   }
 
