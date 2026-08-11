@@ -16,6 +16,8 @@ const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 const MAX_EMAILS_PER_SYNC = 20;
 const MAX_EVENTS_PER_SYNC = 50;
 const MAX_ITEM_CONTENT = 8_000;
+const SYNC_OVERLAP_MS = 5 * 60 * 1000;
+const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const REAL_ESTATE_TERMS = [
   "property",
   "inspection",
@@ -160,6 +162,8 @@ function stripHtml(value: string): string {
   return value
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<div[^>]+class=["'][^"']*gmail_quote[^"']*["'][^>]*>[\s\S]*$/gi, " ")
+    .replace(/<blockquote[\s\S]*?<\/blockquote>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
@@ -185,8 +189,25 @@ function findGmailPart(part: GmailPart | undefined, mimeType: string): string {
 
 export function extractGmailText(part?: GmailPart): string {
   const plain = findGmailPart(part, "text/plain");
-  if (plain) return plain;
-  return stripHtml(findGmailPart(part, "text/html"));
+  if (plain) return stripQuotedReply(plain);
+  return stripQuotedReply(stripHtml(findGmailPart(part, "text/html")));
+}
+
+export function stripQuotedReply(value: string): string {
+  const lines = value.replace(/\r\n?/g, "\n").split("\n");
+  const kept: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (
+      /^On .+wrote:$/i.test(trimmed) ||
+      /^-{2,}\s*(?:Original Message|Forwarded message)\s*-{2,}$/i.test(trimmed) ||
+      /^_{5,}$/.test(trimmed) ||
+      /^From:\s.+/i.test(trimmed) && kept.some((item) => item.trim() === "")
+    ) break;
+    if (/^>/.test(trimmed)) continue;
+    kept.push(line);
+  }
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function gmailHeader(message: GmailMessage, name: string): string {
@@ -252,6 +273,16 @@ function extractSenderName(from: string): string | null {
     .replace(/^"|"$/g, "")
     .trim();
   return name && !name.includes("@") ? name : null;
+}
+
+export function extractLeadName(
+  body: string,
+  senderName?: string | null,
+): string | null {
+  const explicit = body.match(
+    /\b(?:I['’]m|I am|My name is)\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,2})\b/,
+  )?.[1] || body.match(/(?:^|\n)\s*Name:\s*([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,2})\b/)?.[1];
+  return explicit?.trim() || senderName?.trim() || null;
 }
 
 export function isLikelyRealEstateLead(item: GoogleKnowledgeItem): boolean {
@@ -424,7 +455,7 @@ async function fetchGmailItems(
   const listUrl = new URL(`${GMAIL_API}/users/me/messages`);
   listUrl.searchParams.set("maxResults", String(MAX_EMAILS_PER_SYNC));
   const after = lastSyncAt
-    ? Math.floor(new Date(lastSyncAt).getTime() / 1000)
+    ? Math.floor((new Date(lastSyncAt).getTime() - SYNC_OVERLAP_MS) / 1000)
     : null;
   listUrl.searchParams.set(
     "q",
@@ -470,13 +501,25 @@ async function importGmailLeads(
 
     const email = String(item.metadata.email_address || "");
     if (!email) continue;
+    const body = String(item.metadata.body || "");
+    const detectedName = extractLeadName(
+      body,
+      String(item.metadata.sender_name || "") || null,
+    );
     const leadId = await resolveOrCreateLead({
       supabase: admin,
       orgId,
       channel: "email",
       identity: email,
-      name: String(item.metadata.sender_name || "") || null,
+      name: detectedName,
     });
+    if (detectedName) {
+      await admin
+        .from("leads")
+        .update({ full_name: detectedName })
+        .eq("id", leadId)
+        .eq("org_id", orgId);
+    }
     const lead = { id: leadId };
 
     const threadId = String(item.metadata.thread_id || item.externalId);
@@ -510,7 +553,7 @@ async function importGmailLeads(
       org_id: orgId,
       conversation_id: conversation.id,
       direction_in_out: "in",
-      text: String(item.metadata.body || item.content),
+      text: body || item.content,
       read_at: null,
       raw_json: {
         channel: "email",
@@ -714,7 +757,7 @@ async function updateHealth(
   startedAt: number,
 ) {
   const now = new Date();
-  const nextSync = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const nextSync = new Date(now.getTime() + AUTO_SYNC_INTERVAL_MS);
   const healthRecord = {
     org_id: orgId,
     provider,
