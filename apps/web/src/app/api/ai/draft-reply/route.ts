@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requestCopilotCompletion } from "@/lib/ai/copilot-provider";
+import { createSafeDraftFallback } from "@/lib/ai/draft-reply-fallback";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -100,9 +101,13 @@ export async function POST(req: NextRequest) {
       )
       .join("\n");
 
-    const completion = await requestCopilotCompletion({
-      userId: user.id,
-      messages: [
+    let reply = "";
+    let model = "safe-fallback";
+    let provider = "local";
+    try {
+      const completion = await requestCopilotCompletion({
+        userId: user.id,
+        messages: [
         {
           role: "system",
           content:
@@ -128,17 +133,29 @@ export async function POST(req: NextRequest) {
             .filter(Boolean)
             .join("\n"),
         },
-      ],
-    });
-    const reply = completion.data.choices?.[0]?.message?.content?.trim();
-    if (!reply) throw new Error("AI service returned an empty draft");
+        ],
+      });
+      reply = completion.data.choices?.[0]?.message?.content?.trim() || "";
+      model = completion.model;
+      provider = completion.provider;
+    } catch (providerError) {
+      console.warn("Conversation draft provider fallback", providerError instanceof Error ? providerError.message : providerError);
+    }
+    if (!reply) {
+      const latestClientMessage = (messages || []).find((message) => message.direction_in_out !== "out")?.text;
+      reply = createSafeDraftFallback({
+        clientName: lead?.full_name,
+        agentName: profile?.full_name,
+        latestClientMessage,
+      });
+    }
 
     return NextResponse.json({
       draft_id: randomUUID(),
       reply,
       channel: conversation.channel,
-      model: completion.model,
-      provider: completion.provider,
+      model,
+      provider,
     });
   } catch (error) {
     console.error(
