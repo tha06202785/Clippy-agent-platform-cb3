@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDraftLaunchUrl,
+  parseInspectionSlotRequest,
   resolveDraftChannel,
   shouldCreateDraftAction,
+  shouldCreateInspectionSlot,
   type ProposedDraftAction,
 } from "@/lib/copilot-actions";
 
@@ -56,5 +58,38 @@ describe("Copilot draft actions", () => {
     expect(url).toContain("mailto:taylor@example.com?");
     expect(url).toContain("subject=Inspection+follow-up");
     expect(url).toContain("body=Thanks+for+attending.");
+  });
+});
+
+describe("Copilot inspection slot actions", () => {
+  const now = new Date("2026-08-12T00:00:00.000Z");
+
+  it("recognises a request to create a slot", () => {
+    expect(
+      shouldCreateInspectionSlot(
+        "Create an inspection time slot this Saturday at 11.30am",
+      ),
+    ).toBe(true);
+    expect(shouldCreateInspectionSlot("What inspections are coming up?")).toBe(
+      false,
+    );
+  });
+
+  it("resolves a Melbourne weekday and creates a 30 minute window", () => {
+    expect(
+      parseInspectionSlotRequest(
+        "Create an inspection slot this Saturday at 11.30am",
+        now,
+      ),
+    ).toEqual({
+      startsAt: "2026-08-15T01:30:00.000Z",
+      endsAt: "2026-08-15T02:00:00.000Z",
+    });
+  });
+
+  it("asks for a date instead of guessing", () => {
+    expect(
+      parseInspectionSlotRequest("Create a time slot at 11.30am", now),
+    ).toEqual({ missing: "date" });
   });
 });
