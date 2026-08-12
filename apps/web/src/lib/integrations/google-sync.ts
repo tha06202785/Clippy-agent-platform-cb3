@@ -14,6 +14,7 @@ import {
   getLearningSettings,
   learnFromStoredMessages,
   refreshAgentVoiceProfile,
+  resanitiseStoredCommunicationExamples,
   storeCommunicationExample,
 } from "@/lib/adaptive-learning";
 
@@ -1246,6 +1247,7 @@ export async function syncGoogleKnowledge(
     importGmailLeads(admin, orgId, gmailItems),
     indexGoogleItems(admin, orgId, userId, "calendar", calendarItems),
   ]);
+  await resanitiseStoredCommunicationExamples(admin, orgId, userId);
   const messageHistory = await learnFromStoredMessages(admin, orgId, userId);
   await Promise.all([
     updateHealth(admin, orgId, "gmail", gmail, startedAt),
