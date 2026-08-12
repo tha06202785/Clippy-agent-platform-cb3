@@ -1,6 +1,6 @@
 import { deliverApprovedMessage } from "@/lib/channels/deliver-approved-message";
 import {
-  getAutomationPolicy,
+  evaluateAutomationAction,
   queueAutomationApproval,
 } from "@/lib/automation-policy";
 import { resolveAgentName } from "@/lib/inspections/booking-automation";
@@ -158,13 +158,18 @@ export async function processInspectionReminders(admin: AdminClient) {
         communication.type === "booking_confirmation"
           ? `Inspection confirmed – ${address}`
           : `Inspection reminder – ${address}`;
-      const policy = await getAutomationPolicy(admin, communication.org_id);
       const actionKey =
         communication.type === "booking_confirmation"
           ? "booking_confirmation"
           : "inspection_reminders";
-      const mode = policy.modes[actionKey];
-      if (mode === "off") {
+      const decision = await evaluateAutomationAction({
+        admin,
+        orgId: communication.org_id,
+        actionKey,
+        leadId: communication.lead_id,
+        confidence: 1,
+      });
+      if (decision.outcome === "off") {
         await admin
           .from("scheduled_communications")
           .update({ status: "cancelled", cancelled_at: now, updated_at: now })
@@ -172,7 +177,7 @@ export async function processInspectionReminders(admin: AdminClient) {
         results.push({ id: communication.id, success: true });
         continue;
       }
-      if (policy.paused || mode === "approval") {
+      if (decision.outcome === "approval") {
         await queueAutomationApproval({
           admin,
           orgId: communication.org_id,
@@ -186,9 +191,7 @@ export async function processInspectionReminders(admin: AdminClient) {
           bookingId: booking.id,
           scheduledCommunicationId: communication.id,
           confidence: 1,
-          reason: policy.paused
-            ? "Agency automation is paused"
-            : "Agency requires approval for this communication",
+          reason: decision.reason,
           idempotencyKey: `approval_comm_${communication.id}`,
         });
         results.push({ id: communication.id, success: true });
@@ -215,6 +218,7 @@ export async function processInspectionReminders(admin: AdminClient) {
             external_message_id: delivery.externalId,
             gmail_thread_id: delivery.threadId,
             automation: communication.type,
+            automated: true,
           },
         });
       }
