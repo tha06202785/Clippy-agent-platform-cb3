@@ -34,4 +34,32 @@ describe("Google Calendar conflict checks", () => {
       { id: "bad", title: "Bad", source_metadata: { starts_at: "nope" } },
     ], "2026-08-15T01:45:00.000Z", "2026-08-15T02:15:00.000Z")).toEqual([]);
   });
+
+  it("suggests the nearest free times after a conflict", () => {
+    expect(suggestAlternativeCalendarSlots({
+      startsAt: "2026-08-15T01:30:00.000Z",
+      endsAt: "2026-08-15T02:00:00.000Z",
+      busy: [{
+        id: "busy",
+        title: "Vendor meeting",
+        startsAt: "2026-08-15T01:15:00.000Z",
+        endsAt: "2026-08-15T01:45:00.000Z",
+        source: "google",
+      }],
+    })).toEqual([
+      {
+        startsAt: "2026-08-15T02:00:00.000Z",
+        endsAt: "2026-08-15T02:30:00.000Z",
+      },
+      {
+        startsAt: "2026-08-15T00:30:00.000Z",
+        endsAt: "2026-08-15T01:00:00.000Z",
+      },
+      {
+        startsAt: "2026-08-15T02:30:00.000Z",
+        endsAt: "2026-08-15T03:00:00.000Z",
+      },
+    ]);
+  });
+
 });
