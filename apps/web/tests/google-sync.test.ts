@@ -7,12 +7,30 @@ import {
   extractLeadPhone,
   extractPropertyAddress,
   isLikelyRealEstateLead,
+  mapWithConcurrency,
   stripQuotedReply,
 } from "@/lib/integrations/google-sync";
 
 const encode = (value: string) => Buffer.from(value).toString("base64url");
 
 describe("Google knowledge sync", () => {
+  it("bounds Gmail request fan-out while preserving result order", async () => {
+    let active = 0;
+    let maximumActive = 0;
+    const values = Array.from({ length: 12 }, (_, index) => index + 1);
+
+    const results = await mapWithConcurrency(values, 3, async (value) => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      active -= 1;
+      return value * 2;
+    });
+
+    expect(maximumActive).toBeLessThanOrEqual(3);
+    expect(results).toEqual(values.map((value) => value * 2));
+  });
+
   it("prefers plain email text and excludes the duplicate HTML alternative", () => {
     const text = extractGmailText({
       mimeType: "multipart/alternative",
@@ -164,9 +182,7 @@ describe("Google knowledge sync", () => {
           { name: "From", value: "ira tha <ira@example.com>" },
         ],
         body: {
-          data: encode(
-            "Hi\nI didn’t get the inspection confirmation yet",
-          ),
+          data: encode("Hi\nI didn’t get the inspection confirmation yet"),
         },
       },
     });

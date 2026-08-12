@@ -23,11 +23,39 @@ const MAX_EMAILS_PER_SYNC = 20;
 const MAX_SENT_EMAILS_PER_SYNC = 50;
 const MAX_EVENTS_PER_SYNC = 50;
 const MAX_ITEM_CONTENT = 8_000;
+const GMAIL_FETCH_CONCURRENCY = 4;
+const GOOGLE_API_MAX_ATTEMPTS = 4;
 // Re-read a wider recent window so messages that were temporarily filtered,
 // delayed by Gmail, or received during a deployment are not permanently lost.
 // Existing-message checks keep this retry window idempotent.
 const SYNC_OVERLAP_MS = 30 * 60 * 1000;
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (!items.length) return [];
+  const requestedConcurrency = Number.isFinite(concurrency)
+    ? Math.floor(concurrency)
+    : 1;
+  const workerCount = Math.min(items.length, Math.max(1, requestedConcurrency));
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= items.length) return;
+        results[index] = await worker(items[index], index);
+      }
+    }),
+  );
+  return results;
+}
 const REAL_ESTATE_TERMS = [
   "property",
   "inspection",
@@ -577,13 +605,16 @@ export async function refreshGoogleCredentials(
 }
 
 async function googleJson<T>(url: URL, accessToken: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!response.ok) {
-    const service = url.hostname.startsWith("gmail")
-      ? "Gmail"
-      : "Google Calendar";
+  const service = url.hostname.startsWith("gmail")
+    ? "Gmail"
+    : "Google Calendar";
+
+  for (let attempt = 0; attempt < GOOGLE_API_MAX_ATTEMPTS; attempt += 1) {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (response.ok) return (await response.json()) as T;
+
     const responseText = await response.text();
     let reason = "";
     let message = "";
@@ -608,11 +639,32 @@ async function googleJson<T>(url: URL, accessToken: string): Promise<T> {
     }
 
     const detail = [reason && `[${reason}]`, message].filter(Boolean).join(" ");
-    throw new Error(
+    const error = new Error(
       `${service} API request failed (${response.status})${detail ? `: ${detail}` : ""}`,
     );
+    const retryable =
+      response.status === 429 ||
+      response.status === 500 ||
+      response.status === 502 ||
+      response.status === 503 ||
+      response.status === 504;
+    if (!retryable || attempt === GOOGLE_API_MAX_ATTEMPTS - 1) throw error;
+
+    const retryAfterSeconds = Number(response.headers.get("retry-after"));
+    const retryAfterMs = Number.isFinite(retryAfterSeconds)
+      ? retryAfterSeconds * 1_000
+      : 0;
+    const delayMs = Math.min(5_000, Math.max(retryAfterMs, 400 * 2 ** attempt));
+    console.warn("Google API request throttled; retrying", {
+      service,
+      status: response.status,
+      attempt: attempt + 1,
+      delayMs,
+    });
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
-  return (await response.json()) as T;
+
+  throw new Error(`${service} API request failed after retries`);
 }
 
 async function fetchGmailItems(
@@ -632,13 +684,15 @@ async function fetchGmailItems(
     messages?: Array<{ id?: string }>;
   }>(listUrl, accessToken);
 
-  const messages = await Promise.all(
-    (list.messages || []).map(async ({ id }) => {
+  const messages = await mapWithConcurrency(
+    list.messages || [],
+    GMAIL_FETCH_CONCURRENCY,
+    async ({ id }) => {
       if (!id) return null;
       const messageUrl = new URL(`${GMAIL_API}/users/me/messages/${id}`);
       messageUrl.searchParams.set("format", "full");
       return googleJson<GmailMessage>(messageUrl, accessToken);
-    }),
+    },
   );
   return messages
     .map((message) => (message ? gmailMessageToKnowledge(message) : null))
@@ -691,13 +745,15 @@ async function syncGmailSentLearning(
     messages?: Array<{ id?: string; threadId?: string }>;
     nextPageToken?: string;
   }>(listUrl, accessToken);
-  const gmailMessages = await Promise.all(
-    (list.messages || []).map(async ({ id }) => {
+  const gmailMessages = await mapWithConcurrency(
+    list.messages || [],
+    GMAIL_FETCH_CONCURRENCY,
+    async ({ id }) => {
       if (!id) return null;
       const messageUrl = new URL(`${GMAIL_API}/users/me/messages/${id}`);
       messageUrl.searchParams.set("format", "full");
       return googleJson<GmailMessage>(messageUrl, accessToken);
-    }),
+    },
   );
 
   const threadIds = Array.from(
@@ -1174,11 +1230,18 @@ export async function syncGoogleKnowledge(
   if (!credentials.access_token)
     throw new Error("Google access token is missing");
 
-  const [gmailItems, calendarItems, learning] = await Promise.all([
+  const [gmailItems, calendarItems] = await Promise.all([
     fetchGmailItems(credentials.access_token, integration.last_sync_at),
     fetchCalendarItems(credentials.access_token),
-    syncGmailSentLearning(admin, orgId, userId, credentials.access_token),
   ]);
+  // Keep Gmail inbox and Sent scans sequential so their bounded worker pools
+  // cannot combine into a per-user request spike.
+  const learning = await syncGmailSentLearning(
+    admin,
+    orgId,
+    userId,
+    credentials.access_token,
+  );
   const [gmail, calendar] = await Promise.all([
     importGmailLeads(admin, orgId, gmailItems),
     indexGoogleItems(admin, orgId, userId, "calendar", calendarItems),
