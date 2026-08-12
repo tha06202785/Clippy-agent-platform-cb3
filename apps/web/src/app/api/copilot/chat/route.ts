@@ -5,7 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { retrieveForAIResponse } from "@/lib/rag/embeddings";
 import {
   resolveDraftChannel,
+  parseInspectionSlotRequest,
   shouldCreateDraftAction,
+  shouldCreateInspectionSlot,
+  type ProposedInspectionSlotAction,
   type ProposedDraftAction,
 } from "@/lib/copilot-actions";
 import {
@@ -444,7 +447,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const draftActionRequested = shouldCreateDraftAction(message);
+    const slotActionRequested = shouldCreateInspectionSlot(message);
+    const slotRequest = parseInspectionSlotRequest(message);
+    const draftActionRequested =
+      !slotActionRequested && shouldCreateDraftAction(message);
     let systemPrompt =
       "You are Clippy, an AI real estate assistant for Australian agencies.\n\n";
     systemPrompt += "SIGNED-IN AGENT CONTEXT:\n";
@@ -521,7 +527,7 @@ export async function POST(req: NextRequest) {
       ollamaData.choices?.[0]?.message?.content ||
       "I apologise, I'm having trouble responding right now.";
     const compliance = evaluateCopilotReply(rawReply);
-    const reply = compliance.safeReply || rawReply;
+    let reply = compliance.safeReply || rawReply;
     const inputTokens =
       ollamaData.usage?.prompt_tokens ||
       Math.ceil((systemPrompt.length + message.length) / 4);
@@ -533,7 +539,7 @@ export async function POST(req: NextRequest) {
       email: firstText(clientContext, ["email"]),
       phone: firstText(clientContext, ["phone"]),
     };
-    const proposedAction: ProposedDraftAction | null =
+    let proposedAction: ProposedDraftAction | ProposedInspectionSlotAction | null =
       draftActionRequested && compliance.passed
         ? (() => {
             const channel = resolveDraftChannel({
@@ -570,6 +576,54 @@ export async function POST(req: NextRequest) {
             };
           })()
         : null;
+
+    if (slotActionRequested) {
+      if (!listingId || !propertyContext) {
+        reply =
+          "Choose the property first, then ask me to create the inspection slot again. I won't guess which listing to change.";
+        proposedAction = null;
+      } else if (!slotRequest || "missing" in slotRequest) {
+        const missing = slotRequest && "missing" in slotRequest ? slotRequest.missing : "date";
+        reply =
+          missing === "time" || missing === "valid_time"
+            ? "What time should the inspection start? For example: ‘Create an inspection slot this Saturday at 11:30 am.’"
+            : missing === "future_date"
+              ? "That time is in the past. Please give me a future date and time."
+              : "What date should I use? For example: ‘Create an inspection slot this Saturday at 11:30 am.’";
+        proposedAction = null;
+      } else {
+        const { data: conflicts } = await supabase
+          .from("inspection_time_slots")
+          .select("id,starts_at,ends_at")
+          .eq("org_id", orgId)
+          .neq("status", "cancelled")
+          .lt("starts_at", slotRequest.endsAt)
+          .gt("ends_at", slotRequest.startsAt)
+          .limit(10);
+        const normalisedConflicts = (conflicts || []).map((conflict) => ({
+          id: conflict.id,
+          startsAt: conflict.starts_at,
+          endsAt: conflict.ends_at,
+        }));
+        proposedAction = {
+          id: requestId,
+          type: "inspection_slot",
+          title: "Create inspection slot",
+          listingId,
+          propertyAddress:
+            firstText(propertyContext, ["address"]) || "Selected property",
+          startsAt: slotRequest.startsAt,
+          endsAt: slotRequest.endsAt,
+          capacity: 10,
+          inspectionType: "open",
+          conflicts: normalisedConflicts,
+          requiresApproval: true,
+        };
+        reply = normalisedConflicts.length
+          ? `I found ${normalisedConflicts.length} overlapping inspection slot${normalisedConflicts.length === 1 ? "" : "s"}. Review the conflict before approving.`
+          : "I checked the selected property and found no overlapping Clippy inspection slots. Review the action below before I create it.";
+      }
+    }
 
     await recordAIUsage({
       requestId,
