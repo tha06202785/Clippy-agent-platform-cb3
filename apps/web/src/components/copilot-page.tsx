@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import {
   buildDraftLaunchUrl,
+  type ProposedInspectionSlotAction,
   type ProposedDraftAction,
 } from "@/lib/copilot-actions";
 import {
@@ -37,6 +38,10 @@ import {
 } from "@/lib/copilot-context";
 
 const quickActions = [
+  {
+    label: "Create inspection slot",
+    prompt: "Create an inspection slot this Saturday at 11:30 am",
+  },
   { label: "Draft follow-up", prompt: "Draft a follow-up email" },
   {
     label: "Summarise context",
@@ -67,6 +72,13 @@ type ChatMessage = {
   content: string;
   contextLabel?: string;
   draftAction?: DraftActionState;
+  slotAction?: InspectionSlotActionState;
+};
+
+type InspectionSlotActionState = ProposedInspectionSlotAction & {
+  status: "pending" | "creating" | "created";
+  error?: string;
+  slotId?: string;
 };
 
 type DraftActionState = ProposedDraftAction & {
@@ -312,6 +324,67 @@ function DraftApprovalCard({
   );
 }
 
+function InspectionSlotApprovalCard({
+  action,
+  onApprove,
+}: {
+  action: InspectionSlotActionState;
+  onApprove: () => void;
+}) {
+  const format = (value: string) =>
+    new Intl.DateTimeFormat("en-AU", {
+      dateStyle: "full",
+      timeStyle: "short",
+      timeZone: "Australia/Melbourne",
+    }).format(new Date(value));
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/70">
+      <div className="flex items-center justify-between gap-3 border-b border-emerald-200 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-emerald-700" />
+          <h3 className="text-sm font-semibold text-neutral-900">{action.title}</h3>
+        </div>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+          {action.status === "created" ? "Created" : "Approval required"}
+        </span>
+      </div>
+      <div className="space-y-3 p-4 text-sm text-neutral-800">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Property</p>
+          <p className="font-semibold">{action.propertyAddress}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Time</p>
+          <p className="font-semibold">{format(action.startsAt)}</p>
+          <p className="text-xs text-neutral-500">30 minutes · capacity {action.capacity}</p>
+        </div>
+        {action.conflicts.length > 0 && action.status !== "created" && (
+          <p className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800">
+            {action.conflicts.length} overlapping Clippy slot{action.conflicts.length === 1 ? "" : "s"} found. Creation is blocked until the conflict is resolved.
+          </p>
+        )}
+        {action.error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{action.error}</p>}
+        {action.status === "created" ? (
+          <p className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-700">
+            <CheckCircle2 className="h-4 w-4" /> Inspection slot published and recorded.
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={onApprove}
+            disabled={action.status === "creating" || action.conflicts.length > 0}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {action.status === "creating" ? "Creating slot…" : "Approve and create slot"}
+          </button>
+        )}
+        <p className="text-center text-[11px] text-neutral-500">Clippy will re-check conflicts immediately before creation.</p>
+      </div>
+    </div>
+  );
+}
+
 export function CopilotPage({
   contextItems,
   initialContext,
@@ -418,6 +491,55 @@ export function CopilotPage({
     }
   };
 
+  const updateSlotAction = (
+    messageId: string,
+    patch: Partial<InspectionSlotActionState>,
+  ) => {
+    setMessages((previous) =>
+      previous.map((message) =>
+        message.id === messageId && message.slotAction
+          ? { ...message, slotAction: { ...message.slotAction, ...patch } }
+          : message,
+      ),
+    );
+  };
+
+  const approveInspectionSlot = async (
+    messageId: string,
+    action: InspectionSlotActionState,
+  ) => {
+    updateSlotAction(messageId, { status: "creating", error: undefined });
+    try {
+      const response = await fetch("/api/copilot/actions/inspection-slot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action_id: action.id,
+          listing_id: action.listingId,
+          starts_at: action.startsAt,
+          ends_at: action.endsAt,
+          capacity: action.capacity,
+          inspection_type: action.inspectionType,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(result.error || "The inspection slot could not be created.");
+      updateSlotAction(messageId, {
+        status: "created",
+        slotId: result.slot?.id,
+      });
+    } catch (error) {
+      updateSlotAction(messageId, {
+        status: "pending",
+        error:
+          error instanceof Error
+            ? error.message
+            : "The inspection slot could not be created.",
+      });
+    }
+  };
+
   const sendMessage = async (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
@@ -469,9 +591,13 @@ export function CopilotPage({
         typeof data.reply === "string" && data.reply.trim()
           ? data.reply
           : "I received your message but don't have a response. Please try again.";
-      const proposedAction =
+      const proposedDraftAction =
         data.proposed_action?.type === "message_draft"
           ? (data.proposed_action as ProposedDraftAction)
+          : null;
+      const proposedSlotAction =
+        data.proposed_action?.type === "inspection_slot"
+          ? (data.proposed_action as ProposedInspectionSlotAction)
           : null;
 
       setMessages((previous) => [
@@ -479,18 +605,21 @@ export function CopilotPage({
         {
           id: `${Date.now()}-assistant`,
           role: "assistant",
-          content: proposedAction
+          content: proposedDraftAction
             ? "I prepared an editable draft below. Review it carefully—nothing will be sent automatically."
             : reply,
           contextLabel: activeContext
             ? `${activeContext.label} · ${activeContext.description}`
             : undefined,
-          draftAction: proposedAction
+          draftAction: proposedDraftAction
             ? {
-                ...proposedAction,
+                ...proposedDraftAction,
                 context: activeContext?.context || {},
                 status: "draft",
               }
+            : undefined,
+          slotAction: proposedSlotAction
+            ? { ...proposedSlotAction, status: "pending" }
             : undefined,
         },
       ]);
@@ -714,6 +843,14 @@ export function CopilotPage({
                   onChange={(patch) => updateDraftAction(message.id, patch)}
                   onApprove={() =>
                     void approveDraft(message.id, message.draftAction!)
+                  }
+                />
+              )}
+              {message.slotAction && (
+                <InspectionSlotApprovalCard
+                  action={message.slotAction}
+                  onApprove={() =>
+                    void approveInspectionSlot(message.id, message.slotAction!)
                   }
                 />
               )}
