@@ -16,7 +16,10 @@ const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 const MAX_EMAILS_PER_SYNC = 20;
 const MAX_EVENTS_PER_SYNC = 50;
 const MAX_ITEM_CONTENT = 8_000;
-const SYNC_OVERLAP_MS = 5 * 60 * 1000;
+// Re-read a wider recent window so messages that were temporarily filtered,
+// delayed by Gmail, or received during a deployment are not permanently lost.
+// Existing-message checks keep this retry window idempotent.
+const SYNC_OVERLAP_MS = 30 * 60 * 1000;
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const REAL_ESTATE_TERMS = [
   "property",
