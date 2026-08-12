@@ -7,6 +7,15 @@ export type ProposedDraftAction = {
   title: string;
   subject: string | null;
   content: string;
+  originalContent?: string;
+  adaptiveIntelligence?: {
+    profileConfidence: number;
+    sampleCount: number;
+    examplesUsed: number;
+    situation: string;
+    clientPreferences: string[];
+    lastLearnedAt: string | null;
+  };
   recipient: {
     name: string | null;
     email: string | null;
@@ -126,7 +135,10 @@ export function parseInspectionSlotRequest(message: string, now = new Date()) {
     const current = weekdays.indexOf(localNow.weekday);
     const target = weekdays.indexOf(requestedWeekday);
     let daysAhead = (target - current + 7) % 7;
-    if (daysAhead === 0 || new RegExp(`\\bnext\\s+${requestedWeekday}\\b`, "i").test(message)) {
+    if (
+      daysAhead === 0 ||
+      new RegExp(`\\bnext\\s+${requestedWeekday}\\b`, "i").test(message)
+    ) {
       daysAhead += 7;
     }
     date = melbourneDateParts(
@@ -141,18 +153,17 @@ export function parseInspectionSlotRequest(message: string, now = new Date()) {
   const startsAt = new Date(
     `${date}T${hh}:${mm}:00${melbourneOffset(approximate)}`,
   );
-  if (Number.isNaN(startsAt.getTime())) return { missing: "valid_date" as const };
-  if (startsAt.getTime() <= now.getTime()) return { missing: "future_date" as const };
+  if (Number.isNaN(startsAt.getTime()))
+    return { missing: "valid_date" as const };
+  if (startsAt.getTime() <= now.getTime())
+    return { missing: "future_date" as const };
   return {
     startsAt: startsAt.toISOString(),
     endsAt: new Date(startsAt.getTime() + 30 * 60_000).toISOString(),
   };
 }
 
-export function parseInspectionSlotRequests(
-  message: string,
-  now = new Date(),
-) {
+export function parseInspectionSlotRequests(message: string, now = new Date()) {
   const first = parseInspectionSlotRequest(message, now);
   if (!first || "missing" in first) return first;
   const matches = Array.from(
@@ -177,10 +188,12 @@ export function parseInspectionSlotRequests(
       `${localDate}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${offset}`,
     );
     if (startsAt <= now) return [];
-    return [{
-      startsAt: startsAt.toISOString(),
-      endsAt: new Date(startsAt.getTime() + 30 * 60_000).toISOString(),
-    }];
+    return [
+      {
+        startsAt: startsAt.toISOString(),
+        endsAt: new Date(startsAt.getTime() + 30 * 60_000).toISOString(),
+      },
+    ];
   });
   return Array.from(
     new Map(slots.map((slot) => [slot.startsAt, slot])).values(),

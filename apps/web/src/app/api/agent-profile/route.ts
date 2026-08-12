@@ -7,8 +7,11 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: orgMember } = await supabase
       .from("user_org_roles")
@@ -16,14 +19,17 @@ export async function GET(req: NextRequest) {
       .eq("user_id", user.id)
       .single();
 
-    if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
+    if (!orgMember)
+      return NextResponse.json({ error: "No org" }, { status: 400 });
 
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from("agent_profiles")
       .select("*")
       .eq("user_id", user.id)
       .eq("org_id", orgMember.org_id)
-      .single();
+      .maybeSingle();
+
+    if (error) throw error;
 
     return NextResponse.json(profile || null);
   } catch (error: any) {
@@ -36,16 +42,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: orgMember } = await supabase
       .from("user_org_roles")
       .select("org_id")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (!orgMember) return NextResponse.json({ error: "No org" }, { status: 400 });
+    if (!orgMember)
+      return NextResponse.json({ error: "No org" }, { status: 400 });
 
     // Route /teach requests to correction handler
     if (req.nextUrl.pathname.endsWith("/teach")) {
@@ -121,7 +131,7 @@ async function handleTeach(
   supabase: any,
   user: any,
   orgMember: any,
-  req: NextRequest
+  req: NextRequest,
 ) {
   const body = await req.json();
   const {
@@ -153,11 +163,17 @@ async function handleTeach(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Update agent profile confidence score
+  // Keep the legacy counter in sync without relying on unsupported raw SQL.
+  const { data: profile } = await supabase
+    .from("agent_profiles")
+    .select("corrections_made")
+    .eq("user_id", user.id)
+    .eq("org_id", orgMember.org_id)
+    .maybeSingle();
   await supabase
     .from("agent_profiles")
     .update({
-      corrections_made: supabase.raw("corrections_made + 1"),
+      corrections_made: Number(profile?.corrections_made || 0) + 1,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", user.id)

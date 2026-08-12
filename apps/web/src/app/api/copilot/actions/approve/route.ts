@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { deliverApprovedMessage } from "@/lib/channels/deliver-approved-message";
+import { recordApprovedCommunication } from "@/lib/adaptive-learning";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ const approvalSchema = z.object({
   channel: z.enum(["email", "sms", "whatsapp", "facebook", "copy"]),
   subject: z.string().trim().max(300).nullable().optional(),
   content: z.string().trim().min(1).max(12_000),
+  original_content: z.string().trim().min(1).max(12_000).optional(),
   lead_id: z.string().uuid().optional(),
   conversation_id: z.string().uuid().optional(),
 });
@@ -214,6 +216,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let adaptiveLearning: {
+    learned: boolean;
+    changed?: boolean;
+    reason?: string;
+  } | null = null;
+  try {
+    adaptiveLearning = await recordApprovedCommunication({
+      supabase: admin,
+      orgId: membership.org_id,
+      userId: user.id,
+      finalText: parsed.data.content,
+      originalText: parsed.data.original_content || parsed.data.content,
+      subject: parsed.data.subject,
+      channel: parsed.data.channel,
+      leadId,
+      conversationId: parsed.data.conversation_id,
+      sourceMessageId: approval.id,
+      names: [recipient.name],
+    });
+  } catch (learningError) {
+    // Learning must never prevent an approved client communication.
+    console.error(
+      "Adaptive communication learning failed",
+      learningError instanceof Error ? learningError.message : learningError,
+    );
+  }
+
   const isDirectChannel = ["email", "facebook", "whatsapp"].includes(
     parsed.data.channel,
   );
@@ -271,6 +300,7 @@ export async function POST(req: NextRequest) {
             approval_id: approval.id,
             external_message_id: delivery.externalId,
             delivery_status: "sent",
+            adaptive_learning: adaptiveLearning?.learned === true,
             ...(parsed.data.channel === "email"
               ? {
                   gmail_thread_id: delivery.threadId || conversationRecipient,
@@ -296,6 +326,7 @@ export async function POST(req: NextRequest) {
         recipient,
         duplicate: false,
         message: sentMessage,
+        adaptive_learning: adaptiveLearning,
       });
     } catch (deliveryError) {
       console.error(
@@ -326,5 +357,6 @@ export async function POST(req: NextRequest) {
     approved_at: approval.created_at,
     recipient,
     duplicate: false,
+    adaptive_learning: adaptiveLearning,
   });
 }

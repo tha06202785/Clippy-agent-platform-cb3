@@ -9,6 +9,7 @@ import { Toaster } from "sonner";
 import {
   BarChart3,
   Brain,
+  BrainCircuit,
   Inbox,
   FileText,
   Bot,
@@ -105,6 +106,12 @@ const workspaceNav: NavItem[] = [
     color: "text-emerald-500",
   },
   {
+    href: "/learning",
+    label: "Learning Centre",
+    icon: BrainCircuit,
+    color: "text-violet-600",
+  },
+  {
     href: "/analytics",
     label: "Performance",
     icon: BarChart3,
@@ -141,6 +148,7 @@ const pageTitles: Array<[string, string]> = [
   ["/copilot", "Clippy"],
   ["/briefing", "Daily brief"],
   ["/knowledge", "Agency brain"],
+  ["/learning", "Learning Centre"],
   ["/analytics", "Performance"],
   ["/integrations", "Connections"],
   ["/automation", "Automation"],
