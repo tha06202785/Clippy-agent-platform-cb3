@@ -153,6 +153,27 @@ describe("Google knowledge sync", () => {
     expect(item && isLikelyRealEstateLead(item)).toBe(true);
   });
 
+  it("accepts an inspection confirmation follow-up with an address subject", () => {
+    const item = gmailMessageToKnowledge({
+      id: "inspection-confirmation-follow-up",
+      threadId: "inspection-confirmation-follow-up",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "12 twat street" },
+          { name: "From", value: "ira tha <ira@example.com>" },
+        ],
+        body: {
+          data: encode(
+            "Hi\nI didn’t get the inspection confirmation yet",
+          ),
+        },
+      },
+    });
+
+    expect(item && isLikelyRealEstateLead(item)).toBe(true);
+  });
+
   it("converts active calendar events and ignores cancellations", () => {
     const active = calendarEventToKnowledge({
       id: "event-123",
