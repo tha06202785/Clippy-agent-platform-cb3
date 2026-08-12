@@ -89,6 +89,7 @@ export async function GET(
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": 'attachment; filename="property-inspection.ics"',
+      "Content-Length": String(Buffer.byteLength(ics, "utf8")),
       "Cache-Control": "private, no-store",
     },
   });
