@@ -32,6 +32,7 @@ export type ProposedInspectionSlotAction = {
     source: "clippy" | "google";
     title?: string | null;
   }>;
+  alternativeSlots: Array<{ startsAt: string; endsAt: string }>;
   requiresApproval: true;
 };
 
