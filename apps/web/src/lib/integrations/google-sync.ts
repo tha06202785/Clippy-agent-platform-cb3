@@ -91,6 +91,19 @@ const LEAD_SUBJECT_TERMS = [
   "rental application",
   "offer",
 ];
+const LEAD_FOLLOW_UP_TERMS = [
+  "confirmation",
+  "confirm my",
+  "didn't get",
+  "didn’t get",
+  "did not get",
+  "haven't received",
+  "haven’t received",
+  "have not received",
+  "not received",
+  "waiting for",
+  "please resend",
+];
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -436,11 +449,15 @@ export function isLikelyRealEstateLead(item: GoogleKnowledgeItem): boolean {
   const subjectLooksLikeLead = LEAD_SUBJECT_TERMS.some((term) =>
     subject.includes(term),
   );
+  const hasFollowUpIntent = LEAD_FOLLOW_UP_TERMS.some((term) =>
+    content.includes(term),
+  );
   const linkCount = content.match(/https?:\/\//g)?.length || 0;
   if (linkCount >= 3 && !hasIntent && !trustedPortal) return false;
 
   return (
     hasIntent ||
+    (hasFollowUpIntent && hasRealEstateContext) ||
     (subjectLooksLikeLead && hasRealEstateContext) ||
     (trustedPortal && hasRealEstateContext)
   );
