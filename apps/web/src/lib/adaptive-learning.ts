@@ -157,14 +157,18 @@ export function sanitiseCommunicationText(
       "[property]",
     )
     .replace(/\$\s?\d[\d,.]*(?:\s?(?:k|m|million|thousand))?/gi, "[amount]")
-    .replace(
-      /(?:\+?61\s?4|04)(?:[\s.-]?\d){8}\b|(?:\+?61\s?[2378]|0[2378])(?:[\s.-]?\d){8}\b/g,
-      "[phone]",
-    )
     .replace(/\b\d{1,2}[:.]\d{2}\s?(?:am|pm)?\b/gi, "[time]")
     .replace(
       /\b(?:\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?|20\d{2}-\d{2}-\d{2})\b/g,
       "[date]",
+    )
+    .replace(
+      /(?:\+?61\s?4|04)(?:[\s.-]?\d){8}\b|(?:\+?61\s?[2378]|0[2378])(?:[\s.-]?\d){8}\b/g,
+      "[phone]",
+    )
+    .replace(
+      /(?<![\p{L}\p{N}])\+?\(?\d[\d\s().-]{6,}\d(?![\p{L}\p{N}])/gu,
+      "[phone]",
     )
     .replace(/\b(?:0[289]\d{2}|[1-8]\d{3}|9[0-7]\d{2})\b/g, "[postcode]");
 
@@ -631,6 +635,105 @@ export async function refreshAgentVoiceProfile(
   if (error)
     throw new Error(`Agent voice profile refresh failed: ${error.message}`);
   return profile;
+}
+
+/**
+ * Re-applies the current privacy rules to retained examples. This makes
+ * sanitizer improvements self-healing without ever reloading raw email text.
+ */
+export async function resanitiseStoredCommunicationExamples(
+  supabase: SupabaseLike,
+  orgId: string,
+  userId: string,
+) {
+  const { data: examples, error } = await supabase
+    .from("communication_examples")
+    .select("id,content,subject,situation,content_hash,metadata")
+    .eq("org_id", orgId)
+    .eq("user_id", userId)
+    .order("occurred_at", { ascending: false })
+    .limit(STYLE_SAMPLE_LIMIT);
+  if (error) {
+    throw new Error(`Privacy resanitisation lookup failed: ${error.message}`);
+  }
+
+  let updated = 0;
+  let deduplicated = 0;
+  for (const example of examples || []) {
+    const content = sanitiseCommunicationText(String(example.content || ""));
+    const subject = example.subject
+      ? sanitiseCommunicationText(String(example.subject)).slice(0, 300)
+      : null;
+    if (content === example.content && subject === example.subject) continue;
+
+    const situation = String(example.situation || "general");
+    const contentHash = createHash("sha256")
+      .update(`${userId}\u0000${situation}\u0000${content}`)
+      .digest("hex");
+    const { data: duplicate, error: duplicateError } = await supabase
+      .from("communication_examples")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("user_id", userId)
+      .eq("content_hash", contentHash)
+      .neq("id", example.id)
+      .limit(1)
+      .maybeSingle();
+    if (duplicateError) {
+      throw new Error(
+        `Privacy resanitisation duplicate check failed: ${duplicateError.message}`,
+      );
+    }
+    if (duplicate?.id) {
+      const { error: deleteError } = await supabase
+        .from("communication_examples")
+        .delete()
+        .eq("id", example.id)
+        .eq("org_id", orgId)
+        .eq("user_id", userId);
+      if (deleteError) {
+        throw new Error(
+          `Privacy resanitisation deduplication failed: ${deleteError.message}`,
+        );
+      }
+      deduplicated += 1;
+      continue;
+    }
+
+    const [embedding] = await embedKnowledge([
+      `${situation}\n${subject || ""}\n${content}`,
+    ]);
+    const { error: updateError } = await supabase
+      .from("communication_examples")
+      .update({
+        content,
+        subject,
+        content_hash: contentHash,
+        embedding,
+        embedding_model: KNOWLEDGE_EMBEDDING_MODEL,
+        metadata: {
+          ...record(example.metadata),
+          sanitised: true,
+          raw_retained: false,
+          privacy_resanitised_at: new Date().toISOString(),
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", example.id)
+      .eq("org_id", orgId)
+      .eq("user_id", userId);
+    if (updateError) {
+      throw new Error(
+        `Privacy resanitisation update failed: ${updateError.message}`,
+      );
+    }
+    updated += 1;
+  }
+
+  if (updated || deduplicated) {
+    await refreshAgentVoiceProfile(supabase, orgId, userId);
+  }
+  return { scanned: (examples || []).length, updated, deduplicated };
 }
 
 export async function recordApprovedCommunication({

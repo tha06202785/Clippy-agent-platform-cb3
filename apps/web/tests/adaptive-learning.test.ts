@@ -39,6 +39,15 @@ Tharanga`,
     );
     expect(result).toBe("Thanks, I’ll confirm that shortly.");
   });
+
+  it("redacts international and compact phone numbers without losing dates", () => {
+    const result = sanitiseCommunicationText(
+      "Call +1 312 626 6799, +13462487799 or 7123456789 after 2026-08-12.",
+    );
+
+    expect(result).toBe("Call [phone], [phone] or [phone] after [date].");
+    expect(result).not.toMatch(/13126266799|13462487799|7123456789/);
+  });
 });
 
 describe("Agent DNA derivation", () => {
