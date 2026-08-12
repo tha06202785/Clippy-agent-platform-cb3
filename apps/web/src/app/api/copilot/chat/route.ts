@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { retrieveForAIResponse } from "@/lib/rag/embeddings";
 import {
   resolveDraftChannel,
-  parseInspectionSlotRequest,
+  parseInspectionSlotRequests,
   shouldCreateDraftAction,
   shouldCreateInspectionSlot,
   type ProposedInspectionSlotAction,
@@ -453,7 +453,10 @@ export async function POST(req: NextRequest) {
     }
 
     const slotActionRequested = shouldCreateInspectionSlot(message);
-    const slotRequest = parseInspectionSlotRequest(message);
+    const slotRequestsResult = parseInspectionSlotRequests(message);
+    const slotRequest = Array.isArray(slotRequestsResult)
+      ? slotRequestsResult[0]
+      : slotRequestsResult;
     const draftActionRequested =
       !slotActionRequested && shouldCreateDraftAction(message);
     let systemPrompt =
@@ -631,16 +634,25 @@ export async function POST(req: NextRequest) {
           })),
           ...normaliseGoogleCalendarEvents(googleEventsResult.data || []),
         ];
-        const normalisedConflicts = findCalendarConflicts(
-          busy,
-          slotRequest.startsAt,
-          slotRequest.endsAt,
-        );
-        const alternativeSlots = suggestAlternativeCalendarSlots({
-          startsAt: slotRequest.startsAt,
-          endsAt: slotRequest.endsAt,
-          busy,
-        });
+        const requestedSlots = Array.isArray(slotRequestsResult)
+          ? slotRequestsResult
+          : [slotRequest];
+        const slots = requestedSlots.map((requestedSlot) => ({
+          startsAt: requestedSlot.startsAt,
+          endsAt: requestedSlot.endsAt,
+          conflicts: findCalendarConflicts(
+            busy,
+            requestedSlot.startsAt,
+            requestedSlot.endsAt,
+          ),
+          alternativeSlots: suggestAlternativeCalendarSlots({
+            startsAt: requestedSlot.startsAt,
+            endsAt: requestedSlot.endsAt,
+            busy,
+          }),
+        }));
+        const normalisedConflicts = slots[0].conflicts;
+        const alternativeSlots = slots[0].alternativeSlots;
         proposedAction = {
           id: requestId,
           type: "inspection_slot",
@@ -654,11 +666,16 @@ export async function POST(req: NextRequest) {
           inspectionType: "open",
           conflicts: normalisedConflicts,
           alternativeSlots,
+          slots,
           requiresApproval: true,
         };
-        reply = normalisedConflicts.length
-          ? `I found ${normalisedConflicts.length} calendar conflict${normalisedConflicts.length === 1 ? "" : "s"}. Choose one of the nearest available times below.`
-          : "I checked the selected property and found no overlapping Clippy or Google Calendar events. Review the action below before I create it.";
+        const conflictCount = slots.reduce(
+          (total, slot) => total + slot.conflicts.length,
+          0,
+        );
+        reply = conflictCount
+          ? `I checked ${slots.length} requested time${slots.length === 1 ? "" : "s"} and found ${conflictCount} calendar conflict${conflictCount === 1 ? "" : "s"}. Choose an available alternative for each conflict.`
+          : `I checked all ${slots.length} requested inspection time${slots.length === 1 ? "" : "s"} against Clippy and Google Calendar. Review the batch below before I create it.`;
       }
     }
 

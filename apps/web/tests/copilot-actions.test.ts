@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDraftLaunchUrl,
   parseInspectionSlotRequest,
+  parseInspectionSlotRequests,
   resolveDraftChannel,
   shouldCreateDraftAction,
   shouldCreateInspectionSlot,
@@ -92,4 +93,16 @@ describe("Copilot inspection slot actions", () => {
       parseInspectionSlotRequest("Create a time slot at 11.30am", now),
     ).toEqual({ missing: "date" });
   });
+
+  it("parses several inspection times on the same selected day", () => {
+    expect(parseInspectionSlotRequests(
+      "Create Saturday inspection slots at 10:00 am, 11:30 am and 2:00 pm",
+      now,
+    )).toEqual([
+      { startsAt: "2026-08-15T00:00:00.000Z", endsAt: "2026-08-15T00:30:00.000Z" },
+      { startsAt: "2026-08-15T01:30:00.000Z", endsAt: "2026-08-15T02:00:00.000Z" },
+      { startsAt: "2026-08-15T04:00:00.000Z", endsAt: "2026-08-15T04:30:00.000Z" },
+    ]);
+  });
+
 });

@@ -33,6 +33,18 @@ export type ProposedInspectionSlotAction = {
     title?: string | null;
   }>;
   alternativeSlots: Array<{ startsAt: string; endsAt: string }>;
+  slots: Array<{
+    startsAt: string;
+    endsAt: string;
+    conflicts: Array<{
+      id: string;
+      startsAt: string;
+      endsAt: string;
+      source: "clippy" | "google";
+      title?: string | null;
+    }>;
+    alternativeSlots: Array<{ startsAt: string; endsAt: string }>;
+  }>;
   requiresApproval: true;
 };
 
@@ -135,6 +147,44 @@ export function parseInspectionSlotRequest(message: string, now = new Date()) {
     startsAt: startsAt.toISOString(),
     endsAt: new Date(startsAt.getTime() + 30 * 60_000).toISOString(),
   };
+}
+
+export function parseInspectionSlotRequests(
+  message: string,
+  now = new Date(),
+) {
+  const first = parseInspectionSlotRequest(message, now);
+  if (!first || "missing" in first) return first;
+  const matches = Array.from(
+    message.matchAll(/\b(?:at\s*)?(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)\b/gi),
+  ).slice(0, 10);
+  if (matches.length <= 1) return [first];
+
+  const localDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Melbourne",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(first.startsAt));
+  const offset = melbourneOffset(new Date(first.startsAt));
+  const slots = matches.flatMap((match) => {
+    let hour = Number(match[1]);
+    const minute = Number(match[2] || "0");
+    if (hour < 1 || hour > 12 || minute > 59) return [];
+    if (match[3].toLowerCase() === "pm" && hour !== 12) hour += 12;
+    if (match[3].toLowerCase() === "am" && hour === 12) hour = 0;
+    const startsAt = new Date(
+      `${localDate}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${offset}`,
+    );
+    if (startsAt <= now) return [];
+    return [{
+      startsAt: startsAt.toISOString(),
+      endsAt: new Date(startsAt.getTime() + 30 * 60_000).toISOString(),
+    }];
+  });
+  return Array.from(
+    new Map(slots.map((slot) => [slot.startsAt, slot])).values(),
+  );
 }
 
 const DRAFT_INTENT =
