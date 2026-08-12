@@ -27,7 +27,10 @@ export async function GET(req: NextRequest) {
       p_secret: requestSecret,
     });
     if (error) {
-      console.error("Google sync database secret verification failed", error.code);
+      console.error(
+        "Google sync database secret verification failed",
+        error.code,
+      );
     }
     authorised = data === true;
   }
@@ -52,12 +55,24 @@ export async function GET(req: NextRequest) {
 
   const results = [];
   for (const { org_id: orgId } of integrations || []) {
-    const { data: member } = await admin
-      .from("user_org_roles")
+    const { data: learner } = await admin
+      .from("communication_learning_settings")
       .select("user_id")
       .eq("org_id", orgId)
+      .eq("learning_enabled", true)
+      .eq("learn_from_sent", true)
       .limit(1)
       .maybeSingle();
+    const { data: fallbackMember } = learner?.user_id
+      ? { data: null }
+      : await admin
+          .from("user_org_roles")
+          .select("user_id")
+          .eq("org_id", orgId)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+    const member = learner || fallbackMember;
     if (!member?.user_id) {
       results.push({ org_id: orgId, success: false, error: "No org member" });
       continue;

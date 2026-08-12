@@ -86,6 +86,7 @@ type DraftActionState = ProposedDraftAction & {
   status: "draft" | "approving" | "approved";
   error?: string;
   approvedAt?: string;
+  sent?: boolean;
 };
 
 const contextGroups = [
@@ -199,7 +200,9 @@ function DraftApprovalCard({
           </div>
           <p className="mt-0.5 text-[11px] text-neutral-500">
             {action.status === "approved"
-              ? "Approved and ready for your final send"
+              ? action.sent
+                ? "Approved and delivered through the connected channel"
+                : "Approved and ready for your final send"
               : "Review and edit before approval"}
           </p>
         </div>
@@ -210,11 +213,32 @@ function DraftApprovalCard({
               : "bg-amber-100 text-amber-700"
           }`}
         >
-          {action.status === "approved" ? "Approved" : "Approval required"}
+          {action.status === "approved"
+            ? action.sent
+              ? "Sent"
+              : "Approved"
+            : "Approval required"}
         </span>
       </div>
 
       <div className="space-y-3 p-4">
+        {action.adaptiveIntelligence && (
+          <div className="flex items-start gap-2 rounded-xl border border-violet-100 bg-violet-50 px-3 py-2.5 text-xs text-violet-900">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+            <div>
+              <p className="font-semibold">Adapted to your Agent DNA</p>
+              <p className="mt-0.5 text-[11px] leading-5 text-violet-700">
+                {action.adaptiveIntelligence.examplesUsed > 0
+                  ? `${action.adaptiveIntelligence.examplesUsed} similar sanitised example${action.adaptiveIntelligence.examplesUsed === 1 ? "" : "s"}`
+                  : "Learned style profile"}
+                {action.adaptiveIntelligence.clientPreferences.length > 0
+                  ? ` · ${action.adaptiveIntelligence.clientPreferences.length} client preference${action.adaptiveIntelligence.clientPreferences.length === 1 ? "" : "s"}`
+                  : ""}
+                {` · ${action.adaptiveIntelligence.profileConfidence}% confidence`}
+              </p>
+            </div>
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-neutral-400">
@@ -275,29 +299,38 @@ function DraftApprovalCard({
 
         {action.status === "approved" ? (
           <div className="space-y-2">
-            <div className="flex flex-wrap gap-2">
-              {launchUrl && (
+            {action.sent ? (
+              <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-100 px-4 py-3 text-xs font-semibold text-emerald-800">
+                <CheckCircle2 className="h-4 w-4" />
+                Delivered successfully. Clippy recorded your final version for
+                learning.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {launchUrl && (
+                  <button
+                    type="button"
+                    onClick={openDraft}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open {channelLabel}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={openDraft}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                  onClick={() => void copyDraft()}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50"
                 >
-                  <ExternalLink className="h-4 w-4" />
-                  Open {channelLabel}
+                  <Clipboard className="h-4 w-4" />
+                  {copied ? "Copied" : "Copy approved text"}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => void copyDraft()}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50"
-              >
-                <Clipboard className="h-4 w-4" />
-                {copied ? "Copied" : "Copy approved text"}
-              </button>
-            </div>
+              </div>
+            )}
             <p className="text-center text-[11px] text-neutral-500">
-              Approval is recorded. Opening the channel does not mean the
-              message has been sent.
+              {action.sent
+                ? "Delivery is recorded in the selected conversation."
+                : "Approval is recorded. Opening the channel does not mean the message has been sent."}
             </p>
           </div>
         ) : (
@@ -341,12 +374,14 @@ function InspectionSlotApprovalCard({
     }).format(new Date(value));
   const proposedSlots = action.slots?.length
     ? action.slots
-    : [{
-        startsAt: action.startsAt,
-        endsAt: action.endsAt,
-        conflicts: action.conflicts,
-        alternativeSlots: action.alternativeSlots,
-      }];
+    : [
+        {
+          startsAt: action.startsAt,
+          endsAt: action.endsAt,
+          conflicts: action.conflicts,
+          alternativeSlots: action.alternativeSlots,
+        },
+      ];
   const unresolvedConflicts = proposedSlots.reduce(
     (total, slot) => total + slot.conflicts.length,
     0,
@@ -378,7 +413,9 @@ function InspectionSlotApprovalCard({
       <div className="flex items-center justify-between gap-3 border-b border-emerald-200 px-4 py-3">
         <div className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4 text-emerald-700" />
-          <h3 className="text-sm font-semibold text-neutral-900">{action.title}</h3>
+          <h3 className="text-sm font-semibold text-neutral-900">
+            {action.title}
+          </h3>
         </div>
         <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
           {action.status === "created" ? "Created" : "Approval required"}
@@ -386,26 +423,36 @@ function InspectionSlotApprovalCard({
       </div>
       <div className="space-y-3 p-4 text-sm text-neutral-800">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Property</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+            Property
+          </p>
           <p className="font-semibold">{action.propertyAddress}</p>
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-            {proposedSlots.length === 1 ? "Time" : `${proposedSlots.length} inspection times`}
+            {proposedSlots.length === 1
+              ? "Time"
+              : `${proposedSlots.length} inspection times`}
           </p>
           <div className="mt-2 space-y-2">
             {proposedSlots.map((slot, index) => (
-              <div key={`${slot.startsAt}:${index}`} className="rounded-xl border border-neutral-200 bg-white p-3">
+              <div
+                key={`${slot.startsAt}:${index}`}
+                className="rounded-xl border border-neutral-200 bg-white p-3"
+              >
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold">{format(slot.startsAt)}</p>
-                  <span className={`text-[10px] font-semibold uppercase ${slot.conflicts.length ? "text-amber-700" : "text-emerald-700"}`}>
+                  <span
+                    className={`text-[10px] font-semibold uppercase ${slot.conflicts.length ? "text-amber-700" : "text-emerald-700"}`}
+                  >
                     {slot.conflicts.length ? "Conflict" : "Available"}
                   </span>
                 </div>
                 {slot.conflicts.length > 0 && (
                   <div className="mt-2">
                     <p className="text-xs font-medium text-amber-800">
-                      {slot.conflicts[0].title || "Calendar conflict"} — choose another time:
+                      {slot.conflicts[0].title || "Calendar conflict"} — choose
+                      another time:
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {slot.alternativeSlots.map((alternative) => (
@@ -428,12 +475,25 @@ function InspectionSlotApprovalCard({
               </div>
             ))}
           </div>
-          <p className="mt-2 text-xs text-neutral-500">30 minutes each · capacity {action.capacity}</p>
+          <p className="mt-2 text-xs text-neutral-500">
+            30 minutes each · capacity {action.capacity}
+          </p>
         </div>
-        {action.error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{action.error}</p>}
+        {action.error && (
+          <p
+            role="alert"
+            className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700"
+          >
+            {action.error}
+          </p>
+        )}
         {action.status === "created" ? (
           <p className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-700">
-            <CheckCircle2 className="h-4 w-4" /> {proposedSlots.length === 1 ? "Inspection slot" : `${proposedSlots.length} inspection slots`} published and recorded.
+            <CheckCircle2 className="h-4 w-4" />{" "}
+            {proposedSlots.length === 1
+              ? "Inspection slot"
+              : `${proposedSlots.length} inspection slots`}{" "}
+            published and recorded.
           </p>
         ) : (
           <button
@@ -443,10 +503,16 @@ function InspectionSlotApprovalCard({
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
           >
             <CheckCircle2 className="h-4 w-4" />
-            {action.status === "creating" ? "Creating slot…" : proposedSlots.length === 1 ? "Approve and create slot" : `Approve and create ${proposedSlots.length} slots`}
+            {action.status === "creating"
+              ? "Creating slot…"
+              : proposedSlots.length === 1
+                ? "Approve and create slot"
+                : `Approve and create ${proposedSlots.length} slots`}
           </button>
         )}
-        <p className="text-center text-[11px] text-neutral-500">Clippy will re-check conflicts immediately before creation.</p>
+        <p className="text-center text-[11px] text-neutral-500">
+          Clippy will re-check conflicts immediately before creation.
+        </p>
       </div>
     </div>
   );
@@ -535,6 +601,7 @@ export function CopilotPage({
           channel: action.channel,
           subject: action.subject,
           content: action.content,
+          original_content: action.originalContent,
           ...contextRequest(action.context),
         }),
       });
@@ -545,6 +612,7 @@ export function CopilotPage({
       updateDraftAction(messageId, {
         status: "approved",
         approvedAt: result.approved_at,
+        sent: Boolean(result.sent),
         recipient: result.recipient || action.recipient,
       });
     } catch (error) {
@@ -595,7 +663,9 @@ export function CopilotPage({
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok)
-        throw new Error(result.error || "The inspection slot could not be created.");
+        throw new Error(
+          result.error || "The inspection slot could not be created.",
+        );
       updateSlotAction(messageId, {
         status: "created",
         slotId: result.slots?.[0]?.id || result.slot?.id,

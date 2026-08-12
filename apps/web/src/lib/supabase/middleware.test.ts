@@ -9,6 +9,7 @@ describe("workspace route protection", () => {
     "/inspections",
     "/knowledge",
     "/knowledge/documents/123",
+    "/learning",
     "/admin/platform",
   ])("protects %s", (pathname) => {
     expect(isProtectedPath(pathname)).toBe(true);

@@ -25,6 +25,10 @@ import {
   normaliseGoogleCalendarEvents,
   suggestAlternativeCalendarSlots,
 } from "@/lib/calendar-conflicts";
+import {
+  retrieveAdaptiveCommunicationContext,
+  type AdaptiveContext,
+} from "@/lib/adaptive-learning";
 
 export const dynamic = "force-dynamic";
 
@@ -429,6 +433,32 @@ export async function POST(req: NextRequest) {
       console.error("RAG retrieval failed:", error);
     }
 
+    let adaptiveContext: AdaptiveContext = {
+      enabled: false,
+      prompt: "",
+      explanation: {
+        profileConfidence: 0,
+        sampleCount: 0,
+        examplesUsed: 0,
+        situation: "general",
+        clientPreferences: [],
+        lastLearnedAt: null,
+      },
+    };
+    try {
+      adaptiveContext = await retrieveAdaptiveCommunicationContext({
+        supabase,
+        orgId,
+        userId: user.id,
+        query: message,
+        leadId,
+        channel: firstText(conversationContext, ["channel"]) || "email",
+      });
+    } catch (error) {
+      // Personalisation is an enhancement; factual Copilot work remains usable.
+      console.error("Adaptive communication context failed:", error);
+    }
+
     let clientMemory: RecordValue | null = null;
     if (leadId) {
       const clientMemoryResult = await supabase
@@ -476,15 +506,9 @@ export async function POST(req: NextRequest) {
     ).format(new Date())} (Australia/Melbourne)\n\n`;
 
     const structuredContext = [
-      clientContext
-        ? `CLIENT:\n${contextJson(clientContext)}`
-        : null,
-      propertyContext
-        ? `PROPERTY:\n${contextJson(propertyContext)}`
-        : null,
-      enquiryContext
-        ? `ENQUIRY:\n${contextJson(enquiryContext)}`
-        : null,
+      clientContext ? `CLIENT:\n${contextJson(clientContext)}` : null,
+      propertyContext ? `PROPERTY:\n${contextJson(propertyContext)}` : null,
+      enquiryContext ? `ENQUIRY:\n${contextJson(enquiryContext)}` : null,
       conversationContext
         ? `CONVERSATION:\n${contextJson(conversationContext)}`
         : null,
@@ -503,6 +527,7 @@ export async function POST(req: NextRequest) {
     if (ragContext) systemPrompt += `RELEVANT KNOWLEDGE:\n${ragContext}\n\n`;
     if (clientMemory)
       systemPrompt += `CLIENT MEMORY:\n${contextJson(clientMemory)}\n\n`;
+    if (adaptiveContext.prompt) systemPrompt += `${adaptiveContext.prompt}\n\n`;
     systemPrompt +=
       "IMPORTANT RULES:\n" +
       "1. Use Australian English spelling.\n" +
@@ -547,7 +572,8 @@ export async function POST(req: NextRequest) {
       email: firstText(clientContext, ["email"]),
       phone: firstText(clientContext, ["phone"]),
     };
-    let proposedAction: ProposedDraftAction | ProposedInspectionSlotAction | null =
+    let proposedAction:
+      ProposedDraftAction | ProposedInspectionSlotAction | null =
       draftActionRequested && compliance.passed
         ? (() => {
             const channel = resolveDraftChannel({
@@ -579,6 +605,10 @@ export async function POST(req: NextRequest) {
                     : "Follow-up from your real estate agent"
                   : null,
               content: reply,
+              originalContent: reply,
+              adaptiveIntelligence: adaptiveContext.enabled
+                ? adaptiveContext.explanation
+                : undefined,
               recipient,
               requiresApproval: true,
             };
@@ -591,7 +621,10 @@ export async function POST(req: NextRequest) {
           "Choose the property first, then ask me to create the inspection slot again. I won't guess which listing to change.";
         proposedAction = null;
       } else if (!slotRequest || "missing" in slotRequest) {
-        const missing = slotRequest && "missing" in slotRequest ? slotRequest.missing : "date";
+        const missing =
+          slotRequest && "missing" in slotRequest
+            ? slotRequest.missing
+            : "date";
         reply =
           missing === "time" || missing === "valid_time"
             ? "What time should the inspection start? For example: ‘Create an inspection slot this Saturday at 11:30 am.’"
@@ -701,6 +734,8 @@ export async function POST(req: NextRequest) {
         conversation_id: conversationId || null,
         calendar_event_id: parsed.data.calendar_event_id || null,
         rag_context_used: Boolean(ragContext),
+        adaptive_intelligence_used: adaptiveContext.enabled,
+        adaptive_examples_used: adaptiveContext.explanation.examplesUsed,
         compliance_passed: compliance.passed,
         compliance_checks: compliance.checks,
         response_withheld: !compliance.passed,
@@ -740,6 +775,8 @@ export async function POST(req: NextRequest) {
       agent_profile_used: Boolean(agentProfile || profile),
       agency_context_used: Boolean(organisation),
       client_memory_used: Boolean(clientMemory),
+      adaptive_intelligence: adaptiveContext.explanation,
+      adaptive_intelligence_used: adaptiveContext.enabled,
       usage: {
         credits_used: creditsUsed,
         remaining: entitlement.remaining,

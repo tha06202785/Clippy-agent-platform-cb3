@@ -3,6 +3,10 @@ import { z } from "zod";
 import { deliverApprovedMessage } from "@/lib/channels/deliver-approved-message";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  recordApprovedCommunication,
+  recordRejectedCommunication,
+} from "@/lib/adaptive-learning";
 
 const decisionSchema = z.object({
   decision: z.enum(["approve", "reject"]),
@@ -69,6 +73,22 @@ export async function PATCH(
         .update({ status: "cancelled", cancelled_at: now, updated_at: now })
         .eq("id", approval.scheduled_communication_id);
     }
+    try {
+      await recordRejectedCommunication({
+        supabase: admin,
+        orgId: membership.org_id,
+        userId: user.id,
+        content: approval.content,
+        leadId: approval.lead_id,
+        conversationId: approval.conversation_id,
+        channel: approval.channel,
+      });
+    } catch (learningError) {
+      console.error(
+        "Rejected draft learning failed",
+        learningError instanceof Error ? learningError.message : learningError,
+      );
+    }
     return NextResponse.json({ status: "rejected" });
   }
 
@@ -97,19 +117,23 @@ export async function PATCH(
           : null,
     });
     if (approval.conversation_id) {
-      const { data: sentMessage } = await admin.from("messages").insert({
-        org_id: membership.org_id,
-        conversation_id: approval.conversation_id,
-        direction_in_out: "out",
-        text: approvedContent,
-        read_at: now,
-        raw_json: {
-          channel: approval.channel,
-          automation_approval_id: approval.id,
-          external_message_id: delivery.externalId,
-          delivery_status: "sent",
-        },
-      }).select("id,created_at,direction_in_out,text,read_at,raw_json").single();
+      const { data: sentMessage } = await admin
+        .from("messages")
+        .insert({
+          org_id: membership.org_id,
+          conversation_id: approval.conversation_id,
+          direction_in_out: "out",
+          text: approvedContent,
+          read_at: now,
+          raw_json: {
+            channel: approval.channel,
+            automation_approval_id: approval.id,
+            external_message_id: delivery.externalId,
+            delivery_status: "sent",
+          },
+        })
+        .select("id,created_at,direction_in_out,text,read_at,raw_json")
+        .single();
       await admin
         .from("conversations")
         .update({ last_message_at: now, updated_at: now })
@@ -147,10 +171,31 @@ export async function PATCH(
         .eq("id", approval.inspection_booking_id)
         .eq("org_id", membership.org_id);
     }
+    let adaptiveLearning = null;
+    try {
+      adaptiveLearning = await recordApprovedCommunication({
+        supabase: admin,
+        orgId: membership.org_id,
+        userId: user.id,
+        finalText: approvedContent,
+        originalText: approval.content,
+        subject: approval.subject,
+        channel: approval.channel,
+        leadId: approval.lead_id,
+        conversationId: approval.conversation_id,
+        sourceMessageId: approval.id,
+      });
+    } catch (learningError) {
+      console.error(
+        "Approved automation learning failed",
+        learningError instanceof Error ? learningError.message : learningError,
+      );
+    }
     return NextResponse.json({
       status: "approved",
       sent: true,
       message: approval.sent_message || null,
+      adaptive_learning: adaptiveLearning,
     });
   } catch (error) {
     console.error(

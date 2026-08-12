@@ -10,10 +10,17 @@ import {
   KNOWLEDGE_EMBEDDING_MODEL,
 } from "@/lib/knowledge-indexing";
 import { getGoogleOAuthConfig } from "@/lib/google-oauth-config";
+import {
+  getLearningSettings,
+  learnFromStoredMessages,
+  refreshAgentVoiceProfile,
+  storeCommunicationExample,
+} from "@/lib/adaptive-learning";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 const MAX_EMAILS_PER_SYNC = 20;
+const MAX_SENT_EMAILS_PER_SYNC = 50;
 const MAX_EVENTS_PER_SYNC = 50;
 const MAX_ITEM_CONTENT = 8_000;
 // Re-read a wider recent window so messages that were temporarily filtered,
@@ -163,6 +170,16 @@ type CalendarEvent = {
 export type GoogleSyncResult = {
   gmail: { indexed: number; unchanged: number; total: number };
   calendar: { indexed: number; unchanged: number; total: number };
+  learning: {
+    scanned: number;
+    learned: number;
+    backfillComplete: boolean;
+    messageHistory: {
+      processed: number;
+      learned: number;
+      preferences: number;
+    };
+  };
 };
 
 function decodeBase64Url(value?: string): string {
@@ -629,6 +646,146 @@ async function fetchGmailItems(
     .filter(isLikelyRealEstateLead);
 }
 
+async function syncGmailSentLearning(
+  admin: AdminClient,
+  orgId: string,
+  userId: string,
+  accessToken: string,
+) {
+  const settings = await getLearningSettings(admin, orgId, userId);
+  if (!settings?.learning_enabled || !settings.learn_from_sent) {
+    return {
+      scanned: 0,
+      learned: 0,
+      backfillComplete: Boolean(settings?.sent_backfill_complete),
+    };
+  }
+  if (settings.excluded_channels.includes("email")) {
+    return {
+      scanned: 0,
+      learned: 0,
+      backfillComplete: settings.sent_backfill_complete,
+    };
+  }
+
+  const isBackfill = !settings.sent_backfill_complete;
+  const listUrl = new URL(`${GMAIL_API}/users/me/messages`);
+  listUrl.searchParams.set("maxResults", String(MAX_SENT_EMAILS_PER_SYNC));
+  listUrl.searchParams.set("labelIds", "SENT");
+  if (settings.sent_page_token) {
+    listUrl.searchParams.set("pageToken", settings.sent_page_token);
+  }
+  if (isBackfill) {
+    listUrl.searchParams.set("q", "newer_than:180d -in:trash");
+  } else {
+    const after = settings.last_sent_sync_at
+      ? Math.floor(
+          (new Date(settings.last_sent_sync_at).getTime() - SYNC_OVERLAP_MS) /
+            1000,
+        )
+      : Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000);
+    listUrl.searchParams.set("q", `after:${after} -in:trash`);
+  }
+
+  const list = await googleJson<{
+    messages?: Array<{ id?: string; threadId?: string }>;
+    nextPageToken?: string;
+  }>(listUrl, accessToken);
+  const gmailMessages = await Promise.all(
+    (list.messages || []).map(async ({ id }) => {
+      if (!id) return null;
+      const messageUrl = new URL(`${GMAIL_API}/users/me/messages/${id}`);
+      messageUrl.searchParams.set("format", "full");
+      return googleJson<GmailMessage>(messageUrl, accessToken);
+    }),
+  );
+
+  const threadIds = Array.from(
+    new Set(
+      gmailMessages
+        .map((message) => message?.threadId)
+        .filter((threadId): threadId is string => Boolean(threadId)),
+    ),
+  );
+  const { data: conversations, error: conversationError } = threadIds.length
+    ? await admin
+        .from("conversations")
+        .select("id,lead_id,external_thread_id")
+        .eq("org_id", orgId)
+        .in("external_thread_id", threadIds)
+    : { data: [], error: null };
+  if (conversationError) {
+    throw new Error(
+      `Sent-message conversation lookup failed: ${conversationError.message}`,
+    );
+  }
+  const conversationByThread = new Map(
+    (conversations || []).map((conversation) => [
+      conversation.external_thread_id,
+      conversation,
+    ]),
+  );
+
+  let learned = 0;
+  for (const message of gmailMessages) {
+    if (!message?.id) continue;
+    const body = extractGmailText(message.payload) || message.snippet || "";
+    if (!body.trim()) continue;
+    const subject = gmailHeader(message, "Subject") || "(No subject)";
+    const to = gmailHeader(message, "To");
+    const conversation = message.threadId
+      ? conversationByThread.get(message.threadId)
+      : null;
+    const stored = await storeCommunicationExample({
+      supabase: admin,
+      orgId,
+      userId,
+      content: body,
+      subject,
+      source: "gmail_sent",
+      sourceMessageId: message.id,
+      channel: "email",
+      leadId: conversation?.lead_id || null,
+      conversationId: conversation?.id || null,
+      occurredAt: message.internalDate
+        ? new Date(Number(message.internalDate)).toISOString()
+        : new Date().toISOString(),
+      names: [extractSenderName(to)],
+      qualityScore: 1,
+      metadata: {
+        gmail_thread_id: message.threadId || null,
+        import_window: isBackfill ? "historical_180d" : "incremental",
+      },
+    });
+    if (stored) learned += 1;
+  }
+
+  const now = new Date().toISOString();
+  const nextPageToken = list.nextPageToken || null;
+  const backfillComplete = isBackfill ? !nextPageToken : true;
+  const { error: settingsError } = await admin
+    .from("communication_learning_settings")
+    .update({
+      sent_page_token: nextPageToken,
+      sent_backfill_complete: backfillComplete,
+      ...(!nextPageToken ? { last_sent_sync_at: now } : {}),
+      updated_at: now,
+    })
+    .eq("org_id", orgId)
+    .eq("user_id", userId);
+  if (settingsError) {
+    throw new Error(
+      `Sent-message learning cursor failed: ${settingsError.message}`,
+    );
+  }
+  if (learned > 0) await refreshAgentVoiceProfile(admin, orgId, userId);
+  return {
+    scanned: gmailMessages.filter(Boolean).length,
+    learned,
+    backfillComplete,
+  };
+}
+
 async function importGmailLeads(
   admin: AdminClient,
   orgId: string,
@@ -1017,19 +1174,21 @@ export async function syncGoogleKnowledge(
   if (!credentials.access_token)
     throw new Error("Google access token is missing");
 
-  const [gmailItems, calendarItems] = await Promise.all([
+  const [gmailItems, calendarItems, learning] = await Promise.all([
     fetchGmailItems(credentials.access_token, integration.last_sync_at),
     fetchCalendarItems(credentials.access_token),
+    syncGmailSentLearning(admin, orgId, userId, credentials.access_token),
   ]);
   const [gmail, calendar] = await Promise.all([
     importGmailLeads(admin, orgId, gmailItems),
     indexGoogleItems(admin, orgId, userId, "calendar", calendarItems),
   ]);
+  const messageHistory = await learnFromStoredMessages(admin, orgId, userId);
   await Promise.all([
     updateHealth(admin, orgId, "gmail", gmail, startedAt),
     updateHealth(admin, orgId, "google-calendar", calendar, startedAt),
   ]);
-  return { gmail, calendar };
+  return { gmail, calendar, learning: { ...learning, messageHistory } };
 }
 
 export async function recordGoogleSyncFailure(orgId: string, error: unknown) {

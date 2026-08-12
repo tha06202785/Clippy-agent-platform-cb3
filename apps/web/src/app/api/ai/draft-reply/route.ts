@@ -10,6 +10,10 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { queueAutomationApproval } from "@/lib/automation-policy";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  retrieveAdaptiveCommunicationContext,
+  type AdaptiveContext,
+} from "@/lib/adaptive-learning";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +141,36 @@ export async function POST(req: NextRequest) {
       )
       .join("\n");
 
+    let adaptiveContext: AdaptiveContext = {
+      enabled: false,
+      prompt: "",
+      explanation: {
+        profileConfidence: 0,
+        sampleCount: 0,
+        examplesUsed: 0,
+        situation: "general",
+        clientPreferences: [],
+        lastLearnedAt: null,
+      },
+    };
+    try {
+      adaptiveContext = await retrieveAdaptiveCommunicationContext({
+        supabase,
+        orgId: membership.org_id,
+        userId: user.id,
+        query: [parsed.data.instruction || "", history]
+          .filter(Boolean)
+          .join("\n"),
+        leadId: conversation.lead_id,
+        channel: conversation.channel,
+      });
+    } catch (adaptiveError) {
+      console.error(
+        "Conversation draft adaptive context failed",
+        adaptiveError instanceof Error ? adaptiveError.message : adaptiveError,
+      );
+    }
+
     let reply = "";
     let model = "safe-fallback";
     let provider = "local";
@@ -146,8 +180,12 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: "system",
-            content:
+            content: [
               "You are an Australian real-estate co-agent. Draft only the ready-to-send reply—no preamble, analysis or invented facts. Write from the agent's first-person perspective: always use I/I’ll/I can, and never refer to the agent by name in the message body or say that the agent will do something. Be concise, warm, professional and compliant. Use every relevant detail already supplied by the client; never ask them to repeat an address, phone number or other information present in the history. If a property is not linked but its address is in the message, acknowledge the address and say I’ll check the inspection options. When a verified booking link is supplied, invite the client to choose a suitable inspection time using that exact link and mention that confirmation and reminders will be sent. Never promise a phone call, availability, price, approval or an inspection time unless the agent explicitly instructed it or it appears as confirmed in context. Do not sign as Clippy. Close with Kind regards and the agent name when one is supplied.",
+              adaptiveContext.prompt,
+            ]
+              .filter(Boolean)
+              .join("\n\n"),
           },
           {
             role: "user",
@@ -254,6 +292,8 @@ export async function POST(req: NextRequest) {
       channel: conversation.channel,
       model,
       provider,
+      adaptive_intelligence: adaptiveContext.explanation,
+      adaptive_intelligence_used: adaptiveContext.enabled,
     });
   } catch (error) {
     console.error(

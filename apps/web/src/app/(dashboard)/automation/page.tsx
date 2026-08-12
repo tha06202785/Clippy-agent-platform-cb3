@@ -135,7 +135,12 @@ export default function AutomationPage() {
       const response = await fetch(`/api/automation/approvals/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision }),
+        body: JSON.stringify({
+          decision,
+          ...(decision === "approve"
+            ? { content: approvals.find((item) => item.id === id)?.content }
+            : {}),
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Decision failed");
@@ -252,7 +257,9 @@ export default function AutomationPage() {
                       <X className="h-4 w-4" /> Reject
                     </button>
                     <button
-                      disabled={deciding === approval.id}
+                      disabled={
+                        deciding === approval.id || !approval.content.trim()
+                      }
                       onClick={() => void decide(approval.id, "approve")}
                       className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
                     >
@@ -265,9 +272,27 @@ export default function AutomationPage() {
                     </button>
                   </div>
                 </div>
-                <p className="mt-4 whitespace-pre-wrap rounded-xl bg-neutral-50 p-4 text-sm text-neutral-700">
-                  {approval.content}
-                </p>
+                <label className="mt-4 block">
+                  <span className="text-[11px] font-semibold text-neutral-500">
+                    Review and edit · your final version helps Clippy learn your
+                    voice
+                  </span>
+                  <textarea
+                    value={approval.content}
+                    disabled={deciding === approval.id}
+                    onChange={(event) =>
+                      setApprovals((current) =>
+                        current.map((item) =>
+                          item.id === approval.id
+                            ? { ...item, content: event.target.value }
+                            : item,
+                        ),
+                      )
+                    }
+                    rows={6}
+                    className="mt-2 w-full resize-y whitespace-pre-wrap rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm leading-6 text-neutral-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                  />
+                </label>
               </article>
             ))
           )}
