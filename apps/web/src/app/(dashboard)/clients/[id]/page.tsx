@@ -6,6 +6,7 @@ import {
   Bell,
   Building2,
   Calendar,
+  CalendarCheck2,
   CheckCircle2,
   Clock3,
   DollarSign,
@@ -14,6 +15,7 @@ import {
   Phone,
   Sparkles,
   Target,
+  UsersRound,
   UserRound,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -69,6 +71,35 @@ type ClientConversation = {
   listing_id: string | null;
 };
 
+type InspectionBooking = {
+  id: string;
+  booking_status: string;
+  attendance_status: string;
+  attendee_count: number | null;
+  source_channel: string | null;
+  calendar_sync_status: string | null;
+  confirmation_sent_at: string | null;
+  created_at: string;
+  listings: { id: string; address: string } | null;
+  inspection_time_slots: {
+    starts_at: string;
+    ends_at: string;
+    inspection_type: string | null;
+    address: string | null;
+  } | null;
+};
+
+type ScheduledCommunication = {
+  id: string;
+  inspection_booking_id: string | null;
+  type: string;
+  channel: string | null;
+  scheduled_for: string;
+  status: string;
+  sent_at: string | null;
+  last_error: string | null;
+};
+
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";
   return new Intl.DateTimeFormat("en-AU", {
@@ -107,6 +138,15 @@ function statusStyle(status: string) {
   return "bg-amber-100 text-amber-700";
 }
 
+function communicationStyle(status: string) {
+  if (status === "sent") return "bg-emerald-100 text-emerald-700";
+  if (status === "awaiting_approval") return "bg-amber-100 text-amber-700";
+  if (["failed", "dead_letter"].includes(status))
+    return "bg-red-100 text-red-700";
+  if (status === "cancelled") return "bg-neutral-100 text-neutral-500";
+  return "bg-blue-100 text-blue-700";
+}
+
 export default async function Client360Page({
   params,
 }: {
@@ -127,7 +167,14 @@ export default async function Client360Page({
     .maybeSingle();
   if (!membership?.org_id) redirect("/onboarding");
 
-  const [clientResult, enquiriesResult, conversationsResult, tasksResult] =
+  const [
+    clientResult,
+    enquiriesResult,
+    conversationsResult,
+    tasksResult,
+    bookingsResult,
+    communicationsResult,
+  ] =
     await Promise.all([
       supabase
         .from("leads")
@@ -157,6 +204,24 @@ export default async function Client360Page({
         .eq("org_id", membership.org_id)
         .order("due_at", { ascending: true })
         .limit(20),
+      supabase
+        .from("inspection_bookings")
+        .select(
+          "id,booking_status,attendance_status,attendee_count,source_channel,calendar_sync_status,confirmation_sent_at,created_at,listings(id,address),inspection_time_slots(starts_at,ends_at,inspection_type,address)",
+        )
+        .eq("lead_id", id)
+        .eq("org_id", membership.org_id)
+        .order("created_at", { ascending: false })
+        .limit(25),
+      supabase
+        .from("scheduled_communications")
+        .select(
+          "id,inspection_booking_id,type,channel,scheduled_for,status,sent_at,last_error",
+        )
+        .eq("lead_id", id)
+        .eq("org_id", membership.org_id)
+        .order("scheduled_for", { ascending: false })
+        .limit(50),
     ]);
 
   if (clientResult.error) {
@@ -177,6 +242,15 @@ export default async function Client360Page({
       conversationsResult.error.code,
     );
   }
+  if (bookingsResult.error) {
+    console.error("Client 360 inspections load failed", bookingsResult.error.code);
+  }
+  if (communicationsResult.error) {
+    console.error(
+      "Client 360 communications load failed",
+      communicationsResult.error.code,
+    );
+  }
   if (!clientResult.data) notFound();
 
   const client = clientResult.data;
@@ -189,6 +263,25 @@ export default async function Client360Page({
   const conversations = (conversationsResult.data ??
     []) as ClientConversation[];
   const tasks = (tasksResult.data ?? []) as Task[];
+  const bookings = (bookingsResult.data ?? []).map((booking) => ({
+    ...booking,
+    listings: Array.isArray(booking.listings)
+      ? booking.listings[0] ?? null
+      : booking.listings,
+    inspection_time_slots: Array.isArray(booking.inspection_time_slots)
+      ? booking.inspection_time_slots[0] ?? null
+      : booking.inspection_time_slots,
+  })) as InspectionBooking[];
+  const scheduledCommunications = (communicationsResult.data ??
+    []) as ScheduledCommunication[];
+  const communicationsByBooking = new Map<string, ScheduledCommunication[]>();
+  for (const communication of scheduledCommunications) {
+    if (!communication.inspection_booking_id) continue;
+    communicationsByBooking.set(communication.inspection_booking_id, [
+      ...(communicationsByBooking.get(communication.inspection_booking_id) || []),
+      communication,
+    ]);
+  }
   const conversationContext = new Map<
     string,
     { channel: string; property: string }
@@ -325,8 +418,8 @@ export default async function Client360Page({
               icon: MessageCircle,
             },
             {
-              label: "Pending reminders",
-              value: pendingTasks.length,
+              label: "Inspections",
+              value: bookings.length,
               icon: Bell,
             },
             {
@@ -351,6 +444,119 @@ export default async function Client360Page({
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,.55fr)]">
         <div className="space-y-6">
+          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-soft sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-neutral-900">
+                  Inspections and reminders
+                </h2>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Booking, agency calendar sync and client communication in one place.
+                </p>
+              </div>
+              <Link
+                href="/calendar"
+                className="inline-flex items-center gap-1 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700"
+              >
+                <Calendar className="h-3.5 w-3.5" /> Agency calendar
+              </Link>
+            </div>
+
+            {bookings.length === 0 ? (
+              <div className="mt-5 rounded-2xl border border-dashed bg-neutral-50 p-6 text-center">
+                <CalendarCheck2 className="mx-auto h-8 w-8 text-neutral-300" />
+                <p className="mt-2 text-sm font-semibold text-neutral-700">
+                  No inspections booked yet
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                {bookings.map((booking) => {
+                  const slot = booking.inspection_time_slots;
+                  const communications =
+                    communicationsByBooking.get(booking.id) || [];
+                  const address =
+                    booking.listings?.address || slot?.address || "Property";
+                  return (
+                    <article
+                      key={booking.id}
+                      className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-bold text-neutral-900">{address}</h3>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${statusStyle(booking.booking_status)}`}
+                            >
+                              {booking.booking_status.replaceAll("_", " ")}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm font-medium text-neutral-700">
+                            {slot?.starts_at
+                              ? formatDateTime(slot.starts_at)
+                              : "Inspection time unavailable"}
+                          </p>
+                          <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                            <span className="inline-flex items-center gap-1">
+                              <UsersRound className="h-3.5 w-3.5" />
+                              {booking.attendee_count || 1} attending
+                            </span>
+                            <span>·</span>
+                            <span className="capitalize">
+                              {booking.attendance_status.replaceAll("_", " ")}
+                            </span>
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold capitalize ${
+                            booking.calendar_sync_status === "synced"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : booking.calendar_sync_status === "failed"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          <CalendarCheck2 className="h-3 w-3" />
+                          Calendar {booking.calendar_sync_status || "pending"}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                        {communications.length === 0 ? (
+                          <p className="text-xs text-neutral-500 sm:col-span-3">
+                            No automated communications recorded.
+                          </p>
+                        ) : (
+                          communications.map((communication) => (
+                            <div
+                              key={communication.id}
+                              className="rounded-xl border bg-white p-3"
+                            >
+                              <p className="text-[11px] font-bold capitalize text-neutral-700">
+                                {communication.type.replaceAll("_", " ")}
+                              </p>
+                              <span
+                                className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${communicationStyle(communication.status)}`}
+                              >
+                                {communication.status.replaceAll("_", " ")}
+                              </span>
+                              <p className="mt-2 text-[10px] text-neutral-400">
+                                {communication.sent_at
+                                  ? `Sent ${formatDateTime(communication.sent_at)}`
+                                  : `Due ${formatDateTime(communication.scheduled_for)}`}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-soft sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
