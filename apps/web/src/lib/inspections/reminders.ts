@@ -1,4 +1,8 @@
 import { deliverApprovedMessage } from "@/lib/channels/deliver-approved-message";
+import {
+  getAutomationPolicy,
+  queueAutomationApproval,
+} from "@/lib/automation-policy";
 import { resolveAgentName } from "@/lib/inspections/booking-automation";
 
 type AdminClient = any;
@@ -150,16 +154,53 @@ export async function processInspectionReminders(admin: AdminClient) {
               "Kind regards,",
               agentName,
             ].join("\n");
+      const subject =
+        communication.type === "booking_confirmation"
+          ? `Inspection confirmed – ${address}`
+          : `Inspection reminder – ${address}`;
+      const policy = await getAutomationPolicy(admin, communication.org_id);
+      const actionKey =
+        communication.type === "booking_confirmation"
+          ? "booking_confirmation"
+          : "inspection_reminders";
+      const mode = policy.modes[actionKey];
+      if (mode === "off") {
+        await admin
+          .from("scheduled_communications")
+          .update({ status: "cancelled", cancelled_at: now, updated_at: now })
+          .eq("id", communication.id);
+        results.push({ id: communication.id, success: true });
+        continue;
+      }
+      if (policy.paused || mode === "approval") {
+        await queueAutomationApproval({
+          admin,
+          orgId: communication.org_id,
+          actionKey,
+          channel: "email",
+          recipient: lead.email,
+          content,
+          subject,
+          leadId: communication.lead_id,
+          conversationId: communication.conversation_id,
+          bookingId: booking.id,
+          scheduledCommunicationId: communication.id,
+          confidence: 1,
+          reason: policy.paused
+            ? "Agency automation is paused"
+            : "Agency requires approval for this communication",
+          idempotencyKey: `approval_comm_${communication.id}`,
+        });
+        results.push({ id: communication.id, success: true });
+        continue;
+      }
       const delivery = await deliverApprovedMessage({
         admin,
         orgId: communication.org_id,
         channel: "email",
         recipient: lead.email,
         content,
-        subject:
-          communication.type === "booking_confirmation"
-            ? `Inspection confirmed – ${address}`
-            : `Inspection reminder – ${address}`,
+        subject,
         threadId: conversation?.external_thread_id || null,
       });
       if (communication.conversation_id) {
