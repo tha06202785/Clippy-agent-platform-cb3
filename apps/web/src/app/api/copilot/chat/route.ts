@@ -19,7 +19,8 @@ import {
   recordComplianceInterventionAlert,
 } from "@/lib/control-centre";
 import { evaluateCopilotReply } from "@/lib/copilot-compliance";
-import { requestCopilotCompletion } from "@/lib/ai/copilot-provider";\nimport { findGoogleCalendarConflicts } from "@/lib/calendar-conflicts";
+import { requestCopilotCompletion } from "@/lib/ai/copilot-provider";
+import { findGoogleCalendarConflicts } from "@/lib/calendar-conflicts";
 
 export const dynamic = "force-dynamic";
 
