@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { findGoogleCalendarConflicts } from "@/lib/calendar-conflicts";
+import {
+  findGoogleCalendarConflicts,
+  suggestAlternativeCalendarSlots,
+} from "@/lib/calendar-conflicts";
 
 describe("Google Calendar conflict checks", () => {
   const documents = [{
