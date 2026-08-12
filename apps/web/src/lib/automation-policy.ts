@@ -108,6 +108,126 @@ export type AutomationPolicy = {
   quietHoursEnd: string;
 };
 
+export type AutomationDecision = {
+  outcome: "automatic" | "approval" | "off";
+  reason: string | null;
+};
+
+function melbourneDayStart(now: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Melbourne",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const value = (type: string) =>
+    parts.find((part) => part.type === type)?.value || "";
+  const offset = new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Melbourne",
+    timeZoneName: "longOffset",
+  })
+    .formatToParts(now)
+    .find((part) => part.type === "timeZoneName")
+    ?.value.replace("GMT", "");
+  return new Date(
+    `${value("year")}-${value("month")}-${value("day")}T00:00:00${offset || "+10:00"}`,
+  ).toISOString();
+}
+
+export function isWithinQuietHours(
+  now: Date,
+  start: string,
+  end: string,
+) {
+  const local = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Australia/Melbourne",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(now);
+  const current = local.slice(0, 5);
+  const quietStart = start.slice(0, 5);
+  const quietEnd = end.slice(0, 5);
+  if (quietStart === quietEnd) return false;
+  return quietStart < quietEnd
+    ? current >= quietStart && current < quietEnd
+    : current >= quietStart || current < quietEnd;
+}
+
+export async function evaluateAutomationAction({
+  admin,
+  orgId,
+  actionKey,
+  leadId,
+  confidence = 1,
+  now = new Date(),
+  sensitive = false,
+}: {
+  admin: AdminClient;
+  orgId: string;
+  actionKey: AutomationActionKey;
+  leadId?: string | null;
+  confidence?: number;
+  now?: Date;
+  sensitive?: boolean;
+}): Promise<AutomationDecision> {
+  const policy = await getAutomationPolicy(admin, orgId);
+  const mode = policy.modes[actionKey];
+  if (mode === "off") return { outcome: "off", reason: "This action is off" };
+  if (policy.paused)
+    return { outcome: "approval", reason: "Agency automation is paused" };
+  if (mode === "approval")
+    return {
+      outcome: "approval",
+      reason: "Agency requires approval for this communication",
+    };
+  if (sensitive)
+    return {
+      outcome: "approval",
+      reason: "Sensitive client communication requires human review",
+    };
+  if (confidence < policy.minimumConfidence)
+    return {
+      outcome: "approval",
+      reason: `Confidence ${Math.round(confidence * 100)}% is below the ${Math.round(policy.minimumConfidence * 100)}% minimum`,
+    };
+  if (
+    isWithinQuietHours(now, policy.quietHoursStart, policy.quietHoursEnd)
+  )
+    return {
+      outcome: "approval",
+      reason: "This message falls within agency quiet hours",
+    };
+  if (leadId) {
+    const { data: conversations } = await admin
+      .from("conversations")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("lead_id", leadId);
+    const conversationIds = (conversations || []).map(
+      (item: { id: string }) => item.id,
+    );
+    let count = 0;
+    if (conversationIds.length) {
+      const result = await admin
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("direction_in_out", "out")
+        .gte("created_at", melbourneDayStart(now))
+        .contains("raw_json", { automated: true })
+        .in("conversation_id", conversationIds);
+      count = result.count || 0;
+    }
+    if ((count || 0) >= policy.maxMessagesPerClientDay)
+      return {
+        outcome: "approval",
+        reason: "This client has reached the daily automated-message limit",
+      };
+  }
+  return { outcome: "automatic", reason: null };
+}
+
 export async function getAutomationPolicy(
   admin: AdminClient,
   orgId: string,

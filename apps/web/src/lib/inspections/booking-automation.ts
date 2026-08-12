@@ -1,6 +1,6 @@
 import { deliverApprovedMessage } from "@/lib/channels/deliver-approved-message";
 import {
-  getAutomationPolicy,
+  evaluateAutomationAction,
   queueAutomationApproval,
 } from "@/lib/automation-policy";
 import { decryptIntegrationCredentials } from "@/lib/integration-credentials";
@@ -211,7 +211,13 @@ export async function completeInspectionBooking({
 
   let confirmationSent = false;
   if (lead?.email) {
-    const policy = await getAutomationPolicy(admin, orgId);
+    const decision = await evaluateAutomationAction({
+      admin,
+      orgId,
+      actionKey: "booking_confirmation",
+      leadId: booking.lead_id,
+      confidence: 1,
+    });
     const agentName = await resolveAgentName(admin, orgId);
     const content = [
       `Hi${lead.full_name ? ` ${lead.full_name.split(/\s+/)[0]}` : ""},`,
@@ -230,8 +236,7 @@ export async function completeInspectionBooking({
       .select("id")
       .eq("idempotency_key", confirmationKey)
       .maybeSingle();
-    const confirmationMode = policy.modes.booking_confirmation;
-    if (confirmationMode === "off") {
+    if (decision.outcome === "off") {
       if (confirmationCommunication?.id) {
         await admin
           .from("scheduled_communications")
@@ -241,7 +246,7 @@ export async function completeInspectionBooking({
           })
           .eq("id", confirmationCommunication.id);
       }
-    } else if (policy.paused || confirmationMode === "approval") {
+    } else if (decision.outcome === "approval") {
       await queueAutomationApproval({
         admin,
         orgId,
@@ -255,9 +260,7 @@ export async function completeInspectionBooking({
         bookingId: booking.id,
         scheduledCommunicationId: confirmationCommunication?.id,
         confidence: 1,
-        reason: policy.paused
-          ? "Agency automation is paused"
-          : "Agency requires approval for booking confirmations",
+        reason: decision.reason,
         idempotencyKey: `approval_${confirmationKey}`,
       });
     } else {
@@ -283,6 +286,7 @@ export async function completeInspectionBooking({
               external_message_id: delivery.externalId,
               gmail_thread_id: delivery.threadId,
               automation: "booking_confirmation",
+              automated: true,
             },
           });
         }

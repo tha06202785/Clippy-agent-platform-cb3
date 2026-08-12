@@ -85,6 +85,9 @@ export default function InboxPage() {
   const [drafting, setDrafting] = useState(false);
   const [approving, setApproving] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [automationApprovalId, setAutomationApprovalId] = useState<
+    string | null
+  >(null);
   const [draft, setDraft] = useState("");
   const [instruction, setInstruction] = useState("");
   const [approved, setApproved] = useState(false);
@@ -178,6 +181,7 @@ export default function InboxPage() {
         throw new Error(data.error || "Clippy could not create a draft");
       setDraft(data.reply || "");
       setDraftId(data.draft_id || null);
+      setAutomationApprovalId(data.approval_id || null);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -203,16 +207,22 @@ export default function InboxPage() {
           ? "facebook"
           : "copy";
     try {
-      const response = await fetch("/api/copilot/actions/approve", {
-        method: "POST",
+      const response = await fetch(
+        automationApprovalId
+          ? `/api/automation/approvals/${automationApprovalId}`
+          : "/api/copilot/actions/approve",
+        {
+        method: automationApprovalId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          draft_id: draftId,
-          channel: actionChannel,
-          content: draft,
-          lead_id: selected.lead_id || undefined,
-          conversation_id: selected.id,
-        }),
+        body: automationApprovalId
+          ? JSON.stringify({ decision: "approve", content: draft })
+          : JSON.stringify({
+              draft_id: draftId,
+              channel: actionChannel,
+              content: draft,
+              lead_id: selected.lead_id || undefined,
+              conversation_id: selected.id,
+            }),
       });
       const data = await response.json();
       if (!response.ok)
@@ -242,6 +252,7 @@ export default function InboxPage() {
         );
         setDraft("");
         setDraftId(null);
+        setAutomationApprovalId(null);
       } else if (actionChannel === "sms" && data.recipient?.phone) {
         window.location.href = `sms:${data.recipient.phone}?body=${encodeURIComponent(draft)}`;
       }
@@ -254,7 +265,7 @@ export default function InboxPage() {
     } finally {
       setApproving(false);
     }
-  }, [draft, draftId, selected]);
+  }, [automationApprovalId, draft, draftId, selected]);
 
   const channels = useMemo(
     () => Array.from(new Set(threads.map((item) => item.channel))).sort(),

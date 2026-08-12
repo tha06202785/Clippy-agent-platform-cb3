@@ -7,6 +7,8 @@ import {
   enforceFirstPersonAgentVoice,
 } from "@/lib/ai/draft-reply-fallback";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { queueAutomationApproval } from "@/lib/automation-policy";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -68,14 +70,14 @@ export async function POST(req: NextRequest) {
       supabase
         .from("conversations")
         .select(
-          "id,channel,lead_id,enquiry_id,listing_id,leads(full_name,email,phone),listings(address,status)",
+          "id,channel,lead_id,enquiry_id,listing_id,external_thread_id,leads(full_name,email,phone),listings(address,status)",
         )
         .eq("id", parsed.data.conversation_id)
         .eq("org_id", membership.org_id)
         .maybeSingle(),
       supabase
         .from("messages")
-        .select("direction_in_out,text,created_at")
+        .select("direction_in_out,text,created_at,raw_json")
         .eq("conversation_id", parsed.data.conversation_id)
         .eq("org_id", membership.org_id)
         .order("created_at", { ascending: false })
@@ -201,8 +203,53 @@ export async function POST(req: NextRequest) {
           : `${reply.trim()}\n\n${bookingSentence}`;
     }
 
+    const draftId = randomUUID();
+    let approvalId: string | null = null;
+    const approvalChannel =
+      conversation.channel === "facebook_messenger"
+        ? "facebook"
+        : conversation.channel;
+    const recipient =
+      approvalChannel === "email"
+        ? lead?.email
+        : approvalChannel === "whatsapp"
+          ? lead?.phone
+          : approvalChannel === "facebook"
+            ? conversation.external_thread_id
+            : null;
+    if (
+      recipient &&
+      ["email", "facebook", "whatsapp"].includes(approvalChannel)
+    ) {
+      const latestInbound = (messages || []).find(
+        (message) => message.direction_in_out !== "out",
+      );
+      const subject =
+        typeof latestInbound?.raw_json?.subject === "string"
+          ? latestInbound.raw_json.subject
+          : null;
+      const queued = await queueAutomationApproval({
+        admin: createAdminClient(),
+        orgId: membership.org_id,
+        actionKey: bookingLink ? "booking_link_reply" : "new_enquiry_reply",
+        channel: approvalChannel,
+        recipient,
+        content: reply,
+        subject,
+        leadId: conversation.lead_id,
+        conversationId: conversation.id,
+        confidence: provider === "local" ? 1 : 0.85,
+        reason: bookingLink
+          ? "Review the inspection booking link reply before it is sent"
+          : "Review the AI-written first reply before it is sent",
+        idempotencyKey: `draft_${draftId}`,
+      });
+      approvalId = queued?.id || null;
+    }
+
     return NextResponse.json({
-      draft_id: randomUUID(),
+      draft_id: draftId,
+      approval_id: approvalId,
       reply,
       channel: conversation.channel,
       model,
