@@ -36,7 +36,13 @@ export type ProposedInspectionSlotAction = {
   slots: Array<{
     startsAt: string;
     endsAt: string;
-    conflicts: ProposedInspectionSlotAction["conflicts"];
+    conflicts: Array<{
+      id: string;
+      startsAt: string;
+      endsAt: string;
+      source: "clippy" | "google";
+      title?: string | null;
+    }>;
     alternativeSlots: Array<{ startsAt: string; endsAt: string }>;
   }>;
   requiresApproval: true;
