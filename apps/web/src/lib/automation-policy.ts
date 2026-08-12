@@ -9,6 +9,7 @@ export type AutomationActionKey =
   | "new_enquiry_reply"
   | "no_response_follow_up"
   | "appointment_changes"
+  | "inspection_slot_management"
   | "marketing_messages"
   | "negotiation_messages";
 
@@ -47,6 +48,13 @@ export const AUTOMATION_ACTIONS: Array<{
     description: "Send the approved 24-hour and 2-hour reminders.",
     group: "Appointments",
     recommended: "automatic",
+  },
+  {
+    key: "inspection_slot_management",
+    label: "Create inspection time slots",
+    description: "Publish a verified inspection time for a selected property.",
+    group: "Appointments",
+    recommended: "approval",
   },
   {
     key: "appointment_changes",
