@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { retrieveForAIResponse } from "@/lib/rag/embeddings";
 import {
   resolveDraftChannel,
-  parseInspectionSlotRequest,\n  parseInspectionSlotRequests,
+  parseInspectionSlotRequests,
   shouldCreateDraftAction,
   shouldCreateInspectionSlot,
   type ProposedInspectionSlotAction,
