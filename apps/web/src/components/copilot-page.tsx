@@ -326,9 +326,11 @@ function DraftApprovalCard({
 
 function InspectionSlotApprovalCard({
   action,
+  onChange,
   onApprove,
 }: {
   action: InspectionSlotActionState;
+  onChange: (patch: Partial<InspectionSlotActionState>) => void;
   onApprove: () => void;
 }) {
   const format = (value: string) =>
@@ -370,6 +372,40 @@ function InspectionSlotApprovalCard({
             </ul>
           </div>
         )}
+        {action.conflicts.length > 0 &&
+          action.alternativeSlots.length > 0 &&
+          action.status !== "created" && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                Nearest available times
+              </p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                {action.alternativeSlots.map((slot) => (
+                  <button
+                    key={slot.startsAt}
+                    type="button"
+                    onClick={() =>
+                      onChange({
+                        startsAt: slot.startsAt,
+                        endsAt: slot.endsAt,
+                        conflicts: [],
+                        alternativeSlots: [],
+                        error: undefined,
+                      })
+                    }
+                    className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50"
+                  >
+                    {new Intl.DateTimeFormat("en-AU", {
+                      weekday: "short",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      timeZone: "Australia/Melbourne",
+                    }).format(new Date(slot.startsAt))}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         {action.error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{action.error}</p>}
         {action.status === "created" ? (
           <p className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-700">
@@ -856,6 +892,7 @@ export function CopilotPage({
               {message.slotAction && (
                 <InspectionSlotApprovalCard
                   action={message.slotAction}
+                  onChange={(patch) => updateSlotAction(message.id, patch)}
                   onApprove={() =>
                     void approveInspectionSlot(message.id, message.slotAction!)
                   }
