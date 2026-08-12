@@ -339,6 +339,40 @@ function InspectionSlotApprovalCard({
       timeStyle: "short",
       timeZone: "Australia/Melbourne",
     }).format(new Date(value));
+  const proposedSlots = action.slots?.length
+    ? action.slots
+    : [{
+        startsAt: action.startsAt,
+        endsAt: action.endsAt,
+        conflicts: action.conflicts,
+        alternativeSlots: action.alternativeSlots,
+      }];
+  const unresolvedConflicts = proposedSlots.reduce(
+    (total, slot) => total + slot.conflicts.length,
+    0,
+  );
+  const selectAlternative = (
+    index: number,
+    alternative: { startsAt: string; endsAt: string },
+  ) => {
+    const slots = proposedSlots.map((slot, slotIndex) =>
+      slotIndex === index
+        ? { ...slot, ...alternative, conflicts: [], alternativeSlots: [] }
+        : slot,
+    );
+    onChange({
+      slots,
+      ...(index === 0
+        ? {
+            startsAt: alternative.startsAt,
+            endsAt: alternative.endsAt,
+            conflicts: [],
+            alternativeSlots: [],
+          }
+        : {}),
+      error: undefined,
+    });
+  };
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/70">
       <div className="flex items-center justify-between gap-3 border-b border-emerald-200 px-4 py-3">
@@ -356,70 +390,60 @@ function InspectionSlotApprovalCard({
           <p className="font-semibold">{action.propertyAddress}</p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Time</p>
-          <p className="font-semibold">{format(action.startsAt)}</p>
-          <p className="text-xs text-neutral-500">30 minutes · capacity {action.capacity}</p>
-        </div>
-        {action.conflicts.length > 0 && action.status !== "created" && (
-          <div className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800">
-            <p>{action.conflicts.length} calendar conflict{action.conflicts.length === 1 ? "" : "s"} found. Creation is blocked until resolved.</p>
-            <ul className="mt-1 list-disc space-y-0.5 pl-4">
-              {action.conflicts.slice(0, 3).map((conflict) => (
-                <li key={`${conflict.source}:${conflict.id}`}>
-                  {conflict.title || (conflict.source === "google" ? "Google Calendar event" : "Clippy inspection")}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {action.conflicts.length > 0 &&
-          action.alternativeSlots.length > 0 &&
-          action.status !== "created" && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                Nearest available times
-              </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                {action.alternativeSlots.map((slot) => (
-                  <button
-                    key={slot.startsAt}
-                    type="button"
-                    onClick={() =>
-                      onChange({
-                        startsAt: slot.startsAt,
-                        endsAt: slot.endsAt,
-                        conflicts: [],
-                        alternativeSlots: [],
-                        error: undefined,
-                      })
-                    }
-                    className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50"
-                  >
-                    {new Intl.DateTimeFormat("en-AU", {
-                      weekday: "short",
-                      hour: "numeric",
-                      minute: "2-digit",
-                      timeZone: "Australia/Melbourne",
-                    }).format(new Date(slot.startsAt))}
-                  </button>
-                ))}
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+            {proposedSlots.length === 1 ? "Time" : `${proposedSlots.length} inspection times`}
+          </p>
+          <div className="mt-2 space-y-2">
+            {proposedSlots.map((slot, index) => (
+              <div key={`${slot.startsAt}:${index}`} className="rounded-xl border border-neutral-200 bg-white p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold">{format(slot.startsAt)}</p>
+                  <span className={`text-[10px] font-semibold uppercase ${slot.conflicts.length ? "text-amber-700" : "text-emerald-700"}`}>
+                    {slot.conflicts.length ? "Conflict" : "Available"}
+                  </span>
+                </div>
+                {slot.conflicts.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-medium text-amber-800">
+                      {slot.conflicts[0].title || "Calendar conflict"} — choose another time:
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {slot.alternativeSlots.map((alternative) => (
+                        <button
+                          key={alternative.startsAt}
+                          type="button"
+                          onClick={() => selectAlternative(index, alternative)}
+                          className="rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                        >
+                          {new Intl.DateTimeFormat("en-AU", {
+                            hour: "numeric",
+                            minute: "2-digit",
+                            timeZone: "Australia/Melbourne",
+                          }).format(new Date(alternative.startsAt))}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">30 minutes each · capacity {action.capacity}</p>
+        </div>
         {action.error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{action.error}</p>}
         {action.status === "created" ? (
           <p className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-700">
-            <CheckCircle2 className="h-4 w-4" /> Inspection slot published and recorded.
+            <CheckCircle2 className="h-4 w-4" /> {proposedSlots.length === 1 ? "Inspection slot" : `${proposedSlots.length} inspection slots`} published and recorded.
           </p>
         ) : (
           <button
             type="button"
             onClick={onApprove}
-            disabled={action.status === "creating" || action.conflicts.length > 0}
+            disabled={action.status === "creating" || unresolvedConflicts > 0}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
           >
             <CheckCircle2 className="h-4 w-4" />
-            {action.status === "creating" ? "Creating slot…" : "Approve and create slot"}
+            {action.status === "creating" ? "Creating slot…" : proposedSlots.length === 1 ? "Approve and create slot" : `Approve and create ${proposedSlots.length} slots`}
           </button>
         )}
         <p className="text-center text-[11px] text-neutral-500">Clippy will re-check conflicts immediately before creation.</p>
