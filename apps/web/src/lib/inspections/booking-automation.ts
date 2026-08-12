@@ -81,7 +81,7 @@ export async function completeInspectionBooking({
   if (!slot) throw new Error("Inspection slot was not found");
 
   const address = listing?.address || slot.address || "Property inspection";
-  const calendarUrl = `${origin}/api/public/inspection-calendar/${booking.client_calendar_token}`;
+  const calendarUrl = `${origin}/inspection/${booking.client_calendar_token}`;
   const now = new Date();
   const startsAt = new Date(slot.starts_at);
   const communications = [
@@ -185,10 +185,10 @@ export async function completeInspectionBooking({
     ) {
       calendarError = null;
     } else {
-    calendarError =
-      syncError instanceof Error
-        ? syncError.message.slice(0, 300)
-        : "Calendar sync failed";
+      calendarError =
+        syncError instanceof Error
+          ? syncError.message.slice(0, 300)
+          : "Calendar sync failed";
     }
   }
 
