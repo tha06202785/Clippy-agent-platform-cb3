@@ -20,6 +20,7 @@ import {
 } from "@/lib/control-centre";
 import { evaluateCopilotReply } from "@/lib/copilot-compliance";
 import { requestCopilotCompletion } from "@/lib/ai/copilot-provider";
+import { findGoogleCalendarConflicts } from "@/lib/calendar-conflicts";
 
 export const dynamic = "force-dynamic";
 
@@ -592,19 +593,38 @@ export async function POST(req: NextRequest) {
               : "What date should I use? For example: ‘Create an inspection slot this Saturday at 11:30 am.’";
         proposedAction = null;
       } else {
-        const { data: conflicts } = await supabase
-          .from("inspection_time_slots")
-          .select("id,starts_at,ends_at")
-          .eq("org_id", orgId)
-          .neq("status", "cancelled")
-          .lt("starts_at", slotRequest.endsAt)
-          .gt("ends_at", slotRequest.startsAt)
-          .limit(10);
-        const normalisedConflicts = (conflicts || []).map((conflict) => ({
-          id: conflict.id,
-          startsAt: conflict.starts_at,
-          endsAt: conflict.ends_at,
-        }));
+        const [slotConflictsResult, googleEventsResult] = await Promise.all([
+          supabase
+            .from("inspection_time_slots")
+            .select("id,starts_at,ends_at")
+            .eq("org_id", orgId)
+            .neq("status", "cancelled")
+            .lt("starts_at", slotRequest.endsAt)
+            .gt("ends_at", slotRequest.startsAt)
+            .limit(10),
+          supabase
+            .from("knowledge_documents")
+            .select("id,title,source_metadata")
+            .eq("org_id", orgId)
+            .eq("user_id", user.id)
+            .eq("source", "calendar")
+            .eq("status", "indexed")
+            .limit(250),
+        ]);
+        const normalisedConflicts = [
+          ...(slotConflictsResult.data || []).map((conflict) => ({
+            id: conflict.id,
+            startsAt: conflict.starts_at,
+            endsAt: conflict.ends_at,
+            source: "clippy" as const,
+            title: "Clippy inspection",
+          })),
+          ...findGoogleCalendarConflicts(
+            googleEventsResult.data || [],
+            slotRequest.startsAt,
+            slotRequest.endsAt,
+          ),
+        ];
         proposedAction = {
           id: requestId,
           type: "inspection_slot",
@@ -620,7 +640,7 @@ export async function POST(req: NextRequest) {
           requiresApproval: true,
         };
         reply = normalisedConflicts.length
-          ? `I found ${normalisedConflicts.length} overlapping inspection slot${normalisedConflicts.length === 1 ? "" : "s"}. Review the conflict before approving.`
+          ? `I found ${normalisedConflicts.length} calendar conflict${normalisedConflicts.length === 1 ? "" : "s"}. Review the conflict before approving.`
           : "I checked the selected property and found no overlapping Clippy inspection slots. Review the action below before I create it.";
       }
     }

@@ -25,7 +25,13 @@ export type ProposedInspectionSlotAction = {
   endsAt: string;
   capacity: number;
   inspectionType: "open";
-  conflicts: Array<{ id: string; startsAt: string; endsAt: string }>;
+  conflicts: Array<{
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    source: "clippy" | "google";
+    title?: string | null;
+  }>;
   requiresApproval: true;
 };
 
