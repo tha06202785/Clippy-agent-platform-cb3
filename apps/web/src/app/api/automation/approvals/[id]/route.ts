@@ -4,7 +4,10 @@ import { deliverApprovedMessage } from "@/lib/channels/deliver-approved-message"
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-const decisionSchema = z.object({ decision: z.enum(["approve", "reject"]) });
+const decisionSchema = z.object({
+  decision: z.enum(["approve", "reject"]),
+  content: z.string().trim().min(1).max(12_000).optional(),
+});
 
 export async function PATCH(
   request: NextRequest,
@@ -80,12 +83,13 @@ export async function PATCH(
             .maybeSingle()
         ).data
       : null;
+    const approvedContent = parsed.data.content || approval.content;
     const delivery = await deliverApprovedMessage({
       admin,
       orgId: membership.org_id,
       channel: approval.channel,
       recipient: approval.recipient,
-      content: approval.content,
+      content: approvedContent,
       subject: approval.subject,
       threadId:
         approval.channel === "email"
@@ -93,11 +97,11 @@ export async function PATCH(
           : null,
     });
     if (approval.conversation_id) {
-      await admin.from("messages").insert({
+      const { data: sentMessage } = await admin.from("messages").insert({
         org_id: membership.org_id,
         conversation_id: approval.conversation_id,
         direction_in_out: "out",
-        text: approval.content,
+        text: approvedContent,
         read_at: now,
         raw_json: {
           channel: approval.channel,
@@ -105,7 +109,13 @@ export async function PATCH(
           external_message_id: delivery.externalId,
           delivery_status: "sent",
         },
-      });
+      }).select("id,created_at,direction_in_out,text,read_at,raw_json").single();
+      await admin
+        .from("conversations")
+        .update({ last_message_at: now, updated_at: now })
+        .eq("id", approval.conversation_id)
+        .eq("org_id", membership.org_id);
+      approval.sent_message = sentMessage;
     }
     await admin
       .from("automation_approvals")
@@ -137,7 +147,11 @@ export async function PATCH(
         .eq("id", approval.inspection_booking_id)
         .eq("org_id", membership.org_id);
     }
-    return NextResponse.json({ status: "approved", sent: true });
+    return NextResponse.json({
+      status: "approved",
+      sent: true,
+      message: approval.sent_message || null,
+    });
   } catch (error) {
     console.error(
       "Automation approval delivery failed",
