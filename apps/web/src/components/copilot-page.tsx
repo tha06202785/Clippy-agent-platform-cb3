@@ -587,6 +587,10 @@ export function CopilotPage({
           ends_at: action.endsAt,
           capacity: action.capacity,
           inspection_type: action.inspectionType,
+          slots: action.slots.map((slot) => ({
+            starts_at: slot.startsAt,
+            ends_at: slot.endsAt,
+          })),
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -594,7 +598,7 @@ export function CopilotPage({
         throw new Error(result.error || "The inspection slot could not be created.");
       updateSlotAction(messageId, {
         status: "created",
-        slotId: result.slot?.id,
+        slotId: result.slots?.[0]?.id || result.slot?.id,
       });
     } catch (error) {
       updateSlotAction(messageId, {
