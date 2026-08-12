@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAutomationPolicy } from "@/lib/automation-policy";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";\nimport { findGoogleCalendarConflicts } from "@/lib/calendar-conflicts";
 
 export const dynamic = "force-dynamic";
 
@@ -88,19 +88,43 @@ export async function POST(req: NextRequest) {
       created_at: existing.created_at,
     });
 
-  const { data: conflicts } = await admin
-    .from("inspection_time_slots")
-    .select("id,starts_at,ends_at")
-    .eq("org_id", membership.org_id)
-    .neq("status", "cancelled")
-    .lt("starts_at", parsed.data.ends_at)
-    .gt("ends_at", parsed.data.starts_at)
-    .limit(10);
-  if (conflicts?.length)
+  const [slotConflictsResult, googleEventsResult] = await Promise.all([
+    admin
+      .from("inspection_time_slots")
+      .select("id,starts_at,ends_at")
+      .eq("org_id", membership.org_id)
+      .neq("status", "cancelled")
+      .lt("starts_at", parsed.data.ends_at)
+      .gt("ends_at", parsed.data.starts_at)
+      .limit(10),
+    admin
+      .from("knowledge_documents")
+      .select("id,title,source_metadata")
+      .eq("org_id", membership.org_id)
+      .eq("user_id", user.id)
+      .eq("source", "calendar")
+      .eq("status", "indexed")
+      .limit(250),
+  ]);
+  const conflicts = [
+    ...(slotConflictsResult.data || []).map((conflict) => ({
+      id: conflict.id,
+      startsAt: conflict.starts_at,
+      endsAt: conflict.ends_at,
+      source: "clippy" as const,
+      title: "Clippy inspection",
+    })),
+    ...findGoogleCalendarConflicts(
+      googleEventsResult.data || [],
+      parsed.data.starts_at,
+      parsed.data.ends_at,
+    ),
+  ];
+  if (conflicts.length)
     return NextResponse.json(
       {
-        error: "Another inspection slot now overlaps this time. Review the calendar and try again.",
-        code: "slot_conflict",
+        error: "A Clippy inspection or Google Calendar event now overlaps this time. Review the calendar and try again.",
+        code: "calendar_conflict",
         conflicts,
       },
       { status: 409 },
