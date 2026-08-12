@@ -711,6 +711,32 @@ async function importGmailLeads(
     });
     if (messageError)
       throw new Error(`Gmail message import failed: ${messageError.code}`);
+    const replyReceivedAt = new Date().toISOString();
+    await Promise.all([
+      admin
+        .from("scheduled_communications")
+        .update({
+          status: "cancelled",
+          cancelled_at: replyReceivedAt,
+          updated_at: replyReceivedAt,
+          last_error: "Cancelled because the client replied",
+        })
+        .eq("org_id", orgId)
+        .eq("lead_id", leadId)
+        .eq("type", "no_response_follow_up")
+        .in("status", ["scheduled", "awaiting_approval"]),
+      admin
+        .from("automation_approvals")
+        .update({
+          status: "expired",
+          reason: "Client replied before this follow-up was sent",
+          updated_at: replyReceivedAt,
+        })
+        .eq("org_id", orgId)
+        .eq("lead_id", leadId)
+        .eq("action_key", "no_response_follow_up")
+        .eq("status", "pending"),
+    ]);
     await admin
       .from("conversations")
       .update({
