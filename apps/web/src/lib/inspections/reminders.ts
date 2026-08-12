@@ -135,7 +135,7 @@ export async function processInspectionReminders(admin: AdminClient) {
               `Your inspection for ${address} is confirmed for ${formatMelbourneDate(slot.starts_at)}.`,
               "",
               "I’ll send you a reminder 24 hours before and again 2 hours before the inspection.",
-              `${process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com"}/api/public/inspection-calendar/${booking.client_calendar_token}`,
+              `Add this inspection to your calendar: ${process.env.NEXT_PUBLIC_APP_URL || "https://useclippy.com"}/inspection/${booking.client_calendar_token}`,
               "",
               "Kind regards,",
               agentName,
