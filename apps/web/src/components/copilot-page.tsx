@@ -359,9 +359,16 @@ function InspectionSlotApprovalCard({
           <p className="text-xs text-neutral-500">30 minutes · capacity {action.capacity}</p>
         </div>
         {action.conflicts.length > 0 && action.status !== "created" && (
-          <p className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800">
-            {action.conflicts.length} overlapping Clippy slot{action.conflicts.length === 1 ? "" : "s"} found. Creation is blocked until the conflict is resolved.
-          </p>
+          <div className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800">
+            <p>{action.conflicts.length} calendar conflict{action.conflicts.length === 1 ? "" : "s"} found. Creation is blocked until resolved.</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              {action.conflicts.slice(0, 3).map((conflict) => (
+                <li key={`${conflict.source}:${conflict.id}`}>
+                  {conflict.title || (conflict.source === "google" ? "Google Calendar event" : "Clippy inspection")}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {action.error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{action.error}</p>}
         {action.status === "created" ? (
