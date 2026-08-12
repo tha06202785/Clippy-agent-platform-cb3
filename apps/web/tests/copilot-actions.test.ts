@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDraftLaunchUrl,
-  parseInspectionSlotRequest,\n  parseInspectionSlotRequests,
+  parseInspectionSlotRequest,
+  parseInspectionSlotRequests,
   resolveDraftChannel,
   shouldCreateDraftAction,
   shouldCreateInspectionSlot,
