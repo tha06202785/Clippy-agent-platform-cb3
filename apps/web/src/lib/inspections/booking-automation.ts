@@ -1,4 +1,8 @@
 import { deliverApprovedMessage } from "@/lib/channels/deliver-approved-message";
+import {
+  getAutomationPolicy,
+  queueAutomationApproval,
+} from "@/lib/automation-policy";
 import { decryptIntegrationCredentials } from "@/lib/integration-credentials";
 import {
   refreshGoogleCredentials,
@@ -207,6 +211,7 @@ export async function completeInspectionBooking({
 
   let confirmationSent = false;
   if (lead?.email) {
+    const policy = await getAutomationPolicy(admin, orgId);
     const agentName = await resolveAgentName(admin, orgId);
     const content = [
       `Hi${lead.full_name ? ` ${lead.full_name.split(/\s+/)[0]}` : ""},`,
@@ -219,49 +224,87 @@ export async function completeInspectionBooking({
       "Kind regards,",
       agentName,
     ].join("\n");
-    try {
-      const delivery = await deliverApprovedMessage({
+    const confirmationKey = `comm_${booking.id}_booking_confirmation`;
+    const { data: confirmationCommunication } = await admin
+      .from("scheduled_communications")
+      .select("id")
+      .eq("idempotency_key", confirmationKey)
+      .maybeSingle();
+    const confirmationMode = policy.modes.booking_confirmation;
+    if (confirmationMode === "off") {
+      if (confirmationCommunication?.id) {
+        await admin
+          .from("scheduled_communications")
+          .update({
+            status: "cancelled",
+            cancelled_at: new Date().toISOString(),
+          })
+          .eq("id", confirmationCommunication.id);
+      }
+    } else if (policy.paused || confirmationMode === "approval") {
+      await queueAutomationApproval({
         admin,
         orgId,
+        actionKey: "booking_confirmation",
         channel: "email",
         recipient: lead.email,
         content,
         subject: `Inspection confirmed – ${address}`,
-        threadId: conversation?.external_thread_id || null,
+        leadId: booking.lead_id,
+        conversationId: booking.conversation_id,
+        bookingId: booking.id,
+        scheduledCommunicationId: confirmationCommunication?.id,
+        confidence: 1,
+        reason: policy.paused
+          ? "Agency automation is paused"
+          : "Agency requires approval for booking confirmations",
+        idempotencyKey: `approval_${confirmationKey}`,
       });
-      if (booking.conversation_id) {
-        await admin.from("messages").insert({
-          org_id: orgId,
-          conversation_id: booking.conversation_id,
-          direction_in_out: "out",
-          text: content,
-          read_at: new Date().toISOString(),
-          raw_json: {
-            channel: "email",
-            external_message_id: delivery.externalId,
-            gmail_thread_id: delivery.threadId,
-            automation: "booking_confirmation",
-          },
+    } else {
+      try {
+        const delivery = await deliverApprovedMessage({
+          admin,
+          orgId,
+          channel: "email",
+          recipient: lead.email,
+          content,
+          subject: `Inspection confirmed – ${address}`,
+          threadId: conversation?.external_thread_id || null,
         });
+        if (booking.conversation_id) {
+          await admin.from("messages").insert({
+            org_id: orgId,
+            conversation_id: booking.conversation_id,
+            direction_in_out: "out",
+            text: content,
+            read_at: new Date().toISOString(),
+            raw_json: {
+              channel: "email",
+              external_message_id: delivery.externalId,
+              gmail_thread_id: delivery.threadId,
+              automation: "booking_confirmation",
+            },
+          });
+        }
+        confirmationSent = true;
+        await admin
+          .from("scheduled_communications")
+          .update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            attempt_count: 1,
+          })
+          .eq("idempotency_key", confirmationKey);
+        await admin
+          .from("inspection_bookings")
+          .update({ confirmation_sent_at: new Date().toISOString() })
+          .eq("id", booking.id);
+      } catch (sendError) {
+        console.error(
+          "Inspection confirmation delivery failed",
+          sendError instanceof Error ? sendError.message : sendError,
+        );
       }
-      confirmationSent = true;
-      await admin
-        .from("scheduled_communications")
-        .update({
-          status: "sent",
-          sent_at: new Date().toISOString(),
-          attempt_count: 1,
-        })
-        .eq("idempotency_key", `comm_${booking.id}_booking_confirmation`);
-      await admin
-        .from("inspection_bookings")
-        .update({ confirmation_sent_at: new Date().toISOString() })
-        .eq("id", booking.id);
-    } catch (sendError) {
-      console.error(
-        "Inspection confirmation delivery failed",
-        sendError instanceof Error ? sendError.message : sendError,
-      );
     }
   }
 
