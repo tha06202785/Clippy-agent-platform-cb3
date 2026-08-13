@@ -82,6 +82,9 @@ export async function GET() {
     const context = await userContext();
     if (!context.ok) return context.response;
     const { supabase, user, orgId } = context;
+    // Integration credentials and diagnostic fields stay server-only. The
+    // user membership above authorises this narrow organisation-scoped read.
+    const admin = createAdminClient();
     const settings = await ensureLearningSettings(supabase, orgId, user.id);
     const [
       profileResult,
@@ -125,7 +128,7 @@ export async function GET() {
         .gt("preference_evidence_count", 0)
         .order("last_preference_evidence_at", { ascending: false })
         .limit(50),
-      supabase
+      admin
         .from("integrations")
         .select("status,last_sync_at,last_error")
         .eq("org_id", orgId)
