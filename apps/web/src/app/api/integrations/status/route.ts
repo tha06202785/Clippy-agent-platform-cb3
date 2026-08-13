@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getGooglePermissionSummary } from "@/lib/integration-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -73,6 +74,10 @@ export async function GET(_req: NextRequest) {
         /token refresh failed|access token is missing|credentials were not found|reconnect google/i.test(
           lastError,
         );
+      const permissions = getGooglePermissionSummary(
+        integration.provider,
+        "scope" in settings ? settings.scope : undefined,
+      );
 
       return {
         id: integration.id,
@@ -89,6 +94,7 @@ export async function GET(_req: NextRequest) {
         humanMessage: requiresReconnect
           ? "Google access has expired. Reconnect Google to resume Gmail and Calendar syncing."
           : undefined,
+        permissions,
       };
     });
 

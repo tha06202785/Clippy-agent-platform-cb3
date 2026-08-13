@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptIntegrationCredentials } from "@/lib/integration-credentials";
 import { buildMetaObjectUrl } from "@/lib/facebook-oauth";
+import { getGooglePermissionSummary } from "@/lib/integration-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -268,29 +269,23 @@ async function testGoogleConnection(
       }
     }
 
-    const scopes = integration.scope?.split(" ") || [];
-    const requiredScopes = ["https://www.googleapis.com/auth/gmail.modify"];
-
-    const missingScopes = requiredScopes.filter(
-      (s: string) => !scopes.includes(s),
-    );
-    if (missingScopes.length > 0) {
+    const permissions = getGooglePermissionSummary(
+      "gmail",
+      integration.scope,
+    )!;
+    if (permissions.missing.length > 0) {
       return {
         success: false,
         provider: "gmail",
         status: "missing_permissions",
         message: "Missing required permissions",
-        missingScopes,
+        missingScopes: permissions.missing,
         action: "reconnect",
         actionUrl: "/api/integrations/google",
         errorType: "permission_error",
         humanMessage:
           "Clippy needs permission to read your Gmail. Please reconnect and grant all permissions.",
-        permissions: {
-          granted: scopes.length,
-          required: requiredScopes.length,
-          missing: missingScopes,
-        },
+        permissions,
       };
     }
 
@@ -301,7 +296,7 @@ async function testGoogleConnection(
       message: "Gmail connected successfully",
       humanMessage: "Gmail is connected and working perfectly!",
       email: integration.email || "Connected",
-      permissions: { granted: scopes.length, allRequired: true },
+      permissions,
       itemsIndexed: integration.items_indexed || 0,
       lastSync: integration.updated_at,
     };
@@ -337,10 +332,12 @@ async function testGoogleCalendarConnection(
       };
     }
 
-    const scopes = integration.scope?.split(" ") || [];
-    const hasCalendarScope = scopes.some((s: string) => s.includes("calendar"));
+    const permissions = getGooglePermissionSummary(
+      "google-calendar",
+      integration.scope,
+    )!;
 
-    if (!hasCalendarScope) {
+    if (permissions.missing.length > 0) {
       return {
         success: false,
         provider: "google-calendar",
@@ -351,6 +348,7 @@ async function testGoogleCalendarConnection(
         errorType: "permission_error",
         humanMessage:
           "Clippy needs calendar access to schedule inspections. Please reconnect.",
+        permissions,
       };
     }
 
@@ -361,6 +359,7 @@ async function testGoogleCalendarConnection(
       message: "Calendar connected",
       humanMessage:
         "Google Calendar is connected and ready to schedule inspections!",
+      permissions,
       itemsIndexed: integration.items_indexed || 0,
     };
   } catch (error: any) {
