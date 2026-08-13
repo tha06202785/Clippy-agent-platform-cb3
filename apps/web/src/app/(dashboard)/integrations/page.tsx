@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { requiresReconnectAfterTest } from "@/lib/integration-status";
 import {
   Activity,
   AlertCircle,
@@ -247,6 +248,7 @@ export default function IntegrationsPage() {
                 lastSync: result.last_sync_at ?? item.lastSync,
                 itemsIndexed: result.items_indexed ?? item.itemsIndexed,
                 canAutoRefresh: result.canAutoRefresh ?? item.canAutoRefresh,
+                requiresReconnect: requiresReconnectAfterTest(result),
                 permissions: result.permissions ?? item.permissions,
               }
             : item,

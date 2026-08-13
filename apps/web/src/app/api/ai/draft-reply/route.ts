@@ -266,23 +266,34 @@ export async function POST(req: NextRequest) {
         typeof latestInbound?.raw_json?.subject === "string"
           ? latestInbound.raw_json.subject
           : null;
-      const queued = await queueAutomationApproval({
-        admin: createAdminClient(),
-        orgId: membership.org_id,
-        actionKey: bookingLink ? "booking_link_reply" : "new_enquiry_reply",
-        channel: approvalChannel,
-        recipient,
-        content: reply,
-        subject,
-        leadId: conversation.lead_id,
-        conversationId: conversation.id,
-        confidence: provider === "local" ? 1 : 0.85,
-        reason: bookingLink
-          ? "Review the inspection booking link reply before it is sent"
-          : "Review the AI-written first reply before it is sent",
-        idempotencyKey: `draft_${draftId}`,
-      });
-      approvalId = queued?.id || null;
+      try {
+        const queued = await queueAutomationApproval({
+          admin: createAdminClient(),
+          orgId: membership.org_id,
+          actionKey: bookingLink ? "booking_link_reply" : "new_enquiry_reply",
+          channel: approvalChannel,
+          recipient,
+          content: reply,
+          subject,
+          leadId: conversation.lead_id,
+          conversationId: conversation.id,
+          confidence: provider === "local" ? 1 : 0.85,
+          reason: bookingLink
+            ? "Review the inspection booking link reply before it is sent"
+            : "Review the AI-written first reply before it is sent",
+          idempotencyKey: `draft_${draftId}`,
+        });
+        approvalId = queued?.id || null;
+      } catch (approvalError) {
+        // A draft remains useful and can still use the guarded approval endpoint.
+        // Do not discard it because the central approval queue is temporarily unavailable.
+        console.error(
+          "Draft approval queue failed",
+          approvalError instanceof Error
+            ? approvalError.message
+            : approvalError,
+        );
+      }
     }
 
     return NextResponse.json({
