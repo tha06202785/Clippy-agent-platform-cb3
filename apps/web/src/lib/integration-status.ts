@@ -43,6 +43,7 @@ export function requiresReconnectAfterTest(
   result: ConnectionTestResult,
 ): boolean {
   if (result.success) return false;
+  if (result.action === "refresh") return false;
   if (result.action === "reconnect") return true;
 
   return [
