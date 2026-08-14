@@ -66,12 +66,26 @@ export async function GET(
         credentials = decryptIntegrationCredentials(
           storedIntegration.credentials_encrypted,
         );
-      } catch (error) {
-        console.error("Integration credential decryption failed", provider);
+      } catch {
+        const reconnectMessage =
+          "Stored credentials could not be decrypted. Reconnect securely.";
+        console.warn("Integration credentials require reconnection", provider);
+        await admin.from("integration_health").upsert({
+          org_id: orgId,
+          provider,
+          status: "error",
+          last_error: reconnectMessage,
+          last_sync_at: new Date().toISOString(),
+          items_indexed: 0,
+          activity_summary: {
+            lastTest: new Date().toISOString(),
+            testResult: "reconnect_required",
+          },
+        });
         return NextResponse.json({
           success: false,
           provider,
-          status: "credential_error",
+          status: "reconnect_required",
           message: "Stored credentials could not be decrypted",
           action: "reconnect",
           humanMessage: "This connection must be reconnected securely.",
@@ -137,6 +151,7 @@ export async function GET(
       org_id: orgId,
       provider,
       status: testResult.success ? "healthy" : "error",
+      last_error: testResult.success ? null : testResult.message || null,
       last_sync_at: new Date().toISOString(),
       items_indexed: testResult.itemsIndexed || 0,
       activity_summary: {

@@ -14,10 +14,14 @@ async function runDailyCron(req: NextRequest) {
   const secretIssues = automationSecretIssues();
   const cronSecret = readAutomationSecret("CRON_SECRET");
   if (secretIssues.length || !cronSecret) {
-    console.error("Daily automation disabled: secure secrets are not configured");
+    console.warn("Daily automation disabled: secure secrets are not configured");
     return NextResponse.json(
-      { error: "Automation is securely disabled" },
-      { status: 503 },
+      {
+        success: false,
+        disabled: true,
+        reason: "Automation is securely disabled",
+      },
+      { status: 200 },
     );
   }
   if (!secureSecretMatch(bearerToken(req), cronSecret)) {

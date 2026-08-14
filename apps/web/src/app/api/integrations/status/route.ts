@@ -71,7 +71,7 @@ export async function GET(_req: NextRequest) {
       const lastError = healthData?.last_error || "";
       const requiresReconnect =
         healthData?.status === "error" &&
-        /token refresh failed|access token is missing|credentials were not found|reconnect google/i.test(
+        /token refresh failed|access token is missing|credentials were not found|credentials could not be decrypted|reconnect (google|securely)/i.test(
           lastError,
         );
       const permissions = getGooglePermissionSummary(
@@ -92,7 +92,10 @@ export async function GET(_req: NextRequest) {
         activity_summary: healthData?.activity_summary || {},
         requires_reconnect: requiresReconnect,
         humanMessage: requiresReconnect
-          ? "Google access has expired. Reconnect Google to resume Gmail and Calendar syncing."
+          ? integration.provider === "gmail" ||
+            integration.provider === "google-calendar"
+            ? "Google access has expired. Reconnect Google to resume Gmail and Calendar syncing."
+            : `${integration.provider} must be reconnected securely.`
           : undefined,
         permissions,
       };

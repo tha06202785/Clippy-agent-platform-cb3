@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordClippyActivity } from "@/lib/activity-log";
 import { resolveOrCreateLead } from "@/lib/leads/resolve-or-create";
 import {
   decryptIntegrationCredentials,
@@ -1253,6 +1254,21 @@ export async function syncGoogleKnowledge(
     updateHealth(admin, orgId, "gmail", gmail, startedAt),
     updateHealth(admin, orgId, "google-calendar", calendar, startedAt),
   ]);
+  if (gmail.indexed > 0) {
+    await recordClippyActivity(admin, {
+      orgId,
+      userId,
+      action: "gmail_enquiries_synced",
+      category: "communication",
+      title: "Gmail enquiries synced",
+      description: `${gmail.indexed} new real-estate enquir${gmail.indexed === 1 ? "y was" : "ies were"} imported from Gmail.`,
+      impactSummary: "New enquiry records are ready for review and response",
+      metadata: {
+        imported_this_sync: gmail.indexed,
+        total_gmail_messages: gmail.total,
+      },
+    });
+  }
   return { gmail, calendar, learning: { ...learning, messageHistory } };
 }
 

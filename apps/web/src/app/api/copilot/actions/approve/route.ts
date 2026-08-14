@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { deliverApprovedMessage } from "@/lib/channels/deliver-approved-message";
 import { recordApprovedCommunication } from "@/lib/adaptive-learning";
+import { recordClippyActivity } from "@/lib/activity-log";
 
 export const dynamic = "force-dynamic";
 
@@ -318,6 +319,24 @@ export async function POST(req: NextRequest) {
         .update({ last_message_at: sentAt, updated_at: sentAt })
         .eq("id", parsed.data.conversation_id)
         .eq("org_id", membership.org_id);
+      await recordClippyActivity(admin, {
+        orgId: membership.org_id,
+        userId: user.id,
+        action:
+          parsed.data.channel === "email"
+            ? "approved_email_reply_sent"
+            : "approved_client_reply_sent",
+        category: "communication",
+        title: "Approved reply sent",
+        description: `A human-approved ${parsed.data.channel} reply was delivered.`,
+        impactSummary: "Client communication completed with human approval",
+        metadata: {
+          channel: parsed.data.channel,
+          conversation_id: parsed.data.conversation_id,
+          message_id: sentMessage.id,
+        },
+        completedAt: sentAt,
+      });
       return NextResponse.json({
         approved: true,
         sent: true,

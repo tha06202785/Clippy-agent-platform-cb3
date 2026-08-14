@@ -1,4 +1,5 @@
 import { deliverApprovedMessage } from "@/lib/channels/deliver-approved-message";
+import { recordClippyActivity } from "@/lib/activity-log";
 import {
   evaluateAutomationAction,
   queueAutomationApproval,
@@ -311,6 +312,25 @@ export async function completeInspectionBooking({
       }
     }
   }
+
+  await recordClippyActivity(admin, {
+    orgId,
+    action: "inspection_booking_completed",
+    category: "inspection",
+    title: "Inspection booking completed",
+    description: calendarStatus === "synced"
+      ? "A client inspection was booked and added to Google Calendar."
+      : "A client inspection was booked; Calendar sync still needs attention.",
+    impactSummary: "Client booking and reminder workflow created",
+    metadata: {
+      booking_id: booking.id,
+      calendar_synced: calendarStatus === "synced",
+      confirmation_sent: confirmationSent,
+      reminders_prepared: communications.filter((item) =>
+        item.type.startsWith("inspection_reminder_"),
+      ).length,
+    },
+  });
 
   return {
     calendar_url: calendarUrl,

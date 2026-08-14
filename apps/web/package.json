@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "type-check": "tsc --noEmit",
     "k6": "k6 run k6/smoke-test.js",
     "k6:staged": "k6 run --stage 30s:10,1m:20,30s:0 k6/smoke-test.js"
   },
