@@ -15,13 +15,12 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - name: Run unit tests
         run: pnpm --filter @clippy/web test
       - run: pnpm --filter @clippy/web type-check
-        continue-on-error: true
       - run: pnpm --filter @clippy/web build
 
   e2e:
@@ -33,11 +32,13 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @clippy/web exec playwright install chromium
       - name: Run E2E tests
         run: pnpm --filter @clippy/web exec playwright test
         env:
-          BASE_URL: "https://useclippy.com"
+          BASE_URL: ${{ vars.E2E_BASE_URL || 'https://useclippy.com' }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}

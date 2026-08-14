@@ -468,18 +468,12 @@ export async function POST(req: NextRequest) {
         .eq("org_id", orgId)
         .maybeSingle();
 
-      if (clientMemoryResult.data) {
-        clientMemory = clientMemoryResult.data as RecordValue;
-      } else {
-        const leadMemoryResult = await supabase
-          .from("lead_memory")
-          .select("*")
-          .eq("lead_id", leadId)
-          .maybeSingle();
-        if (leadMemoryResult.error)
-          console.error("Lead memory lookup failed:", leadMemoryResult.error);
-        clientMemory = (leadMemoryResult.data ?? null) as RecordValue | null;
-      }
+      if (clientMemoryResult.error)
+        console.error(
+          "Client memory lookup failed:",
+          clientMemoryResult.error,
+        );
+      clientMemory = (clientMemoryResult.data ?? null) as RecordValue | null;
     }
 
     const slotActionRequested = shouldCreateInspectionSlot(message);

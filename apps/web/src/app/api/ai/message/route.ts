@@ -105,7 +105,12 @@ async function buildContext(supabase: any, orgId: string, leadId?: string, conve
   if (leadId) {
     const { data: lead } = await supabase.from("leads").select("*").eq("id", leadId).single();
     context.lead = lead;
-    const { data: memory } = await supabase.from("lead_memory").select("*").eq("lead_id", leadId).single();
+    const { data: memory } = await supabase
+      .from("client_memories")
+      .select("*")
+      .eq("org_id", orgId)
+      .eq("lead_id", leadId)
+      .maybeSingle();
     context.memory = memory;
   }
   if (conversationId) {
@@ -196,7 +201,7 @@ export async function POST(req: NextRequest) {
       const internalSecret = readAutomationSecret("INTERNAL_API_SECRET");
       const internalHeader = req.headers.get("x-internal-secret");
       if (!internalSecret) {
-        console.error("Internal AI automation disabled: secret is not securely configured");
+          console.warn("Internal AI automation disabled: secret is not securely configured");
         return NextResponse.json(
           { error: "Automation is securely disabled" },
           { status: 503 },
@@ -339,14 +344,31 @@ export async function POST(req: NextRequest) {
       }).eq("id", leadId);
 
       if (qualification && Object.keys(qualification).length > 0) {
-        const mem: any = { lead_id: leadId, last_updated: new Date().toISOString() };
+        const familyRequirements: Record<string, unknown> = {};
+        if (qualification.bedrooms)
+          familyRequirements.bedrooms_min = qualification.bedrooms;
+        if (qualification.bathrooms)
+          familyRequirements.bathrooms_min = qualification.bathrooms;
+        if (qualification.parking)
+          familyRequirements.parking_min = qualification.parking;
+        if (qualification.has_pets !== undefined)
+          familyRequirements.has_pets = qualification.has_pets;
+        const mem: Record<string, unknown> = {
+          org_id: orgId,
+          lead_id: leadId,
+          updated_at: new Date().toISOString(),
+          last_updated_by: "ai",
+        };
         if (qualification.budget_min) mem.budget_min = qualification.budget_min;
-        if (qualification.bedrooms) mem.bedrooms_min = qualification.bedrooms;
+        if (qualification.budget_max) mem.budget_max = qualification.budget_max;
         if (qualification.preferred_suburbs) mem.preferred_suburbs = qualification.preferred_suburbs;
-        if (qualification.timeline) mem.timeline = qualification.timeline;
-        if (qualification.finance_approved !== null) mem.finance_approved = qualification.finance_approved;
-        if (Object.keys(mem).length > 1) {
-          await supabase.from("lead_memory").upsert(mem, { onConflict: "lead_id" });
+        if (qualification.timeline) mem.buying_stage = qualification.timeline;
+        if (Object.keys(familyRequirements).length > 0)
+          mem.family_requirements = familyRequirements;
+        if (Object.keys(mem).length > 4) {
+          await supabase
+            .from("client_memories")
+            .upsert(mem, { onConflict: "lead_id" });
         }
       }
 

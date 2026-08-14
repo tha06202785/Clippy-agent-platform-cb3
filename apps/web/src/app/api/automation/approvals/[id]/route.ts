@@ -7,6 +7,7 @@ import {
   recordApprovedCommunication,
   recordRejectedCommunication,
 } from "@/lib/adaptive-learning";
+import { recordClippyActivity } from "@/lib/activity-log";
 
 const decisionSchema = z.object({
   decision: z.enum(["approve", "reject"]),
@@ -127,6 +128,7 @@ export async function PATCH(
           read_at: now,
           raw_json: {
             channel: approval.channel,
+            action_key: approval.action_key,
             automation_approval_id: approval.id,
             external_message_id: delivery.externalId,
             delivery_status: "sent",
@@ -191,6 +193,30 @@ export async function PATCH(
         learningError instanceof Error ? learningError.message : learningError,
       );
     }
+    const isReplyAction = [
+      "new_enquiry_reply",
+      "booking_link_reply",
+      "no_response_follow_up",
+    ].includes(approval.action_key);
+    await recordClippyActivity(admin, {
+      orgId: membership.org_id,
+      userId: user.id,
+      action:
+        approval.channel === "email" && isReplyAction
+          ? "approved_email_reply_sent"
+          : "approved_client_reply_sent",
+      category: "communication",
+      title: "Approved reply sent",
+      description: `A human-approved ${approval.channel} reply was delivered.`,
+      impactSummary: "Client communication completed with human approval",
+      metadata: {
+        channel: approval.channel,
+        action_key: approval.action_key,
+        conversation_id: approval.conversation_id,
+        automation_approval_id: approval.id,
+      },
+      completedAt: now,
+    });
     return NextResponse.json({
       status: "approved",
       sent: true,

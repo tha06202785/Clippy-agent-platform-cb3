@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   classifyCommunicationSituation,
   deriveAgentStyleProfile,
   inferClientCommunicationPreferences,
   sanitiseCommunicationText,
+  storeCommunicationExample,
 } from "@/lib/adaptive-learning";
 
 describe("adaptive communication privacy", () => {
@@ -110,5 +111,33 @@ describe("communication situations", () => {
     expect(
       classifyCommunicationSituation("", "Just following up after our call"),
     ).toBe("follow_up");
+  });
+});
+
+describe("communication example storage", () => {
+  it("treats a repeated source-message key as an idempotent no-op", async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        code: "23505",
+        message:
+          'duplicate key value violates unique constraint "communication_examples_source_message_idx"',
+      },
+    });
+    const select = vi.fn(() => ({ single }));
+    const upsert = vi.fn(() => ({ select }));
+    const supabase = { from: vi.fn(() => ({ upsert })) };
+
+    await expect(
+      storeCommunicationExample({
+        supabase,
+        orgId: "org-1",
+        userId: "user-1",
+        content: "Thanks, I will confirm the inspection shortly.",
+        source: "gmail_sent",
+        sourceMessageId: "gmail-message-1",
+      }),
+    ).resolves.toBeNull();
+    expect(upsert).toHaveBeenCalledOnce();
   });
 });

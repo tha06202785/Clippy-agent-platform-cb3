@@ -561,6 +561,12 @@ export async function storeCommunicationExample({
     .upsert(payload, { onConflict: "org_id,user_id,content_hash" })
     .select("id,content,situation,source,occurred_at")
     .single();
+  // Gmail and message-history scans intentionally overlap so a previously
+  // learned source message can be seen again. Its sanitised content hash can
+  // change as the classifier evolves, while the source-message identity stays
+  // stable. Treat that unique-key race as an idempotent no-op instead of
+  // failing the integration sync.
+  if (error?.code === "23505" && sourceMessageId) return null;
   if (error)
     throw new Error(`Communication example storage failed: ${error.message}`);
   return data;
