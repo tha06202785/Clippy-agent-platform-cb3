@@ -21,6 +21,37 @@ const payloadSchema = z.object({
   leads: z.array(leadSchema).min(1).max(500),
 });
 
+const EXISTING_IDENTITIES_PAGE_SIZE = 1000;
+const MAX_EXISTING_IDENTITIES = 50_000;
+
+async function readExistingIdentities(supabase: any, orgId: string) {
+  const identities: Array<{
+    id: string;
+    email: string | null;
+    phone: string | null;
+  }> = [];
+
+  for (
+    let offset = 0;
+    offset < MAX_EXISTING_IDENTITIES;
+    offset += EXISTING_IDENTITIES_PAGE_SIZE
+  ) {
+    const { data, error } = await supabase
+      .from("leads")
+      .select("id,email,phone")
+      .eq("org_id", orgId)
+      .order("id", { ascending: true })
+      .range(offset, offset + EXISTING_IDENTITIES_PAGE_SIZE - 1);
+    if (error) return { identities: [], error };
+
+    const page = data ?? [];
+    identities.push(...page);
+    if (page.length < EXISTING_IDENTITIES_PAGE_SIZE) break;
+  }
+
+  return { identities, error: null };
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -55,11 +86,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: existing, error: readError } = await supabase
-    .from("leads")
-    .select("id,email,phone")
-    .eq("org_id", membership.org_id)
-    .limit(5000);
+  const { identities: existing, error: readError } =
+    await readExistingIdentities(supabase, membership.org_id);
   if (readError) {
     return NextResponse.json(
       { error: "Existing clients could not be checked" },

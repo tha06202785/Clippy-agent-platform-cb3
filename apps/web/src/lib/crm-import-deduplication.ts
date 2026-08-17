@@ -16,7 +16,36 @@ export function normaliseImportEmail(value?: string | null) {
 }
 
 export function normaliseImportPhone(value?: string | null) {
-  return value?.replace(/\D/g, "") || "";
+  let digits = value?.replace(/\D/g, "") || "";
+  if (digits.startsWith("0011")) digits = digits.slice(4);
+
+  const countryCodeMatch = digits.match(/^610?([2-8]\d{8})$/);
+  if (countryCodeMatch) return `61${countryCodeMatch[1]}`;
+
+  const localMatch = digits.match(/^0([2-8]\d{8})$/);
+  if (localMatch) return `61${localMatch[1]}`;
+
+  return digits;
+}
+
+/**
+ * Includes the historical digit-only formats that may already be stored in
+ * lead_identities while new writes use the canonical Australian 61... form.
+ */
+export function importPhoneIdentityVariants(value?: string | null) {
+  const digits = value?.replace(/\D/g, "") || "";
+  const canonical = normaliseImportPhone(value);
+  if (!canonical) return [];
+
+  const variants = new Set([canonical, digits]);
+  const australianMatch = canonical.match(/^61([2-8]\d{8})$/);
+  if (australianMatch) {
+    variants.add(`0${australianMatch[1]}`);
+    variants.add(`610${australianMatch[1]}`);
+  }
+
+  variants.delete("");
+  return [...variants];
 }
 
 export function createImportDuplicateGuard(existing: ExistingImportIdentity[]) {

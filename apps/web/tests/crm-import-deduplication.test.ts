@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createImportDuplicateGuard,
+  importPhoneIdentityVariants,
   normaliseImportEmail,
   normaliseImportPhone,
 } from "@/lib/crm-import-deduplication";
@@ -8,7 +9,16 @@ import {
 describe("CRM import duplicate protection", () => {
   it("normalises email and phone identifiers", () => {
     expect(normaliseImportEmail(" Buyer@Example.COM ")).toBe("buyer@example.com");
-    expect(normaliseImportPhone("+61 (0) 412 345 678")).toBe("610412345678");
+    expect(normaliseImportPhone("+61 (0) 412 345 678")).toBe("61412345678");
+    expect(normaliseImportPhone("0412 345 678")).toBe("61412345678");
+  });
+
+  it("retains legacy Australian phone variants for identity lookup", () => {
+    expect(importPhoneIdentityVariants("+61 412 345 678")).toEqual([
+      "61412345678",
+      "0412345678",
+      "610412345678",
+    ]);
   });
 
   it("checks email and phone independently", () => {
@@ -17,6 +27,15 @@ describe("CRM import duplicate protection", () => {
     ]);
     expect(guard({ email: "BUYER@example.com", phone: "0499 999 999" })).toBe("duplicate_email");
     expect(guard({ email: "new@example.com", phone: "0412111111" })).toBe("duplicate_phone");
+  });
+
+  it("treats local and international Australian numbers as duplicates", () => {
+    const guard = createImportDuplicateGuard([
+      { id: "lead-1", email: null, phone: "0412 345 678" },
+    ]);
+    expect(guard({ email: "new@example.com", phone: "+61 412 345 678" })).toBe(
+      "duplicate_phone",
+    );
   });
 
   it("detects duplicates inside the same upload", () => {
