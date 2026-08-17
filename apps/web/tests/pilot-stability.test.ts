@@ -40,6 +40,21 @@ describe("pilot message safety", () => {
 });
 
 describe("pilot runtime stability", () => {
+  it("grants the test agency Copilot access without outbound entitlements", () => {
+    const seed = source("supabase/seeds/pilot-agency-test-data.sql");
+    const entitlementBlock = seed.match(
+      /insert into public\.org_entitlement_overrides[\s\S]*?on conflict \(org_id, feature_key\) do update set[\s\S]*?created_by = excluded\.created_by;/,
+    )?.[0];
+
+    expect(entitlementBlock).toBeDefined();
+    expect(entitlementBlock).toContain("'copilot_chat'");
+    expect(entitlementBlock).toContain("250");
+    expect(entitlementBlock).not.toContain("email_automation");
+    expect(entitlementBlock).not.toContain("facebook_messenger");
+    expect(entitlementBlock).not.toContain("instagram_dm");
+    expect(entitlementBlock).not.toContain("whatsapp");
+  });
+
   it("uses the canonical client memory table only", () => {
     const copilotRoute = source("apps/web/src/app/api/copilot/chat/route.ts");
     const legacyAiRoute = source("apps/web/src/app/api/ai/message/route.ts");
