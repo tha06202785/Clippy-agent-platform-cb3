@@ -1,3 +1,8 @@
+import {
+  importPhoneIdentityVariants,
+  normaliseImportPhone,
+} from "@/lib/crm-import-deduplication";
+
 type LeadChannel = "email" | "facebook" | "whatsapp";
 
 type ResolveLeadInput = {
@@ -17,7 +22,7 @@ const identityColumn: Record<LeadChannel, string> = {
 export function normaliseLeadIdentity(channel: LeadChannel, value: string) {
   const trimmed = value.trim();
   if (channel === "email") return trimmed.toLowerCase();
-  if (channel === "whatsapp") return trimmed.replace(/[^0-9]/g, "");
+  if (channel === "whatsapp") return normaliseImportPhone(trimmed);
   return trimmed;
 }
 
@@ -32,13 +37,17 @@ export async function resolveOrCreateLead({
   if (!normalised) throw new Error(`Missing ${channel} identity`);
 
   const column = identityColumn[channel];
-  const findIdentity = () => supabase
-    .from("lead_identities")
-    .select("lead_id")
-    .eq("org_id", orgId)
-    .eq(column, normalised)
-    .limit(1)
-    .maybeSingle();
+  const findIdentity = () => {
+    const query = supabase
+      .from("lead_identities")
+      .select("lead_id")
+      .eq("org_id", orgId);
+    const matchedQuery =
+      channel === "whatsapp"
+        ? query.in(column, importPhoneIdentityVariants(normalised))
+        : query.eq(column, normalised);
+    return matchedQuery.limit(1).maybeSingle();
+  };
 
   const { data: existingIdentity, error: identityError } = await findIdentity();
   if (identityError) throw identityError;
@@ -92,4 +101,3 @@ export async function resolveOrCreateLead({
   }
   throw insertError;
 }
-

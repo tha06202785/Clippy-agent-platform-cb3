@@ -10,7 +10,7 @@ describe("lead identity normalisation", () => {
 
   it("normalises WhatsApp phone formatting", () => {
     expect(normaliseLeadIdentity("whatsapp", "+61 (0) 412 345 678")).toBe(
-      "610412345678",
+      "61412345678",
     );
   });
 

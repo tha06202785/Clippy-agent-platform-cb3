@@ -5,6 +5,10 @@ import {
   getGoogleOAuthRedirectUri,
 } from "@/lib/google-oauth-config";
 import { automationSecretIssues } from "@/lib/automation-security";
+import {
+  normaliseImportEmail,
+  normaliseImportPhone,
+} from "@/lib/crm-import-deduplication";
 
 export const dynamic = "force-dynamic";
 
@@ -377,8 +381,8 @@ export async function GET() {
       const identityCounts = new Map<string, number>();
       for (const lead of leads as any[]) {
         const identities = [
-          lead.email ? `email:${String(lead.email).trim().toLowerCase()}` : "",
-          lead.phone ? `phone:${String(lead.phone).replace(/\D/g, "")}` : "",
+          lead.email ? `email:${normaliseImportEmail(lead.email)}` : "",
+          lead.phone ? `phone:${normaliseImportPhone(lead.phone)}` : "",
         ].filter((identity) => identity.length > 0 && !identity.endsWith(":"));
         for (const identity of new Set(identities)) {
           identityCounts.set(identity, (identityCounts.get(identity) || 0) + 1);

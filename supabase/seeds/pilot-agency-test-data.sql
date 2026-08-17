@@ -51,6 +51,29 @@ begin
     platform_status = excluded.platform_status,
     updated_at = excluded.updated_at;
 
+  -- Keep the QA workspace independent from paid-plan catalogue drift. This
+  -- enables draft-only Copilot testing without granting any channel or
+  -- outbound automation entitlement.
+  insert into public.org_entitlement_overrides (
+    id, org_id, feature_key, enabled, monthly_limit, reason, expires_at,
+    created_by
+  ) values (
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbb001',
+    qa_org,
+    'copilot_chat',
+    true,
+    250,
+    'Clippy pilot test dataset: approval-controlled Copilot testing only.',
+    now() + interval '180 days',
+    qa_user
+  )
+  on conflict (org_id, feature_key) do update set
+    enabled = excluded.enabled,
+    monthly_limit = excluded.monthly_limit,
+    reason = excluded.reason,
+    expires_at = excluded.expires_at,
+    created_by = excluded.created_by;
+
   insert into public.profiles (
     user_id, full_name, is_onboarded, updated_at
   ) values (
@@ -455,4 +478,6 @@ select
   (select count(*) from public.messages m, target t where m.org_id = t.org_id and m.direction_in_out = 'out' and m.raw_json->>'dataset' = 'clippy-pilot-v1') as dataset_outbound_messages,
   (select count(*) from public.scheduled_communications s, target t where s.org_id = t.org_id and s.idempotency_key like 'clippy-pilot-v1-%' and s.status in ('scheduled','processing','awaiting_approval')) as sendable_scheduled_communications,
   (select count(*) from public.automation_approvals a, target t where a.org_id::text = t.org_id and a.idempotency_key like 'clippy-pilot-v1-%' and a.status = 'pending') as pending_approvals,
-  (select count(*) from public.integrations i, target t where i.org_id::text = t.org_id and i.status in ('connected','healthy')) as connected_integrations;
+  (select count(*) from public.integrations i, target t where i.org_id::text = t.org_id and i.status in ('connected','healthy')) as connected_integrations,
+  (select enabled from public.org_entitlement_overrides e, target t where e.org_id::text = t.org_id and e.feature_key = 'copilot_chat') as copilot_override_enabled,
+  (select monthly_limit from public.org_entitlement_overrides e, target t where e.org_id::text = t.org_id and e.feature_key = 'copilot_chat') as copilot_override_limit;
