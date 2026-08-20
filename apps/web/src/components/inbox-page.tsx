@@ -22,6 +22,35 @@ interface Lead {
   updated_at: string;
 }
 
+function optionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function toLead(value: unknown): Lead | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.id !== "string") return null;
+  const now = new Date().toISOString();
+
+  return {
+    id: row.id,
+    full_name: optionalString(row.full_name),
+    email: optionalString(row.email),
+    phone: optionalString(row.phone),
+    source: optionalString(row.source) || "manual",
+    status: optionalString(row.status) || "new",
+    stage: optionalString(row.stage) || "inquiry",
+    ai_score: typeof row.ai_score === "number" ? row.ai_score : null,
+    priority: optionalString(row.priority),
+    buyer_type: optionalString(row.buyer_type),
+    notes: optionalString(row.notes),
+    last_contact_at: optionalString(row.last_contact_at),
+    last_activity_at: optionalString(row.last_activity_at),
+    created_at: optionalString(row.created_at) || now,
+    updated_at: optionalString(row.updated_at) || now,
+  };
+}
+
 export function InboxPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,25 +60,9 @@ export function InboxPage() {
   useEffect(() => {
     fetch("/api/leads")
       .then((r) => r.json())
-      .then((data) => {
+      .then((data: unknown) => {
         if (Array.isArray(data)) {
-          setLeads(data.map((l: any): Lead => ({
-            id: l.id,
-            full_name: l.full_name || null,
-            email: l.email || null,
-            phone: l.phone || null,
-            source: l.source || "manual",
-            status: l.status || "new",
-            stage: l.stage || "inquiry",
-            ai_score: l.ai_score ?? null,
-            priority: l.priority || null,
-            buyer_type: l.buyer_type || null,
-            notes: l.notes || null,
-            last_contact_at: l.last_contact_at || null,
-            last_activity_at: l.last_activity_at || null,
-            created_at: l.created_at || new Date().toISOString(),
-            updated_at: l.updated_at || new Date().toISOString(),
-          })));
+          setLeads(data.map(toLead).filter((lead): lead is Lead => !!lead));
         } else {
           setLeads([]);
         }
@@ -58,24 +71,36 @@ export function InboxPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = leads.filter((l) =>
-    (l.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (l.email || "").toLowerCase().includes(search.toLowerCase())
+  const filtered = leads.filter(
+    (l) =>
+      (l.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (l.email || "").toLowerCase().includes(search.toLowerCase()),
   );
 
-  const selectedLead = selected ? leads.find((l) => l.id === selected) ?? null : null;
+  const selectedLead = selected
+    ? (leads.find((l) => l.id === selected) ?? null)
+    : null;
 
   const handleStageChange = (leadId: string, stage: string) => {
-    setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, stage } : l));
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? { ...l, stage } : l)),
+    );
   };
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-8rem)] -m-4 md:-m-6 lg:-m-8">
-        <div className="w-96 border-r border-border bg-card flex flex-col p-4">
+      <div
+        className="-m-4 flex h-[calc(100dvh-8.5rem)] sm:-m-6"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex w-full flex-col border-r border-border bg-card p-4 md:w-96">
           <div className="h-10 bg-muted rounded-lg animate-pulse mb-4" />
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-muted rounded-lg animate-pulse mb-2" />
+            <div
+              key={i}
+              className="h-20 bg-muted rounded-lg animate-pulse mb-2"
+            />
           ))}
         </div>
         <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
@@ -86,14 +111,18 @@ export function InboxPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] -m-4 md:-m-6 lg:-m-8">
+    <div className="-m-4 flex h-[calc(100dvh-8.5rem)] sm:-m-6">
       {/* Lead list */}
-      <div className="w-96 border-r border-border bg-card flex flex-col">
+      <aside
+        aria-label="Lead list"
+        className={`${selected ? "hidden md:flex" : "flex"} w-full flex-col border-r border-border bg-card md:w-96`}
+      >
         <div className="p-4 border-b border-border">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
+              aria-label="Search leads"
               placeholder="Search leads..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -104,15 +133,19 @@ export function InboxPage() {
         <div className="flex-1 overflow-auto">
           {filtered.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground text-sm">
-              {search ? "No leads match your search." : "No leads yet. Connect your first integration to import leads."}
+              {search
+                ? "No leads match your search."
+                : "No leads yet. Connect your first integration to import leads."}
             </div>
           ) : (
             filtered.map((lead) => (
-              <div
+              <button
+                type="button"
                 key={lead.id}
                 onClick={() => setSelected(lead.id)}
+                aria-current={selected === lead.id ? "true" : undefined}
                 className={
-                  "p-4 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors " +
+                  "w-full border-b border-border p-4 text-left hover:bg-muted/50 transition-colors " +
                   (selected === lead.id ? "bg-muted" : "")
                 }
               >
@@ -122,8 +155,12 @@ export function InboxPage() {
                       {(lead.full_name || "?")[0]}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">{lead.full_name || "Unknown"}</p>
-                      <p className="text-xs text-muted-foreground">{lead.email || "No contact info"}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {lead.full_name || "Unknown"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {lead.email || "No contact info"}
+                      </p>
                     </div>
                   </div>
                   <span className="font-dashboard-mono text-[10px] text-muted-foreground tabular-nums">
@@ -133,14 +170,17 @@ export function InboxPage() {
                 <p className="text-xs text-muted-foreground mt-2 line-clamp-1">
                   Source: {lead.source} · Stage: {lead.stage}
                 </p>
-              </div>
+              </button>
             ))
           )}
         </div>
-      </div>
+      </aside>
 
       {/* Detail panel */}
-      <div className="flex-1 flex flex-col">
+      <section
+        aria-label="Lead details"
+        className={`${selected ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col`}
+      >
         {selectedLead ? (
           <LeadDetailPanel
             lead={selectedLead}
@@ -152,7 +192,7 @@ export function InboxPage() {
             Select a lead to view details
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

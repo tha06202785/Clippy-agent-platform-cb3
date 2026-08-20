@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   darkMode: ["class"],
-  content: ["./src/**/*.{ts,tsx}"],
+  content: ["./src/**/*.{ts,tsx}", "../../packages/ui/src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -11,11 +11,31 @@ const config: Config = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
 
         // Primary - Modern Emerald Green (Clippy's brand)
         primary: {
-          DEFAULT: "#10B981",
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
           50: "#ECFDF5",
           100: "#D1FAE5",
           200: "#A7F3D0",
@@ -30,8 +50,8 @@ const config: Config = {
 
         // Secondary - Modern Blue
         secondary: {
-          DEFAULT: "#5B8DEF",
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
         },
 
         // Pastel Palette - Module Identities
@@ -124,9 +144,9 @@ const config: Config = {
 
       backgroundImage: {
         "gradient-hero":
-          "linear-gradient(180deg, #FFFFFF 0%, #EEF4FF 25%, #F4EDFF 50%, #ECFDF5 75%, #FFFFFF 100%)",
+          "linear-gradient(180deg, hsl(var(--gradient-start)) 0%, hsl(var(--gradient-blue)) 25%, hsl(var(--gradient-lavender)) 50%, hsl(var(--gradient-mint)) 75%, hsl(var(--gradient-start)) 100%)",
         "gradient-ai":
-          "linear-gradient(135deg, #DCEEFF 0%, #EEE6FF 50%, #DCF8EC 100%)",
+          "linear-gradient(135deg, hsl(var(--gradient-blue)) 0%, hsl(var(--gradient-lavender)) 50%, hsl(var(--gradient-mint)) 100%)",
       },
     },
   },

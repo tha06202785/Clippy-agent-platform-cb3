@@ -14,6 +14,7 @@ import {
   retrieveAdaptiveCommunicationContext,
   type AdaptiveContext,
 } from "@/lib/adaptive-learning";
+import { isMessageVisible } from "@/lib/conversations/message-visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
         .eq("conversation_id", parsed.data.conversation_id)
         .eq("org_id", membership.org_id)
         .order("created_at", { ascending: false })
-        .limit(20),
+        .limit(50),
       supabase
         .from("profiles")
         .select("full_name")
@@ -133,7 +134,10 @@ export async function POST(req: NextRequest) {
       enquiry?.metadata && typeof enquiry.metadata.property_address === "string"
         ? enquiry.metadata.property_address
         : null;
-    const history = (messages || [])
+    const visibleMessages = (messages || [])
+      .filter(isMessageVisible)
+      .slice(0, 20);
+    const history = visibleMessages
       .toReversed()
       .map(
         (message) =>
@@ -222,7 +226,7 @@ export async function POST(req: NextRequest) {
       );
     }
     if (!reply) {
-      const latestClientMessage = (messages || []).find(
+      const latestClientMessage = visibleMessages.find(
         (message) => message.direction_in_out !== "out",
       )?.text;
       reply = createSafeDraftFallback({
@@ -259,7 +263,7 @@ export async function POST(req: NextRequest) {
       recipient &&
       ["email", "facebook", "whatsapp"].includes(approvalChannel)
     ) {
-      const latestInbound = (messages || []).find(
+      const latestInbound = visibleMessages.find(
         (message) => message.direction_in_out !== "out",
       );
       const subject =

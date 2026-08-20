@@ -23,6 +23,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Button, ErrorState, LoadingState } from "@clippy/ui";
 
 type LearningSettings = {
   learning_enabled: boolean;
@@ -350,30 +351,25 @@ export function LearningCentre() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-[55vh] items-center justify-center">
-        <LoaderCircle className="h-8 w-8 animate-spin text-emerald-600" />
-      </div>
-    );
+    return <LoadingState label="Loading Adaptive Intelligence" />;
   }
 
   if (!data) {
     return (
-      <main className="p-6">
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
-          {error || "Adaptive Intelligence is unavailable."}
-          <button
-            type="button"
+      <ErrorState
+        title="Adaptive Intelligence is unavailable"
+        description={error || "Clippy could not load the learning profile."}
+        action={
+          <Button
             onClick={() => {
               setLoading(true);
               void load();
             }}
-            className="ml-3 font-semibold underline"
           >
             Try again
-          </button>
-        </div>
-      </main>
+          </Button>
+        }
+      />
     );
   }
 
@@ -392,8 +388,8 @@ export function LearningCentre() {
     : [];
 
   return (
-    <main className="space-y-6 bg-neutral-50 p-4 pb-28 md:p-6">
-      <header className="overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-violet-50 p-5 shadow-sm md:p-7">
+    <div className="space-y-6">
+      <header className="overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-violet-50 p-5 shadow-sm dark:border-emerald-900/50 dark:from-card dark:via-emerald-950/30 dark:to-violet-950/30 md:p-7">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div className="flex gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-neutral-900 text-white shadow-lg shadow-neutral-300">
@@ -505,7 +501,10 @@ export function LearningCentre() {
       </header>
 
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div
+          className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200"
+          role="alert"
+        >
           {error}
         </div>
       )}
@@ -752,7 +751,11 @@ export function LearningCentre() {
             Explicit rules always outrank patterns inferred from examples.
           </p>
           <form onSubmit={teach} className="mt-4 space-y-3">
+            <label className="sr-only" htmlFor="agent-guidance">
+              Guidance for Clippy
+            </label>
             <textarea
+              id="agent-guidance"
               value={guidance}
               onChange={(event) => setGuidance(event.target.value)}
               rows={4}
@@ -775,6 +778,7 @@ export function LearningCentre() {
                 This is a “never say” phrase or rule
               </label>
               <button
+                type="submit"
                 disabled={saving || !guidance.trim()}
                 className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
               >
@@ -1015,6 +1019,6 @@ export function LearningCentre() {
           </button>
         </article>
       </section>
-    </main>
+    </div>
   );
 }

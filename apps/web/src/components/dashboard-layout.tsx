@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "sonner";
 import {
@@ -31,7 +30,9 @@ import {
   BellOff,
   Workflow,
   Rocket,
+  type LucideIcon,
 } from "lucide-react";
+import { IconButton, PageSkeleton } from "@clippy/ui";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile-nav";
 import { QuickActions } from "@/components/quick-actions";
@@ -46,7 +47,7 @@ import { GeistMono } from "geist/font/mono";
 type NavItem = {
   href: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   badge?: string;
   color?: string;
 };
@@ -163,13 +164,16 @@ const pageTitles: Array<[string, string]> = [
 function DashboardInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const previousUnread = useRef<number | null>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -181,6 +185,54 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         !muted,
     );
   }, []);
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarOpen || isDesktop) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusable = () =>
+      Array.from(
+        sidebarRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ??
+          [],
+      );
+    const containFocus = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSidebarOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", containFocus);
+    window.requestAnimationFrame(() => focusable()[0]?.focus());
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", containFocus);
+      mobileMenuButtonRef.current?.focus();
+    };
+  }, [isDesktop, sidebarOpen]);
   useEffect(() => setPendingHref(null), [pathname]);
 
   const refreshUnread = useCallback(async () => {
@@ -248,6 +300,8 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
     pageTitles.find(
       ([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     )?.[1] ?? "Clippy";
+  const isDark = mounted && resolvedTheme === "dark";
+  const sidebarInteractive = isDesktop || sidebarOpen;
   const renderNavItem = (item: NavItem) => {
     const isActive =
       pathname === item.href ||
@@ -264,11 +318,12 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         }}
         aria-current={isActive ? "page" : undefined}
         aria-busy={isPending || undefined}
+        tabIndex={sidebarInteractive ? undefined : -1}
         className={cn(
           "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300",
           isActive
-            ? "bg-gradient-to-r from-pastel-blue to-pastel-mint text-neutral-800 shadow-soft"
-            : "text-neutral-600 hover:bg-neutral-100 hover:translate-x-1",
+            ? "bg-gradient-to-r from-pastel-blue to-pastel-mint text-neutral-800 shadow-soft dark:from-primary/20 dark:to-secondary/20 dark:text-foreground"
+            : "text-neutral-600 hover:translate-x-1 hover:bg-neutral-100 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground",
         )}
       >
         {isPending ? (
@@ -302,6 +357,12 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         `${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className}`,
       )}
     >
+      <a
+        href="#main-content"
+        className="fixed left-4 top-3 z-[100] -translate-y-24 rounded-lg bg-foreground px-4 py-2 text-sm font-semibold text-background shadow-lg transition-transform focus:translate-y-0"
+      >
+        Skip to main content
+      </a>
       {pendingHref ? (
         <div
           className="fixed inset-x-0 top-0 z-[60] h-1 overflow-hidden bg-primary/15"
@@ -312,31 +373,39 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
       {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-white/80 backdrop-blur-xl border-b border-neutral-200">
-        <button
+      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card/85 px-4 backdrop-blur-xl lg:hidden">
+        <IconButton
+          ref={mobileMenuButtonRef}
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors"
+          variant="ghost"
+          className="-ml-2 rounded-xl"
+          aria-label={
+            sidebarOpen ? "Close navigation menu" : "Open navigation menu"
+          }
+          aria-controls="dashboard-sidebar"
+          aria-expanded={sidebarOpen}
         >
           {sidebarOpen ? (
-            <X className="w-5 h-5 text-neutral-800" />
+            <X className="h-5 w-5 text-foreground" aria-hidden="true" />
           ) : (
-            <Menu className="w-5 h-5 text-neutral-800" />
+            <Menu className="h-5 w-5 text-foreground" aria-hidden="true" />
           )}
-        </button>
+        </IconButton>
         <Link
           href="/dashboard"
           prefetch={false}
           className="flex items-center gap-2"
         >
           <BrandLogo alt="" size={32} priority />
-          <span className="text-sm font-semibold tracking-[-0.01em] text-neutral-800">
+          <span className="text-sm font-semibold tracking-[-0.01em] text-foreground">
             Clippy
           </span>
         </Link>
         <div className="flex items-center gap-2">
-          <button
+          <IconButton
             onClick={() => void toggleNotifications()}
-            className="relative rounded-xl p-2 hover:bg-neutral-100 transition-colors"
+            variant="ghost"
+            className="relative rounded-xl"
             aria-label={
               notificationsEnabled
                 ? "Mute conversation notifications"
@@ -349,44 +418,58 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
             }
           >
             {notificationsEnabled ? (
-              <Bell className="h-4 w-4 text-neutral-800" />
+              <Bell className="h-4 w-4 text-foreground" aria-hidden="true" />
             ) : (
-              <BellOff className="h-4 w-4 text-neutral-500" />
+              <BellOff
+                className="h-4 w-4 text-muted-foreground"
+                aria-hidden="true"
+              />
             )}
             {unreadCount > 0 ? (
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+              <span
+                className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500"
+                aria-hidden="true"
+              />
             ) : null}
-          </button>
-          <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="p-2 rounded-xl hover:bg-neutral-100 transition-colors"
+          </IconButton>
+          <IconButton
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            variant="ghost"
+            className="rounded-xl"
+            aria-label={isDark ? "Use light theme" : "Use dark theme"}
           >
-            {mounted && theme === "dark" ? (
-              <Sun className="w-4 h-4 text-neutral-800" />
+            {isDark ? (
+              <Sun className="h-4 w-4 text-foreground" aria-hidden="true" />
             ) : (
-              <Moon className="w-4 h-4 text-neutral-800" />
+              <Moon className="h-4 w-4 text-foreground" aria-hidden="true" />
             )}
-          </button>
+          </IconButton>
         </div>
       </div>
 
       {/* Sidebar overlay */}
       {sidebarOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-30 bg-black/20 backdrop-blur-sm"
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-label="Close navigation menu"
         />
       )}
 
       {/* Glass Sidebar */}
       <aside
+        ref={sidebarRef}
+        id="dashboard-sidebar"
+        aria-label="Dashboard navigation"
+        aria-hidden={!sidebarInteractive}
         className={cn(
-          "fixed top-0 left-0 z-40 h-full w-64 bg-white/90 backdrop-blur-xl border-r border-neutral-200 flex flex-col transition-transform duration-300 ease-in-out shadow-soft",
+          "fixed left-0 top-0 z-40 flex h-full w-64 flex-col border-r border-border bg-card/90 shadow-soft backdrop-blur-xl transition-transform duration-300 ease-in-out",
           sidebarOpen ? "translate-x-0" : "-translate-x-64 lg:translate-x-0",
         )}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center px-6 border-b border-neutral-200">
+        <div className="flex h-16 items-center border-b border-border px-6">
           <Link
             href="/dashboard"
             prefetch={false}
@@ -398,14 +481,17 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
               priority
               className="transition-transform duration-300 group-hover:scale-105"
             />
-            <span className="text-lg font-semibold tracking-[-0.015em] text-neutral-800">
+            <span className="text-lg font-semibold tracking-[-0.015em] text-foreground">
               Clippy
             </span>
           </Link>
         </div>
 
         {/* Nav Items */}
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+        <nav
+          className="flex-1 space-y-1 overflow-y-auto p-4"
+          aria-label="Primary"
+        >
           {primaryNav.map(renderNavItem)}
           <p className="px-3 pb-1 pt-6 text-[11px] font-semibold uppercase tracking-[0.06em] text-neutral-400">
             Workspace
@@ -414,10 +500,12 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-neutral-200">
+        <div className="border-t border-border p-4">
           <button
+            type="button"
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-neutral-600 hover:bg-red-50 hover:text-red-600 transition-all duration-300"
+            tabIndex={sidebarInteractive ? undefined : -1}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-muted-foreground transition-all duration-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
           >
             <LogOut className="w-5 h-5" />
             <span className="font-medium text-sm">Sign Out</span>
@@ -426,19 +514,24 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content */}
-      <main className="min-h-screen transition-all duration-300 lg:ml-64">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="min-h-screen pt-14 transition-all duration-300 lg:ml-64 lg:pt-0"
+      >
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-neutral-200 px-6 py-4">
+        <header className="sticky top-14 z-30 border-b border-border bg-card/85 px-4 py-4 backdrop-blur-xl sm:px-6 lg:top-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h1 className="text-[26px] font-semibold leading-8 tracking-[-0.02em] text-neutral-800">
+              <h1 className="text-xl font-semibold leading-8 tracking-[-0.02em] text-foreground sm:text-[26px]">
                 {pageTitle}
               </h1>
             </div>
             <div className="flex items-center gap-4">
-              <button
+              <IconButton
                 onClick={() => void toggleNotifications()}
-                className="relative rounded-xl p-2 hover:bg-neutral-100 transition-colors"
+                variant="ghost"
+                className="relative hidden rounded-xl sm:inline-flex"
                 aria-label={
                   notificationsEnabled
                     ? "Mute conversation notifications"
@@ -451,33 +544,50 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
                 }
               >
                 {notificationsEnabled ? (
-                  <Bell className="h-4 w-4 text-neutral-800" />
+                  <Bell
+                    className="h-4 w-4 text-foreground"
+                    aria-hidden="true"
+                  />
                 ) : (
-                  <BellOff className="h-4 w-4 text-neutral-500" />
+                  <BellOff
+                    className="h-4 w-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
                 )}
                 {unreadCount > 0 ? (
-                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+                  <span
+                    className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500"
+                    aria-hidden="true"
+                  />
                 ) : null}
-              </button>
-              <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="p-2 rounded-xl hover:bg-neutral-100 transition-colors hidden md:block"
+              </IconButton>
+              <IconButton
+                onClick={() => setTheme(isDark ? "light" : "dark")}
+                variant="ghost"
+                className="hidden rounded-xl md:inline-flex"
+                aria-label={isDark ? "Use light theme" : "Use dark theme"}
               >
-                {mounted && theme === "dark" ? (
-                  <Sun className="w-5 h-5 text-neutral-800" />
+                {isDark ? (
+                  <Sun className="h-5 w-5 text-foreground" aria-hidden="true" />
                 ) : (
-                  <Moon className="w-5 h-5 text-neutral-800" />
+                  <Moon
+                    className="h-5 w-5 text-foreground"
+                    aria-hidden="true"
+                  />
                 )}
-              </button>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pastel-blue to-pastel-mint flex items-center justify-center border-2 border-white shadow-soft">
-                <UserRound className="h-5 w-5 text-neutral-700" />
+              </IconButton>
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-card bg-gradient-to-br from-pastel-blue to-pastel-mint shadow-soft dark:from-primary/20 dark:to-secondary/20"
+                aria-hidden="true"
+              >
+                <UserRound className="h-5 w-5 text-neutral-700 dark:text-foreground" />
               </div>
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <div className="p-6">{children}</div>
+        <div className="p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6">{children}</div>
       </main>
 
       {/* Mobile Nav */}
@@ -490,7 +600,11 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
       <VoiceCommand />
 
       {/* Toaster */}
-      <Toaster richColors position="top-right" />
+      <Toaster
+        richColors
+        position="top-right"
+        theme={isDark ? "dark" : "light"}
+      />
     </div>
   );
 }
@@ -503,13 +617,24 @@ export default function DashboardLayout({
   return (
     <QueryProvider>
       <PostHogProvider>
-        <PostHogPageView />
+        <Suspense fallback={null}>
+          <PostHogPageView />
+        </Suspense>
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
         >
-          <DashboardInner>{children}</DashboardInner>
+          <Suspense
+            fallback={
+              <div className="min-h-screen bg-background p-6">
+                <PageSkeleton label="Loading dashboard" />
+              </div>
+            }
+          >
+            <DashboardInner>{children}</DashboardInner>
+          </Suspense>
         </ThemeProvider>
       </PostHogProvider>
     </QueryProvider>

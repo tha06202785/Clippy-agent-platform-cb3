@@ -156,7 +156,7 @@ export default function ImportPage() {
   };
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <section className="rounded-3xl border bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-soft sm:p-8">
         <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold text-blue-700">
           <FileSpreadsheet className="h-4 w-4" /> CRM field mapper
@@ -250,11 +250,21 @@ export default function ImportPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-neutral-50 text-xs text-neutral-500">
                 <tr>
-                  <th className="p-3">Name</th>
-                  <th className="p-3">Email</th>
-                  <th className="p-3">Phone</th>
-                  <th className="p-3">Source</th>
-                  <th className="p-3">Status</th>
+                  <th scope="col" className="p-3">
+                    Name
+                  </th>
+                  <th scope="col" className="p-3">
+                    Email
+                  </th>
+                  <th scope="col" className="p-3">
+                    Phone
+                  </th>
+                  <th scope="col" className="p-3">
+                    Source
+                  </th>
+                  <th scope="col" className="p-3">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -270,7 +280,9 @@ export default function ImportPage() {
                         {ready ? (
                           <span className="text-emerald-700">Ready</span>
                         ) : (
-                          <span className="text-red-700">Email or phone required</span>
+                          <span className="text-red-700">
+                            Email or phone required
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -311,6 +323,6 @@ export default function ImportPage() {
           event.target.value = "";
         }}
       />
-    </main>
+    </div>
   );
 }

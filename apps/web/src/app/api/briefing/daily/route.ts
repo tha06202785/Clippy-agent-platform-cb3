@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isMessageVisible } from "@/lib/conversations/message-visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export async function GET() {
         .lt("last_message_at", today.toISOString()),
       supabase
         .from("messages")
-        .select("id,direction_in_out")
+        .select("id,conversation_id,direction_in_out,raw_json")
         .eq("org_id", orgId)
         .gte("created_at", yesterday.toISOString())
         .lt("created_at", today.toISOString()),
@@ -123,7 +124,7 @@ export async function GET() {
         .limit(50),
       supabase
         .from("messages")
-        .select("id,conversation_id,created_at")
+        .select("id,conversation_id,created_at,raw_json")
         .eq("org_id", orgId)
         .eq("direction_in_out", "in")
         .is("read_at", null)
@@ -135,7 +136,9 @@ export async function GET() {
       "conversations",
       conversationsResult,
     );
-    const messages = requireResult<any[]>("messages", messagesResult);
+    const messages = requireResult<any[]>("messages", messagesResult).filter(
+      isMessageVisible,
+    );
     const newLeads = requireResult<any[]>("new leads", newLeadsResult);
     const priorityLeads = requireResult<any[]>(
       "priority leads",
@@ -148,7 +151,7 @@ export async function GET() {
     const unreadMessages = requireResult<any[]>(
       "unread messages",
       unreadResult,
-    );
+    ).filter(isMessageVisible);
 
     const conversationIds = [
       ...new Set(unreadMessages.map((message) => message.conversation_id)),
@@ -287,7 +290,9 @@ export async function GET() {
         summary,
         actions: actions.slice(0, 30),
         metrics: {
-          conversations_handled: conversations.length,
+          conversations_handled: new Set(
+            messages.map((message) => message.conversation_id),
+          ).size,
           new_leads: newLeads.length,
           inspections_booked: inspections.length,
           hot_leads: priorityLeads.length,

@@ -82,7 +82,10 @@ export default function SignInPage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-500">
+          <div
+            className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-500"
+            role="alert"
+          >
             {error}
           </div>
         )}
@@ -92,7 +95,7 @@ export default function SignInPage() {
           onClick={handleGoogleSignIn}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted transition-colors text-sm font-medium text-foreground mb-6"
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -124,8 +127,14 @@ export default function SignInPage() {
 
         <form onSubmit={handleSignIn} className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-foreground">Email</label>
+            <label
+              htmlFor="sign-in-email"
+              className="text-sm font-medium text-foreground"
+            >
+              Email
+            </label>
             <input
+              id="sign-in-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -136,10 +145,14 @@ export default function SignInPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">
+            <label
+              htmlFor="sign-in-password"
+              className="text-sm font-medium text-foreground"
+            >
               Password
             </label>
             <input
+              id="sign-in-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

@@ -80,7 +80,10 @@ export default function SignUpPage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-500">
+          <div
+            className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-500"
+            role="alert"
+          >
             {error}
           </div>
         )}
@@ -102,10 +105,11 @@ export default function SignUpPage() {
         )}
 
         <button
+          type="button"
           onClick={handleGoogleSignUp}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted transition-colors text-sm font-medium text-foreground mb-6"
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -141,38 +145,55 @@ export default function SignUpPage() {
           hidden={Boolean(confirmationEmail)}
         >
           <div>
-            <label className="text-sm font-medium text-foreground">
+            <label
+              htmlFor="sign-up-name"
+              className="text-sm font-medium text-foreground"
+            >
               Full name
             </label>
             <input
+              id="sign-up-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Alex Johnson"
+              autoComplete="name"
               required
               className="w-full mt-1.5 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">Email</label>
+            <label
+              htmlFor="sign-up-email"
+              className="text-sm font-medium text-foreground"
+            >
+              Email
+            </label>
             <input
+              id="sign-up-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
+              autoComplete="email"
               required
               className="w-full mt-1.5 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">
+            <label
+              htmlFor="sign-up-password"
+              className="text-sm font-medium text-foreground"
+            >
               Password
             </label>
             <input
+              id="sign-up-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Min. 8 characters"
+              autoComplete="new-password"
               required
               minLength={8}
               className="w-full mt-1.5 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"

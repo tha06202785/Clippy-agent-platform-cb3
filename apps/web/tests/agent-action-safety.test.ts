@@ -17,10 +17,14 @@ const property360 = readFileSync(
 
 describe("agent action safety", () => {
   it("does not pretend a draft was delivered", () => {
+    const normalisedLeadPanel = leadPanel.replace(/\s+/g, " ");
+
     expect(leadPanel).not.toContain("Send reply");
     expect(leadPanel).not.toContain("Sending…");
     expect(leadPanel).toContain("Approve and copy");
-    expect(leadPanel).toContain("confirm delivery in your email or messaging app");
+    expect(normalisedLeadPanel).toContain(
+      "confirm delivery in your email or messaging app",
+    );
   });
 
   it("opens Copilot with the exact conversation context", () => {

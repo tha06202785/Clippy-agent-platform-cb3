@@ -11,12 +11,23 @@ const stages = [
 ];
 
 interface DealProgressProps {
-  currentStage: string; propertyName: string; address: string;
-  price: string; daysOnMarket: number; nextAction: string;
+  currentStage: string;
+  propertyName: string;
+  address: string;
+  price: string;
+  daysOnMarket: number;
+  nextAction: string;
 }
 
-export function DealProgress({ currentStage, propertyName, address, price, daysOnMarket, nextAction }: DealProgressProps) {
-  const currentIdx = stages.findIndex(s => s.id === currentStage);
+export function DealProgress({
+  currentStage,
+  propertyName,
+  address,
+  price,
+  daysOnMarket,
+  nextAction,
+}: DealProgressProps) {
+  const currentIdx = stages.findIndex((s) => s.id === currentStage);
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-start justify-between mb-4">
@@ -26,7 +37,9 @@ export function DealProgress({ currentStage, propertyName, address, price, daysO
         </div>
         <div className="text-right">
           <p className="font-bold text-foreground">{price}</p>
-          <p className="text-[10px] text-muted-foreground">{daysOnMarket} days on market</p>
+          <p className="text-[10px] text-muted-foreground">
+            {daysOnMarket} days on market
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-1 mb-4">
@@ -36,16 +49,41 @@ export function DealProgress({ currentStage, propertyName, address, price, daysO
           const isPast = i < currentIdx;
           return (
             <div key={stage.id} className="flex-1 flex flex-col items-center">
-              <Icon className={"w-5 h-5 " + (isPast ? "text-emerald-500" : isCurrent ? "text-primary" : "text-muted-foreground/30")} />
-              <span className={"text-[8px] mt-1 text-center " + (isCurrent ? "text-foreground font-semibold" : "text-muted-foreground/50")}>{stage.label}</span>
+              <Icon
+                className={
+                  "w-5 h-5 " +
+                  (isPast
+                    ? "text-emerald-500"
+                    : isCurrent
+                      ? "text-primary"
+                      : "text-muted-foreground/30")
+                }
+              />
+              <span
+                className={
+                  "text-[8px] mt-1 text-center " +
+                  (isCurrent
+                    ? "text-foreground font-semibold"
+                    : "text-muted-foreground/50")
+                }
+              >
+                {stage.label}
+              </span>
             </div>
           );
         })}
       </div>
       <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
         <Clock className="w-4 h-4 text-primary flex-shrink-0" />
-        <span className="text-xs text-foreground flex-1">Next: {nextAction}</span>
-        <button className="text-xs text-primary font-semibold hover:underline">Do it</button>
+        <span className="text-xs text-foreground flex-1">
+          Next: {nextAction}
+        </span>
+        <button
+          type="button"
+          className="text-xs text-primary font-semibold hover:underline"
+        >
+          Do it
+        </button>
       </div>
     </div>
   );

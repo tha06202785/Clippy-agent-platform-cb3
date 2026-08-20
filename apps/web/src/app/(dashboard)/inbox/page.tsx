@@ -7,6 +7,7 @@ import {
   Bot,
   Check,
   Copy,
+  EyeOff,
   Inbox,
   Loader2,
   Mail,
@@ -15,6 +16,10 @@ import {
   Send,
   X,
 } from "lucide-react";
+import {
+  ConversationMessageCard,
+  type ConversationMessage as Message,
+} from "@/components/conversation-message";
 
 type Related<T> = T | T[] | null;
 type Person = {
@@ -26,14 +31,6 @@ type Person = {
   stage?: string | null;
 };
 type Listing = { id: string; address: string | null; status?: string | null };
-type Message = {
-  id: string;
-  direction_in_out: string;
-  text: string | null;
-  created_at: string;
-  read_at: string | null;
-  raw_json?: Record<string, unknown> | null;
-};
 type Thread = {
   id: string;
   lead_id: string | null;
@@ -46,6 +43,7 @@ type Thread = {
   listings: Related<Listing>;
   unread_count: number;
   message_count: number;
+  hidden_count?: number;
   latest_message: Message | null;
 };
 
@@ -62,17 +60,6 @@ const shortTime = (value?: string | null) =>
         minute: "2-digit",
       }).format(new Date(value))
     : "";
-const deliveryLabel = (message: Message) => {
-  const status =
-    typeof message.raw_json?.delivery_status === "string"
-      ? message.raw_json.delivery_status
-      : "";
-  if (status === "read") return "Read";
-  if (status === "delivered") return "Delivered";
-  if (status === "failed") return "Failed";
-  return status === "sent" ? "Sent" : "";
-};
-
 export default function InboxPage() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -91,10 +78,15 @@ export default function InboxPage() {
   const [draft, setDraft] = useState("");
   const [instruction, setInstruction] = useState("");
   const [approved, setApproved] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const loadThreads = useCallback(async () => {
     try {
-      const response = await fetch("/api/conversations", { cache: "no-store" });
+      const response = await fetch(
+        `/api/conversations${showHidden ? "?view=hidden" : ""}`,
+        { cache: "no-store" },
+      );
       if (!response.ok) throw new Error("Could not load conversations");
       const data = await response.json();
       setThreads(Array.isArray(data) ? data : []);
@@ -105,7 +97,7 @@ export default function InboxPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showHidden]);
 
   useEffect(() => {
     void loadThreads();
@@ -116,7 +108,7 @@ export default function InboxPage() {
     const timer = window.setInterval(async () => {
       try {
         const response = await fetch(
-          `/api/conversations/${selectedId}/messages`,
+          `/api/conversations/${selectedId}/messages${showHidden ? "?view=hidden" : ""}`,
           { cache: "no-store" },
         );
         if (!response.ok) return;
@@ -127,38 +119,42 @@ export default function InboxPage() {
       }
     }, 15_000);
     return () => window.clearInterval(timer);
-  }, [selectedId]);
+  }, [selectedId, showHidden]);
 
-  const selectThread = useCallback(async (id: string) => {
-    setSelectedId(id);
-    setLoadingMessages(true);
-    setError("");
-    setDraft("");
-    setDraftId(null);
-    setApproved(false);
-    setInstruction("");
-    try {
-      const response = await fetch(`/api/conversations/${id}/messages`, {
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("Could not load message history");
-      const data = await response.json();
-      setMessages(Array.isArray(data.messages) ? data.messages : []);
-      setThreads((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, unread_count: 0 } : item,
-        ),
-      );
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not load message history",
-      );
-    } finally {
-      setLoadingMessages(false);
-    }
-  }, []);
+  const selectThread = useCallback(
+    async (id: string) => {
+      setSelectedId(id);
+      setLoadingMessages(true);
+      setError("");
+      setDraft("");
+      setDraftId(null);
+      setApproved(false);
+      setInstruction("");
+      try {
+        const response = await fetch(
+          `/api/conversations/${id}/messages${showHidden ? "?view=hidden" : ""}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) throw new Error("Could not load message history");
+        const data = await response.json();
+        setMessages(Array.isArray(data.messages) ? data.messages : []);
+        setThreads((current) =>
+          current.map((item) =>
+            item.id === id ? { ...item, unread_count: 0 } : item,
+          ),
+        );
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Could not load message history",
+        );
+      } finally {
+        setLoadingMessages(false);
+      }
+    },
+    [showHidden],
+  );
 
   const selected = threads.find((item) => item.id === selectedId) || null;
 
@@ -212,18 +208,19 @@ export default function InboxPage() {
           ? `/api/automation/approvals/${automationApprovalId}`
           : "/api/copilot/actions/approve",
         {
-        method: automationApprovalId ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: automationApprovalId
-          ? JSON.stringify({ decision: "approve", content: draft })
-          : JSON.stringify({
-              draft_id: draftId,
-              channel: actionChannel,
-              content: draft,
-              lead_id: selected.lead_id || undefined,
-              conversation_id: selected.id,
-            }),
-      });
+          method: automationApprovalId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: automationApprovalId
+            ? JSON.stringify({ decision: "approve", content: draft })
+            : JSON.stringify({
+                draft_id: draftId,
+                channel: actionChannel,
+                content: draft,
+                lead_id: selected.lead_id || undefined,
+                conversation_id: selected.id,
+              }),
+        },
+      );
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "The draft could not be approved");
@@ -297,20 +294,46 @@ export default function InboxPage() {
   if (selected?.id) copilotParams.set("conversation_id", selected.id);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] -m-4 overflow-hidden bg-background md:-m-6 lg:-m-8">
+    <div className="-m-4 flex h-[calc(100dvh-8.5rem)] overflow-hidden bg-background sm:-m-6 sm:h-[calc(100dvh-8rem)]">
       <aside
+        aria-label="Conversation list"
         className={`${selected ? "hidden md:flex" : "flex"} w-full flex-col border-r border-border bg-card md:w-[390px] md:flex-shrink-0`}
       >
         <div className="border-b border-border p-4">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <h1 className="font-semibold">Conversations</h1>
+              <h1 className="font-semibold">
+                {showHidden ? "Hidden conversations" : "Conversations"}
+              </h1>
               <p className="text-xs text-muted-foreground">
-                {threads.reduce((sum, item) => sum + item.unread_count, 0)}{" "}
-                unread
+                {showHidden
+                  ? `${threads.reduce((sum, item) => sum + item.message_count, 0)} hidden messages`
+                  : `${threads.reduce((sum, item) => sum + item.unread_count, 0)} unread`}
               </p>
             </div>
-            <Inbox className="h-5 w-5 text-primary" />
+            <button
+              type="button"
+              onClick={() => {
+                setShowHidden((current) => !current);
+                setSelectedId(null);
+                setMessages([]);
+                setChannel("all");
+                setLoading(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-medium hover:bg-muted"
+              aria-label={
+                showHidden
+                  ? "Return to visible conversations"
+                  : "Review hidden conversations"
+              }
+            >
+              {showHidden ? (
+                <Inbox className="h-4 w-4 text-primary" aria-hidden="true" />
+              ) : (
+                <EyeOff className="h-4 w-4 text-primary" aria-hidden="true" />
+              )}
+              {showHidden ? "Inbox" : "Hidden"}
+            </button>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -324,15 +347,19 @@ export default function InboxPage() {
           </div>
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             <button
+              type="button"
               onClick={() => setChannel("all")}
+              aria-pressed={channel === "all"}
               className={`rounded-full px-3 py-1 text-xs ${channel === "all" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
             >
               All
             </button>
             {channels.map((item) => (
               <button
+                type="button"
                 key={item}
                 onClick={() => setChannel(item)}
+                aria-pressed={channel === item}
                 className={`whitespace-nowrap rounded-full px-3 py-1 text-xs ${channel === item ? "bg-primary text-primary-foreground" : "bg-muted"}`}
               >
                 {channelLabel(item)}
@@ -347,7 +374,9 @@ export default function InboxPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
-              No conversations match this view.
+              {showHidden
+                ? "No hidden conversations."
+                : "No conversations match this view."}
             </div>
           ) : (
             filtered.map((thread) => {
@@ -355,8 +384,10 @@ export default function InboxPage() {
               const property = one(thread.listings);
               return (
                 <button
+                  type="button"
                   key={thread.id}
                   onClick={() => void selectThread(thread.id)}
+                  aria-current={selectedId === thread.id ? "true" : undefined}
                   className={`w-full border-b border-border p-4 text-left transition-colors hover:bg-muted/60 ${selectedId === thread.id ? "bg-muted" : ""}`}
                 >
                   <div className="flex items-start gap-3">
@@ -404,12 +435,16 @@ export default function InboxPage() {
         </div>
       </aside>
 
-      <main
+      <section
+        aria-label="Selected conversation"
         className={`${selected ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col`}
       >
         {!selected ? (
           <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-            <MessageCircle className="mb-4 h-12 w-12 text-muted-foreground/40" />
+            <MessageCircle
+              className="mb-4 h-12 w-12 text-muted-foreground/40"
+              aria-hidden="true"
+            />
             <h2 className="font-semibold">Select a conversation</h2>
             <p className="mt-1 max-w-sm text-sm text-muted-foreground">
               View the complete client and property message history in one
@@ -420,6 +455,7 @@ export default function InboxPage() {
           <>
             <header className="flex items-center gap-3 border-b border-border bg-card px-4 py-3">
               <button
+                type="button"
                 onClick={() => {
                   setSelectedId(null);
                   setMessages([]);
@@ -427,7 +463,7 @@ export default function InboxPage() {
                 className="rounded-md p-2 hover:bg-muted md:hidden"
                 aria-label="Back to conversations"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               </button>
               <div className="min-w-0 flex-1">
                 <h2 className="truncate font-semibold">
@@ -438,185 +474,244 @@ export default function InboxPage() {
                   {listing?.address ? ` · ${listing.address}` : ""}
                 </p>
               </div>
-              <Link
-                href={`/copilot?${copilotParams.toString()}`}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-              >
-                <Bot className="h-4 w-4" />
-                <span className="hidden sm:inline">Open Clippy</span>
-              </Link>
+              {showHidden ? (
+                <span className="inline-flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  Hidden from AI
+                </span>
+              ) : (
+                <Link
+                  href={`/copilot?${copilotParams.toString()}`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  <Bot className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Open Clippy</span>
+                </Link>
+              )}
             </header>
             <section className="flex-1 overflow-y-auto p-4 md:p-6">
               {loadingMessages ? (
-                <div className="text-center text-sm text-muted-foreground">
+                <div
+                  className="text-center text-sm text-muted-foreground"
+                  role="status"
+                  aria-live="polite"
+                >
                   Loading message history…
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center text-sm text-muted-foreground">
-                  No messages in this conversation yet.
+                  {showHidden
+                    ? "No hidden messages remain in this conversation."
+                    : "No messages in this conversation yet."}
                 </div>
               ) : (
                 <div className="mx-auto flex max-w-3xl flex-col gap-3">
                   {messages.map((message) => (
-                    <div
+                    <ConversationMessageCard
                       key={message.id}
-                      className={`flex ${message.direction_in_out === "out" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${message.direction_in_out === "out" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md border border-border bg-card"}`}
-                      >
-                        <p className="whitespace-pre-wrap break-words">
-                          {message.text || "(No text content)"}
-                        </p>
-                        <p
-                          className={`mt-1 text-[10px] ${message.direction_in_out === "out" ? "text-primary-foreground/70" : "text-muted-foreground"}`}
-                        >
-                          {shortTime(message.created_at)}
-                          {message.direction_in_out === "out" &&
-                          deliveryLabel(message)
-                            ? ` · ${deliveryLabel(message)}`
-                            : ""}
-                        </p>
-                      </div>
-                    </div>
+                      conversationId={selected.id}
+                      conversationChannel={selected.channel}
+                      message={message}
+                      onChanged={(updated) =>
+                        setMessages((current) =>
+                          current.map((item) =>
+                            item.id === updated.id ? updated : item,
+                          ),
+                        )
+                      }
+                      onRemoved={(messageId) => {
+                        setMessages((current) =>
+                          current.filter((item) => item.id !== messageId),
+                        );
+                        void loadThreads();
+                      }}
+                      onError={setError}
+                      onNotice={setNotice}
+                    />
                   ))}
                 </div>
               )}
             </section>
-            <footer className="max-h-[55vh] overflow-y-auto border-t border-border bg-card p-4 pb-24 md:max-h-none md:pb-4">
-              <div className="mx-auto max-w-3xl rounded-lg border border-border bg-muted/40 p-3">
-                {draft ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="flex items-center gap-2 text-sm font-medium">
-                          <Bot className="h-4 w-4 text-primary" />
-                          Clippy draft
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Review and edit before approval.
-                        </p>
+            {showHidden ? (
+              <footer className="border-t border-border bg-card p-4 pb-24 text-center text-xs text-muted-foreground md:pb-4">
+                Restore a message before using it in Clippy drafts or Copilot.
+              </footer>
+            ) : (
+              <footer className="max-h-[55vh] overflow-y-auto border-t border-border bg-card p-4 pb-24 md:max-h-none md:pb-4">
+                <div className="mx-auto max-w-3xl rounded-lg border border-border bg-muted/40 p-3">
+                  {draft ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="flex items-center gap-2 text-sm font-medium">
+                            <Bot
+                              className="h-4 w-4 text-primary"
+                              aria-hidden="true"
+                            />
+                            Clippy draft
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Review and edit before approval.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDraft("");
+                            setDraftId(null);
+                            setApproved(false);
+                          }}
+                          className="rounded-md p-2 hover:bg-muted"
+                          aria-label="Close draft"
+                        >
+                          <X className="h-4 w-4" aria-hidden="true" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => {
-                          setDraft("");
-                          setDraftId(null);
+                      <textarea
+                        aria-label="Edit Clippy reply"
+                        value={draft}
+                        onChange={(event) => {
+                          setDraft(event.target.value);
                           setApproved(false);
                         }}
-                        className="rounded-md p-2 hover:bg-muted"
-                        aria-label="Close draft"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <textarea
-                      aria-label="Edit Clippy reply"
-                      value={draft}
-                      onChange={(event) => {
-                        setDraft(event.target.value);
-                        setApproved(false);
-                      }}
-                      rows={5}
-                      className="w-full resize-y rounded-lg border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs text-muted-foreground">
-                        Connected Email, Facebook and WhatsApp send only after
-                        approval. SMS opens your messaging app.
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() =>
-                            void navigator.clipboard.writeText(draft)
-                          }
-                          className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          Copy
-                        </button>
-                        <button
-                          disabled={approving || !draft.trim()}
-                          onClick={() => void approveDraft()}
-                          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
-                        >
-                          {approving ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : approved ? (
-                            <Check className="h-3.5 w-3.5" />
-                          ) : (
-                            <Send className="h-3.5 w-3.5" />
-                          )}
-                          {approved
-                            ? "Approved"
-                            : selected.channel === "email"
-                              ? "Approve & send email"
-                              : selected.channel === "sms"
-                                ? "Approve & open SMS"
-                                : selected.channel === "whatsapp" ||
-                                    selected.channel === "facebook" ||
-                                    selected.channel === "facebook_messenger"
-                                  ? "Approve & send"
-                                  : "Approve & copy"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">
-                          Draft safely with Clippy
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          Uses this client, property and message history.
-                        </p>
-                      </div>
-                      {lead?.email && (
-                        <a
-                          href={`mailto:${lead.email}`}
-                          className="rounded-md border border-border bg-background p-2"
-                          aria-label="Open email"
-                        >
-                          <Mail className="h-4 w-4" />
-                        </a>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        value={instruction}
-                        onChange={(event) => setInstruction(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") void createDraft();
-                        }}
-                        placeholder="Optional instruction, e.g. offer Tuesday at 4pm"
-                        className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                        rows={5}
+                        className="w-full resize-y rounded-lg border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary"
                       />
-                      <button
-                        disabled={drafting}
-                        onClick={() => void createDraft()}
-                        className="inline-flex items-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
-                      >
-                        {drafting ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Bot className="h-3.5 w-3.5" />
-                        )}
-                        {drafting ? "Drafting…" : "Create draft"}
-                      </button>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          Connected Email, Facebook and WhatsApp send only after
+                          approval. SMS opens your messaging app.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void navigator.clipboard.writeText(draft)
+                            }
+                            className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium"
+                          >
+                            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                            Copy
+                          </button>
+                          <button
+                            type="button"
+                            disabled={approving || !draft.trim()}
+                            onClick={() => void approveDraft()}
+                            className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                          >
+                            {approving ? (
+                              <Loader2
+                                className="h-3.5 w-3.5 motion-safe:animate-spin"
+                                aria-hidden="true"
+                              />
+                            ) : approved ? (
+                              <Check
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <Send
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                            )}
+                            {approved
+                              ? "Approved"
+                              : selected.channel === "email"
+                                ? "Approve & send email"
+                                : selected.channel === "sms"
+                                  ? "Approve & open SMS"
+                                  : selected.channel === "whatsapp" ||
+                                      selected.channel === "facebook" ||
+                                      selected.channel === "facebook_messenger"
+                                    ? "Approve & send"
+                                    : "Approve & copy"}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </footer>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            Draft safely with Clippy
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            Uses this client, property and message history.
+                          </p>
+                        </div>
+                        {lead?.email && (
+                          <a
+                            href={`mailto:${lead.email}`}
+                            className="rounded-md border border-border bg-background p-2"
+                            aria-label="Open email"
+                          >
+                            <Mail className="h-4 w-4" aria-hidden="true" />
+                          </a>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          value={instruction}
+                          onChange={(event) =>
+                            setInstruction(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") void createDraft();
+                          }}
+                          placeholder="Optional instruction, e.g. offer Tuesday at 4pm"
+                          className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <button
+                          type="button"
+                          disabled={drafting}
+                          onClick={() => void createDraft()}
+                          className="inline-flex items-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                        >
+                          {drafting ? (
+                            <Loader2
+                              className="h-3.5 w-3.5 motion-safe:animate-spin"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <Bot className="h-3.5 w-3.5" aria-hidden="true" />
+                          )}
+                          {drafting ? "Drafting…" : "Create draft"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </footer>
+            )}
           </>
         )}
         {error && (
-          <div className="absolute bottom-4 right-4 rounded-lg bg-destructive px-4 py-2 text-sm text-destructive-foreground shadow-lg">
+          <div
+            className="absolute bottom-4 right-4 rounded-lg bg-destructive px-4 py-2 text-sm text-destructive-foreground shadow-lg"
+            role="alert"
+          >
             {error}
           </div>
         )}
-      </main>
+        {notice && (
+          <div
+            className="absolute bottom-4 left-1/2 z-40 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-lg bg-emerald-700 px-4 py-2 text-sm text-white shadow-lg"
+            role="status"
+          >
+            {notice}
+            <button
+              type="button"
+              onClick={() => setNotice("")}
+              className="ml-3 rounded p-0.5 hover:bg-white/15"
+              aria-label="Dismiss notification"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

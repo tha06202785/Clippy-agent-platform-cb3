@@ -2,9 +2,24 @@
 
 import { useState, useEffect } from "react";
 import {
-  X, Phone, MessageCircle, Mail, Sparkles, ChevronRight,
-  Clock, User, MapPin, Star, Edit3, Check, Copy, ArrowLeft,
-  Calendar, DollarSign, Home, AlertCircle
+  X,
+  Phone,
+  MessageCircle,
+  Mail,
+  Sparkles,
+  ChevronRight,
+  Clock,
+  User,
+  MapPin,
+  Star,
+  Edit3,
+  Check,
+  Copy,
+  ArrowLeft,
+  Calendar,
+  DollarSign,
+  Home,
+  AlertCircle,
 } from "lucide-react";
 
 interface Lead {
@@ -55,18 +70,28 @@ interface LeadDetailPanelProps {
   onStageChange?: (leadId: string, stage: string) => void;
 }
 
-export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPanelProps) {
+export function LeadDetailPanel({
+  lead,
+  onClose,
+  onStageChange,
+}: LeadDetailPanelProps) {
   const [replyDraft, setReplyDraft] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState(lead.notes || "");
   const [showReplyBox, setShowReplyBox] = useState(false);
-  const [activeTab, setActiveTab] = useState<"info" | "activity" | "compose">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "activity" | "compose">(
+    "info",
+  );
 
-  const currentStageIdx = STAGES.findIndex(s => s.id === lead.stage) ?? 0;
+  const currentStageIdx = STAGES.findIndex((s) => s.id === lead.stage) ?? 0;
   const scoreColor = lead.ai_score
-    ? lead.ai_score >= 70 ? "text-red-500" : lead.ai_score >= 40 ? "text-amber-500" : "text-slate-400"
+    ? lead.ai_score >= 70
+      ? "text-red-500"
+      : lead.ai_score >= 40
+        ? "text-amber-500"
+        : "text-slate-400"
     : "text-slate-400";
 
   const generateDraft = async () => {
@@ -91,7 +116,9 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
         setReplyDraft("Sorry, I couldn't generate a draft. Please try again.");
       }
     } catch {
-      setReplyDraft("Network error — please check your connection and try again.");
+      setReplyDraft(
+        "Network error — please check your connection and try again.",
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -129,11 +156,21 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <ArrowLeft className="w-4 h-4 text-muted-foreground" />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Back to leads"
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+          >
+            <ArrowLeft
+              className="w-4 h-4 text-muted-foreground"
+              aria-hidden="true"
+            />
           </button>
           <div>
-            <h2 className="font-semibold text-foreground">{lead.full_name || "Unknown Lead"}</h2>
+            <h2 className="font-semibold text-foreground">
+              {lead.full_name || "Unknown Lead"}
+            </h2>
             <p className="text-xs text-muted-foreground">
               {lead.email || "No email"} · {lead.phone || "No phone"}
             </p>
@@ -142,19 +179,28 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
         <div className="flex items-center gap-1">
           {lead.phone && (
             <>
-              <a href={`tel:${lead.phone}`}
-                className="p-2 rounded-lg hover:bg-muted transition-colors text-emerald-600" title="Call">
+              <a
+                href={`tel:${lead.phone}`}
+                className="p-2 rounded-lg hover:bg-muted transition-colors text-emerald-600"
+                title="Call"
+              >
                 <Phone className="w-4 h-4" />
               </a>
-              <a href={`sms:${lead.phone}`}
-                className="p-2 rounded-lg hover:bg-muted transition-colors text-blue-600" title="Text">
+              <a
+                href={`sms:${lead.phone}`}
+                className="p-2 rounded-lg hover:bg-muted transition-colors text-blue-600"
+                title="Text"
+              >
                 <MessageCircle className="w-4 h-4" />
               </a>
             </>
           )}
           {lead.email && (
-            <a href={`mailto:${lead.email}`}
-              className="p-2 rounded-lg hover:bg-muted transition-colors text-purple-600" title="Email">
+            <a
+              href={`mailto:${lead.email}`}
+              className="p-2 rounded-lg hover:bg-muted transition-colors text-purple-600"
+              title="Email"
+            >
               <Mail className="w-4 h-4" />
             </a>
           )}
@@ -164,13 +210,20 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
       {/* Tabs */}
       <div className="flex border-b border-border px-4">
         {(["info", "activity", "compose"] as const).map((tab) => (
-          <button key={tab}
-            onClick={() => { setActiveTab(tab); setShowReplyBox(false); }}
-            className={"px-4 py-3 text-sm font-medium border-b-2 transition-colors capitalize " +
+          <button
+            type="button"
+            key={tab}
+            onClick={() => {
+              setActiveTab(tab);
+              setShowReplyBox(false);
+            }}
+            className={
+              "px-4 py-3 text-sm font-medium border-b-2 transition-colors capitalize " +
               (activeTab === tab && !showReplyBox
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground")
-            }>
+            }
+          >
             {tab}
           </button>
         ))}
@@ -178,7 +231,6 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-
         {/* ── INFO TAB ── */}
         {activeTab === "info" && (
           <div className="p-4 space-y-5">
@@ -192,8 +244,12 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
               </div>
               <div className="rounded-xl border border-border bg-card p-4">
                 <p className="text-xs text-muted-foreground mb-1">Stage</p>
-                <div className={"inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold text-white " +
-                  (STAGES[currentStageIdx]?.color || "bg-slate-400")}>
+                <div
+                  className={
+                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold text-white " +
+                    (STAGES[currentStageIdx]?.color || "bg-slate-400")
+                  }
+                >
                   {STAGES[currentStageIdx]?.label || "New"}
                 </div>
               </div>
@@ -201,18 +257,24 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
 
             {/* Quick Stage Progress */}
             <div>
-              <p className="text-xs font-semibold text-foreground mb-2">Move to stage</p>
+              <p className="text-xs font-semibold text-foreground mb-2">
+                Move to stage
+              </p>
               <div className="flex flex-wrap gap-1.5">
-                {STAGES.filter(s => s.id !== "closed_lost").map((stage) => {
+                {STAGES.filter((s) => s.id !== "closed_lost").map((stage) => {
                   const isCurrent = stage.id === lead.stage;
                   return (
-                    <button key={stage.id}
+                    <button
+                      type="button"
+                      key={stage.id}
                       onClick={() => onStageChange?.(lead.id, stage.id)}
-                      className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-all border " +
+                      className={
+                        "px-3 py-1.5 rounded-lg text-xs font-medium transition-all border " +
                         (isCurrent
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground")
-                      }>
+                      }
+                    >
                       {stage.label}
                     </button>
                   );
@@ -226,15 +288,32 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
                 { icon: User, label: "Name", value: lead.full_name || "—" },
                 { icon: Mail, label: "Email", value: lead.email || "—" },
                 { icon: Phone, label: "Phone", value: lead.phone || "—" },
-                { icon: MapPin, label: "Source", value: lead.source || "manual" },
-                { icon: Star, label: "Priority", value: lead.priority || "medium" },
-                { icon: Home, label: "Buyer type", value: lead.buyer_type || "Not specified" },
-                { icon: Calendar, label: "Created", value: new Date(lead.created_at).toLocaleDateString() },
                 {
-                  icon: Clock, label: "Last activity",
+                  icon: MapPin,
+                  label: "Source",
+                  value: lead.source || "manual",
+                },
+                {
+                  icon: Star,
+                  label: "Priority",
+                  value: lead.priority || "medium",
+                },
+                {
+                  icon: Home,
+                  label: "Buyer type",
+                  value: lead.buyer_type || "Not specified",
+                },
+                {
+                  icon: Calendar,
+                  label: "Created",
+                  value: new Date(lead.created_at).toLocaleDateString(),
+                },
+                {
+                  icon: Clock,
+                  label: "Last activity",
                   value: lead.last_activity_at
                     ? new Date(lead.last_activity_at).toLocaleDateString()
-                    : new Date(lead.created_at).toLocaleDateString()
+                    : new Date(lead.created_at).toLocaleDateString(),
                 },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-center gap-3 text-sm">
@@ -249,30 +328,45 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-foreground">Notes</p>
-                <button onClick={() => isEditing ? void saveNotes() : setIsEditing(true)}
-                  className="text-xs text-primary hover:underline flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    isEditing ? void saveNotes() : setIsEditing(true)
+                  }
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
                   {isEditing ? (
-                    <><Check className="w-3 h-3" /> Save</>
+                    <>
+                      <Check className="w-3 h-3" /> Save
+                    </>
                   ) : (
-                    <><Edit3 className="w-3 h-3" /> Edit</>
+                    <>
+                      <Edit3 className="w-3 h-3" /> Edit
+                    </>
                   )}
                 </button>
               </div>
               {isEditing ? (
                 <div className="space-y-2">
-                  <textarea value={editedNotes} onChange={e => setEditedNotes(e.target.value)}
+                  <textarea
+                    value={editedNotes}
+                    onChange={(e) => setEditedNotes(e.target.value)}
                     rows={4}
                     className="w-full p-3 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Add notes about this lead..."
                   />
-                  <button onClick={saveNotes}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
+                  <button
+                    type="button"
+                    onClick={saveNotes}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors"
+                  >
                     Save notes
                   </button>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  {lead.notes || "No notes yet. Click Edit to add notes about this lead."}
+                  {lead.notes ||
+                    "No notes yet. Click Edit to add notes about this lead."}
                 </p>
               )}
             </div>
@@ -289,9 +383,15 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
                     <MessageCircle className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">Lead notes</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{new Date(lead.updated_at).toLocaleString()}</p>
-                    <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{lead.notes}</p>
+                    <p className="text-sm font-medium text-foreground">
+                      Lead notes
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(lead.updated_at).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                      {lead.notes}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -299,7 +399,9 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <AlertCircle className="w-10 h-10 text-muted-foreground/40 mb-3" />
                 <p className="text-sm text-muted-foreground">No activity yet</p>
-                <p className="text-xs text-muted-foreground mt-1">Add notes to track interactions with this lead.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add notes to track interactions with this lead.
+                </p>
               </div>
             )}
           </div>
@@ -311,16 +413,28 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
             {!showReplyBox ? (
               <div className="text-center py-8">
                 <Sparkles className="w-10 h-10 text-primary mx-auto mb-3" />
-                <h3 className="font-semibold text-foreground mb-1">AI Draft Reply</h3>
+                <h3 className="font-semibold text-foreground mb-1">
+                  AI Draft Reply
+                </h3>
                 <p className="text-sm text-muted-foreground mb-6">
-                  Clippy will draft a professional, AU-compliant reply to send to this lead.
+                  Clippy will draft a professional, AU-compliant reply to send
+                  to this lead.
                 </p>
-                <button onClick={generateDraft} disabled={isGenerating}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                <button
+                  type="button"
+                  onClick={generateDraft}
+                  disabled={isGenerating}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
                   {isGenerating ? (
-                    <><div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Generating…</>
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />{" "}
+                      Generating…
+                    </>
                   ) : (
-                    <><Sparkles className="w-4 h-4" /> Draft a reply</>
+                    <>
+                      <Sparkles className="w-4 h-4" /> Draft a reply
+                    </>
                   )}
                 </button>
               </div>
@@ -329,29 +443,46 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
                 {isGenerating ? (
                   <div className="flex flex-col items-center justify-center py-16">
                     <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
-                    <p className="text-sm text-muted-foreground">Clippy is drafting your reply…</p>
+                    <p className="text-sm text-muted-foreground">
+                      Clippy is drafting your reply…
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-foreground">Your reply to {lead.full_name || "lead"}</p>
-                      <button onClick={generateDraft}
-                        className="text-xs text-primary hover:underline flex items-center gap-1">
+                      <p className="text-xs font-semibold text-foreground">
+                        Your reply to {lead.full_name || "lead"}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={generateDraft}
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
                         <Sparkles className="w-3 h-3" /> Regenerate
                       </button>
                     </div>
-                    <textarea value={replyDraft} onChange={e => setReplyDraft(e.target.value)}
+                    <textarea
+                      value={replyDraft}
+                      onChange={(e) => setReplyDraft(e.target.value)}
                       rows={8}
                       className="w-full p-4 rounded-xl border border-input bg-background text-sm text-foreground leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="AI draft will appear here…"
                     />
                     <div className="flex items-center gap-2">
-                      <button onClick={() => void copyApprovedDraft()} disabled={!replyDraft.trim()}
-                        className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void copyApprovedDraft()}
+                        disabled={!replyDraft.trim()}
+                        className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
                         {copied ? (
-                          <><Check className="w-4 h-4" /> Draft copied</>
+                          <>
+                            <Check className="w-4 h-4" /> Draft copied
+                          </>
                         ) : (
-                          <><Copy className="w-4 h-4" /> Approve and copy</>
+                          <>
+                            <Copy className="w-4 h-4" /> Approve and copy
+                          </>
                         )}
                       </button>
                       {channelHref && (
@@ -364,7 +495,8 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground text-center">
-                      Clippy creates the draft only. Review it, then confirm delivery in your email or messaging app.
+                      Clippy creates the draft only. Review it, then confirm
+                      delivery in your email or messaging app.
                     </p>
                   </div>
                 )}
@@ -377,8 +509,12 @@ export function LeadDetailPanel({ lead, onClose, onStageChange }: LeadDetailPane
       {/* Bottom CTA */}
       {!showReplyBox && (
         <div className="p-4 border-t border-border">
-          <button onClick={generateDraft} disabled={isGenerating}
-            className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={generateDraft}
+            disabled={isGenerating}
+            className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
             <Sparkles className="w-4 h-4" />
             {isGenerating ? "Generating…" : "Draft AI Reply"}
           </button>

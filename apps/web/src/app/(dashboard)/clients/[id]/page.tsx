@@ -21,6 +21,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { CreateFollowUpButton } from "@/components/create-follow-up-button";
 import { FollowUpActions } from "@/components/follow-up-actions";
+import { isMessageVisible } from "@/lib/conversations/message-visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ type RecentMessage = {
   text: string | null;
   created_at: string;
   read_at: string | null;
+  raw_json?: Record<string, unknown> | null;
 };
 
 type ClientConversation = {
@@ -174,55 +176,54 @@ export default async function Client360Page({
     tasksResult,
     bookingsResult,
     communicationsResult,
-  ] =
-    await Promise.all([
-      supabase
-        .from("leads")
-        .select("*")
-        .eq("id", id)
-        .eq("org_id", membership.org_id)
-        .maybeSingle(),
-      supabase
-        .from("property_enquiries")
-        .select(
-          "id,source,status,first_enquired_at,last_activity_at,listings(id,address,status,price,bedrooms,bathrooms,property_type),conversations(id,channel,last_message_at)",
-        )
-        .eq("lead_id", id)
-        .eq("org_id", membership.org_id)
-        .order("last_activity_at", { ascending: false }),
-      supabase
-        .from("conversations")
-        .select("id,channel,last_message_at,listing_id")
-        .eq("lead_id", id)
-        .eq("org_id", membership.org_id)
-        .order("last_message_at", { ascending: false, nullsFirst: false })
-        .limit(100),
-      supabase
-        .from("tasks")
-        .select("id,title,type,status,due_at,listing_id")
-        .eq("lead_id", id)
-        .eq("org_id", membership.org_id)
-        .order("due_at", { ascending: true })
-        .limit(20),
-      supabase
-        .from("inspection_bookings")
-        .select(
-          "id,booking_status,attendance_status,attendee_count,source_channel,calendar_sync_status,confirmation_sent_at,created_at,listings(id,address),inspection_time_slots(starts_at,ends_at,inspection_type,address)",
-        )
-        .eq("lead_id", id)
-        .eq("org_id", membership.org_id)
-        .order("created_at", { ascending: false })
-        .limit(25),
-      supabase
-        .from("scheduled_communications")
-        .select(
-          "id,inspection_booking_id,type,channel,scheduled_for,status,sent_at,last_error",
-        )
-        .eq("lead_id", id)
-        .eq("org_id", membership.org_id)
-        .order("scheduled_for", { ascending: false })
-        .limit(50),
-    ]);
+  ] = await Promise.all([
+    supabase
+      .from("leads")
+      .select("*")
+      .eq("id", id)
+      .eq("org_id", membership.org_id)
+      .maybeSingle(),
+    supabase
+      .from("property_enquiries")
+      .select(
+        "id,source,status,first_enquired_at,last_activity_at,listings(id,address,status,price,bedrooms,bathrooms,property_type),conversations(id,channel,last_message_at)",
+      )
+      .eq("lead_id", id)
+      .eq("org_id", membership.org_id)
+      .order("last_activity_at", { ascending: false }),
+    supabase
+      .from("conversations")
+      .select("id,channel,last_message_at,listing_id")
+      .eq("lead_id", id)
+      .eq("org_id", membership.org_id)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(100),
+    supabase
+      .from("tasks")
+      .select("id,title,type,status,due_at,listing_id")
+      .eq("lead_id", id)
+      .eq("org_id", membership.org_id)
+      .order("due_at", { ascending: true })
+      .limit(20),
+    supabase
+      .from("inspection_bookings")
+      .select(
+        "id,booking_status,attendance_status,attendee_count,source_channel,calendar_sync_status,confirmation_sent_at,created_at,listings(id,address),inspection_time_slots(starts_at,ends_at,inspection_type,address)",
+      )
+      .eq("lead_id", id)
+      .eq("org_id", membership.org_id)
+      .order("created_at", { ascending: false })
+      .limit(25),
+    supabase
+      .from("scheduled_communications")
+      .select(
+        "id,inspection_booking_id,type,channel,scheduled_for,status,sent_at,last_error",
+      )
+      .eq("lead_id", id)
+      .eq("org_id", membership.org_id)
+      .order("scheduled_for", { ascending: false })
+      .limit(50),
+  ]);
 
   if (clientResult.error) {
     console.error("Client 360 load failed", clientResult.error.code);
@@ -243,7 +244,10 @@ export default async function Client360Page({
     );
   }
   if (bookingsResult.error) {
-    console.error("Client 360 inspections load failed", bookingsResult.error.code);
+    console.error(
+      "Client 360 inspections load failed",
+      bookingsResult.error.code,
+    );
   }
   if (communicationsResult.error) {
     console.error(
@@ -257,7 +261,7 @@ export default async function Client360Page({
   const enquiries = (enquiriesResult.data ?? []).map((enquiry) => ({
     ...enquiry,
     listings: Array.isArray(enquiry.listings)
-      ? enquiry.listings[0] ?? null
+      ? (enquiry.listings[0] ?? null)
       : enquiry.listings,
   })) as Enquiry[];
   const conversations = (conversationsResult.data ??
@@ -266,10 +270,10 @@ export default async function Client360Page({
   const bookings = (bookingsResult.data ?? []).map((booking) => ({
     ...booking,
     listings: Array.isArray(booking.listings)
-      ? booking.listings[0] ?? null
+      ? (booking.listings[0] ?? null)
       : booking.listings,
     inspection_time_slots: Array.isArray(booking.inspection_time_slots)
-      ? booking.inspection_time_slots[0] ?? null
+      ? (booking.inspection_time_slots[0] ?? null)
       : booking.inspection_time_slots,
   })) as InspectionBooking[];
   const scheduledCommunications = (communicationsResult.data ??
@@ -278,7 +282,8 @@ export default async function Client360Page({
   for (const communication of scheduledCommunications) {
     if (!communication.inspection_booking_id) continue;
     communicationsByBooking.set(communication.inspection_booking_id, [
-      ...(communicationsByBooking.get(communication.inspection_booking_id) || []),
+      ...(communicationsByBooking.get(communication.inspection_booking_id) ||
+        []),
       communication,
     ]);
   }
@@ -303,7 +308,9 @@ export default async function Client360Page({
   const { data: messageData, error: messagesError } = conversationIds.length
     ? await supabase
         .from("messages")
-        .select("id,conversation_id,direction_in_out,text,created_at,read_at")
+        .select(
+          "id,conversation_id,direction_in_out,text,created_at,read_at,raw_json",
+        )
         .eq("org_id", membership.org_id)
         .in("conversation_id", conversationIds)
         .order("created_at", { ascending: false })
@@ -312,7 +319,9 @@ export default async function Client360Page({
   if (messagesError) {
     console.error("Client 360 activity load failed", messagesError.code);
   }
-  const recentMessages = (messageData ?? []) as RecentMessage[];
+  const recentMessages = ((messageData ?? []) as RecentMessage[]).filter(
+    isMessageVisible,
+  );
   const pendingTasks = tasks.filter((task) => task.status !== "completed");
   const conversationCount = conversations.length;
   const overdueTasks = pendingTasks.filter(
@@ -451,7 +460,8 @@ export default async function Client360Page({
                   Inspections and reminders
                 </h2>
                 <p className="mt-1 text-sm text-neutral-500">
-                  Booking, agency calendar sync and client communication in one place.
+                  Booking, agency calendar sync and client communication in one
+                  place.
                 </p>
               </div>
               <Link
@@ -485,7 +495,9 @@ export default async function Client360Page({
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-bold text-neutral-900">{address}</h3>
+                            <h3 className="font-bold text-neutral-900">
+                              {address}
+                            </h3>
                             <span
                               className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${statusStyle(booking.booking_status)}`}
                             >

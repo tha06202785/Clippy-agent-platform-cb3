@@ -7,6 +7,7 @@ import {
   type DashboardMessage,
 } from "@/lib/dashboard-intelligence";
 import { createClient } from "@/lib/supabase/server";
+import { isMessageVisible } from "@/lib/conversations/message-visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -113,7 +114,7 @@ export async function GET(request: Request) {
         .maybeSingle(),
       supabase
         .from("messages")
-        .select("conversation_id, direction_in_out, created_at")
+        .select("conversation_id, direction_in_out, created_at, raw_json")
         .eq("org_id", orgId)
         .gte("created_at", todayIso)
         .order("created_at", { ascending: true })
@@ -196,29 +197,32 @@ export async function GET(request: Request) {
         .limit(8),
     ]);
 
-    const coreResults: Array<[string, { error?: { message?: string } | null }]> =
-      [
-        ["Profile", profileResult],
-        ["Organisation", orgResult],
-        ["Messages", todayMessagesResult],
-        ["Message deliveries", todayDeliveriesResult],
-        ["New leads", todayLeadsResult],
-        ["Hot leads", hotLeadsResult],
-        ["Warm leads", warmLeadsCountResult],
-        ["Total leads", totalLeadsCountResult],
-        ["Weekly leads", weekLeadsCountResult],
-        ["Pending tasks", pendingTasksResult],
-        ["Due tasks", dueTasksResult],
-        ["Urgent tasks", urgentTasksResult],
-        ["Inspection tasks", inspectionTasksResult],
-      ];
+    const coreResults: Array<
+      [string, { error?: { message?: string } | null }]
+    > = [
+      ["Profile", profileResult],
+      ["Organisation", orgResult],
+      ["Messages", todayMessagesResult],
+      ["Message deliveries", todayDeliveriesResult],
+      ["New leads", todayLeadsResult],
+      ["Hot leads", hotLeadsResult],
+      ["Warm leads", warmLeadsCountResult],
+      ["Total leads", totalLeadsCountResult],
+      ["Weekly leads", weekLeadsCountResult],
+      ["Pending tasks", pendingTasksResult],
+      ["Due tasks", dueTasksResult],
+      ["Urgent tasks", urgentTasksResult],
+      ["Inspection tasks", inspectionTasksResult],
+    ];
     for (const [label, result] of coreResults) requireResult(label, result);
 
-    const messages = (todayMessagesResult.data || []).map((message) => ({
-      conversation_id: message.conversation_id,
-      role: message.direction_in_out === "in" ? "lead" : "agent",
-      created_at: message.created_at,
-    })) as DashboardMessage[];
+    const messages = (todayMessagesResult.data || [])
+      .filter(isMessageVisible)
+      .map((message) => ({
+        conversation_id: message.conversation_id,
+        role: message.direction_in_out === "in" ? "lead" : "agent",
+        created_at: message.created_at,
+      })) as DashboardMessage[];
     const performance = calculateMessagePerformance(messages);
     const hotLeads = (hotLeadsResult.data || []) as DashboardLead[];
     const urgentTasks = urgentTasksResult.data?.length || 0;
@@ -243,8 +247,8 @@ export async function GET(request: Request) {
         ["sent", "delivered", "read"].includes(delivery.status || "") &&
         Boolean(
           delivery.provider_message_id ||
-            delivery.sent_at ||
-            delivery.delivered_at,
+          delivery.sent_at ||
+          delivery.delivered_at,
         ),
     ).length;
 
@@ -289,8 +293,7 @@ export async function GET(request: Request) {
         recommendations,
         completed: {
           verified_outbound_deliveries: verifiedOutboundDeliveries,
-          outbound_messages_recorded:
-            performance.outbound_messages_recorded,
+          outbound_messages_recorded: performance.outbound_messages_recorded,
           verified_activity_count: verifiedActivityCount,
           recent_activity: activity,
         },

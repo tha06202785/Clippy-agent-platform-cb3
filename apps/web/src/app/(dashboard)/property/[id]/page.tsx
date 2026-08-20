@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft,
@@ -23,6 +24,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { CreateFollowUpButton } from "@/components/create-follow-up-button";
 import { FollowUpActions } from "@/components/follow-up-actions";
+import { isMessageVisible } from "@/lib/conversations/message-visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -86,10 +88,11 @@ type RecentMessage = {
   text: string | null;
   created_at: string;
   read_at: string | null;
+  raw_json?: Record<string, unknown> | null;
 };
 
 function firstRelated<T>(value: T | T[] | null): T | null {
-  return Array.isArray(value) ? value[0] ?? null : value;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
 function formatDate(value: string | null) {
@@ -280,7 +283,9 @@ export default async function Property360Page({
   const { data: messageData, error: messagesError } = conversationIds.length
     ? await supabase
         .from("messages")
-        .select("id,conversation_id,direction_in_out,text,created_at,read_at")
+        .select(
+          "id,conversation_id,direction_in_out,text,created_at,read_at,raw_json",
+        )
         .eq("org_id", membership.org_id)
         .in("conversation_id", conversationIds)
         .order("created_at", { ascending: false })
@@ -289,7 +294,9 @@ export default async function Property360Page({
   if (messagesError) {
     console.error("Property 360 activity load failed", messagesError.code);
   }
-  const recentMessages = (messageData ?? []) as RecentMessage[];
+  const recentMessages = ((messageData ?? []) as RecentMessage[]).filter(
+    isMessageVisible,
+  );
   const pendingTasks = tasks.filter((task) => task.status !== "completed");
   const now = Date.now();
   const upcomingBookings = bookings
@@ -854,12 +861,14 @@ export default async function Property360Page({
                 {images.slice(0, 6).map((image, index) => (
                   <div
                     key={image}
-                    className="aspect-[4/3] overflow-hidden rounded-xl bg-neutral-100"
+                    className="relative aspect-[4/3] overflow-hidden rounded-xl bg-neutral-100"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={image}
                       alt={`${listing.address} photo ${index + 1}`}
+                      fill
+                      sizes="(max-width: 1024px) 50vw, 20vw"
+                      unoptimized
                       className="h-full w-full object-cover"
                     />
                   </div>

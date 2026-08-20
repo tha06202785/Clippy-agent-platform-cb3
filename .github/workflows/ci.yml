@@ -42,3 +42,4 @@ jobs:
           BASE_URL: ${{ vars.E2E_BASE_URL || 'https://useclippy.com' }}
           TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          INTERNAL_API_SECRET: ${{ secrets.INTERNAL_API_SECRET }}

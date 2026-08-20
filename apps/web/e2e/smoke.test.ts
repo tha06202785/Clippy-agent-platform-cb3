@@ -10,12 +10,20 @@ test("landing page loads", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "Create a workspace" }).first(),
   ).toBeVisible();
+  await expect(page.locator("main")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+    ),
+  ).toBe(true);
 });
 
 test("pricing page loads", async ({ page }) => {
   await page.goto("/pricing");
   await expect(
-    page.getByRole("heading", { name: "Pilot scope before published pricing." }),
+    page.getByRole("heading", {
+      name: "Pilot scope before published pricing.",
+    }),
   ).toBeVisible();
 });
 
@@ -68,7 +76,19 @@ test("terms page loads", async ({ page }) => {
   await expect(page.locator("text=Terms of Service")).toBeVisible();
 });
 
-test("analytics redirects to sign-in when not authenticated", async ({ page }) => {
+test("analytics redirects to sign-in when not authenticated", async ({
+  page,
+}) => {
   await page.goto("/analytics");
   await expect(page).toHaveURL(/sign-in/);
+});
+
+test("unknown routes show a useful recovery action", async ({ page }) => {
+  await page.goto("/this-page-does-not-exist");
+  await expect(
+    page.getByRole("heading", { name: "We could not find that page" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Return to Today" }),
+  ).toBeVisible();
 });

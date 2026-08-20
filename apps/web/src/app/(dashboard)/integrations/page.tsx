@@ -349,7 +349,7 @@ export default function IntegrationsPage() {
     );
 
   return (
-    <main className="space-y-6 bg-neutral-50 p-4 pb-28 md:p-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Integrations</h1>
@@ -359,6 +359,7 @@ export default function IntegrationsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button
+            type="button"
             disabled={diagnosing}
             onClick={() => void diagnoseGoogle()}
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-800 disabled:opacity-50"
@@ -371,6 +372,7 @@ export default function IntegrationsPage() {
             Diagnose Google
           </button>
           <button
+            type="button"
             onClick={() => void load()}
             className="inline-flex items-center justify-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
           >
@@ -452,12 +454,14 @@ export default function IntegrationsPage() {
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
+              type="button"
               onClick={() => connect("gmail")}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
             >
               Reconnect Google
             </button>
             <button
+              type="button"
               disabled={diagnosing}
               onClick={() => void diagnoseGoogle()}
               className="rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50"
@@ -535,7 +539,7 @@ export default function IntegrationsPage() {
                     ? "Not connected"
                     : integration.requiresReconnect
                       ? "Reconnect required"
-                    : integration.status}
+                      : integration.status}
                 </span>
               </div>
               <div className="mt-4 space-y-2 text-sm text-neutral-600">
@@ -562,6 +566,7 @@ export default function IntegrationsPage() {
                 (integration.provider === "gmail" ||
                   integration.provider === "google-calendar") ? (
                   <button
+                    type="button"
                     disabled={busy === "google-sync"}
                     onClick={() => void syncGoogle()}
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"
@@ -575,6 +580,7 @@ export default function IntegrationsPage() {
                   </button>
                 ) : integration.connected ? (
                   <button
+                    type="button"
                     disabled={busy === integration.provider}
                     onClick={() => void testConnection(integration.provider)}
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"
@@ -588,6 +594,7 @@ export default function IntegrationsPage() {
                   </button>
                 ) : null}
                 <button
+                  type="button"
                   onClick={() =>
                     connect(integration.provider as keyof typeof CONFIG)
                   }
@@ -600,6 +607,6 @@ export default function IntegrationsPage() {
           );
         })}
       </section>
-    </main>
+    </div>
   );
 }

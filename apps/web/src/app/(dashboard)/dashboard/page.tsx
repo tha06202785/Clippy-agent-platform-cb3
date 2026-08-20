@@ -178,6 +178,7 @@ export default function DashboardPage() {
             {error || "No dashboard data was returned."}
           </p>
           <button
+            type="button"
             className="mt-4 rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white"
             onClick={() => window.location.reload()}
           >
