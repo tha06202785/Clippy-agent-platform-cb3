@@ -160,7 +160,7 @@ export default function AutomationPage() {
     );
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 pb-24">
+    <div className="mx-auto max-w-6xl space-y-6 pb-24">
       <section className="rounded-3xl border bg-gradient-to-br from-white via-purple-50 to-emerald-50 p-6 shadow-soft md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
@@ -174,6 +174,7 @@ export default function AutomationPage() {
             </p>
           </div>
           <button
+            type="button"
             disabled={saving}
             onClick={() => void save(!settings.ai_paused)}
             className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-bold text-white disabled:opacity-50 ${settings.ai_paused ? "bg-emerald-600" : "bg-neutral-900"}`}
@@ -250,6 +251,7 @@ export default function AutomationPage() {
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <button
+                      type="button"
                       disabled={deciding === approval.id}
                       onClick={() => void decide(approval.id, "reject")}
                       className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium disabled:opacity-50"
@@ -257,6 +259,7 @@ export default function AutomationPage() {
                       <X className="h-4 w-4" /> Reject
                     </button>
                     <button
+                      type="button"
                       disabled={
                         deciding === approval.id || !approval.content.trim()
                       }
@@ -427,6 +430,7 @@ export default function AutomationPage() {
 
       <div className="sticky bottom-20 flex justify-end md:bottom-4">
         <button
+          type="button"
           disabled={saving}
           onClick={() => void save()}
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-bold text-primary-foreground shadow-lg disabled:opacity-50"
@@ -441,6 +445,6 @@ export default function AutomationPage() {
           {saved ? "Saved" : "Save automation settings"}
         </button>
       </div>
-    </main>
+    </div>
   );
 }

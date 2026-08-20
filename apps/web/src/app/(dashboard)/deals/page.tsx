@@ -1,11 +1,24 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Home, Plus, ChevronRight } from "lucide-react";
 import {
-  Home, Plus, TrendingUp, Clock, DollarSign, User,
-  ChevronRight, MoreHorizontal, Sparkles, AlertCircle
-} from "lucide-react";
-import { QuickActions } from "@/components/quick-actions";
+  Button,
+  EmptyState,
+  ErrorState,
+  Input,
+  LoadingState,
+  Select,
+} from "@clippy/ui";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Deal {
   id: string;
@@ -28,6 +41,18 @@ interface DealForm {
   bathrooms: string;
 }
 
+type ListingApiRecord = {
+  id: string;
+  address: string;
+  price?: string | number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  status?: string | null;
+  property_type?: string | null;
+  created_at: string;
+  stage?: string | null;
+};
+
 const EMPTY_DEAL_FORM: DealForm = {
   address: "",
   price: "",
@@ -36,7 +61,7 @@ const EMPTY_DEAL_FORM: DealForm = {
   bathrooms: "",
 };
 
-function toDeal(listing: any): Deal {
+function toDeal(listing: ListingApiRecord): Deal {
   return {
     id: listing.id,
     address: listing.address,
@@ -51,16 +76,73 @@ function toDeal(listing: any): Deal {
 }
 
 const STAGES = [
-  { id: "inquiry", label: "New Inquiry", color: "bg-blue-500", bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" },
-  { id: "contacted", label: "Contacted", color: "bg-amber-500", bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" },
-  { id: "qualified", label: "Qualified", color: "bg-purple-500", bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
-  { id: "proposal", label: "Proposal", color: "bg-orange-500", bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" },
-  { id: "negotiation", label: "Negotiating", color: "bg-pink-500", bg: "bg-pink-50", border: "border-pink-200", text: "text-pink-700" },
-  { id: "closed_won", label: "Won 🎉", color: "bg-emerald-500", bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
-  { id: "closed_lost", label: "Lost", color: "bg-slate-400", bg: "bg-slate-50", border: "border-slate-200", text: "text-slate-600" },
+  {
+    id: "inquiry",
+    label: "New Inquiry",
+    color: "bg-blue-500",
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    text: "text-blue-700",
+  },
+  {
+    id: "contacted",
+    label: "Contacted",
+    color: "bg-amber-500",
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    text: "text-amber-700",
+  },
+  {
+    id: "qualified",
+    label: "Qualified",
+    color: "bg-purple-500",
+    bg: "bg-purple-50",
+    border: "border-purple-200",
+    text: "text-purple-700",
+  },
+  {
+    id: "proposal",
+    label: "Proposal",
+    color: "bg-orange-500",
+    bg: "bg-orange-50",
+    border: "border-orange-200",
+    text: "text-orange-700",
+  },
+  {
+    id: "negotiation",
+    label: "Negotiating",
+    color: "bg-pink-500",
+    bg: "bg-pink-50",
+    border: "border-pink-200",
+    text: "text-pink-700",
+  },
+  {
+    id: "closed_won",
+    label: "Won 🎉",
+    color: "bg-emerald-500",
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
+    text: "text-emerald-700",
+  },
+  {
+    id: "closed_lost",
+    label: "Lost",
+    color: "bg-slate-400",
+    bg: "bg-slate-50",
+    border: "border-slate-200",
+    text: "text-slate-600",
+  },
 ];
 
-const STAGE_ORDER = ["inquiry", "contacted", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"];
+const STAGE_ORDER = [
+  "inquiry",
+  "contacted",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "closed_won",
+  "closed_lost",
+];
 
 function formatPrice(price: string | null) {
   if (!price) return null;
@@ -79,31 +161,48 @@ function daysOnMarket(created: string) {
 export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [activeStage, setActiveStage] = useState<string | null>(null);
   const [showAddDeal, setShowAddDeal] = useState(false);
   const [dealForm, setDealForm] = useState<DealForm>(EMPTY_DEAL_FORM);
   const [dealError, setDealError] = useState<string | null>(null);
+  const [stageError, setStageError] = useState<string | null>(null);
   const [creatingDeal, setCreatingDeal] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/listings")
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setDeals(data.map(toDeal));
-        } else {
-          setDeals([]);
-        }
-      })
-      .catch(() => setDeals([]))
-      .finally(() => setLoading(false));
+  const loadDeals = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const response = await fetch("/api/listings", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Opportunities could not be loaded");
+      setDeals(Array.isArray(data) ? data.map(toDeal) : []);
+    } catch (reason) {
+      setLoadError(
+        reason instanceof Error
+          ? reason.message
+          : "Opportunities could not be loaded",
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const dealsByStage = STAGE_ORDER.reduce((acc, stageId) => {
-    acc[stageId] = deals.filter(d => d.stage === stageId || (stageId === "inquiry" && !d.stage));
-    return acc;
-  }, {} as Record<string, Deal[]>);
+  useEffect(() => {
+    void loadDeals();
+  }, [loadDeals]);
+
+  const dealsByStage = STAGE_ORDER.reduce(
+    (acc, stageId) => {
+      acc[stageId] = deals.filter(
+        (d) => d.stage === stageId || (stageId === "inquiry" && !d.stage),
+      );
+      return acc;
+    },
+    {} as Record<string, Deal[]>,
+  );
 
   const wonDeals = dealsByStage["closed_won"] || [];
   const totalValue = wonDeals.reduce((sum, d) => {
@@ -131,7 +230,9 @@ export default function DealsPage() {
           stage: dealForm.stage,
           status: "active",
           bedrooms: dealForm.bedrooms ? Number(dealForm.bedrooms) : undefined,
-          bathrooms: dealForm.bathrooms ? Number(dealForm.bathrooms) : undefined,
+          bathrooms: dealForm.bathrooms
+            ? Number(dealForm.bathrooms)
+            : undefined,
         }),
       });
       const created = await response.json();
@@ -143,85 +244,131 @@ export default function DealsPage() {
       setDealForm(EMPTY_DEAL_FORM);
       setShowAddDeal(false);
     } catch (error) {
-      setDealError(error instanceof Error ? error.message : "Deal could not be created.");
+      setDealError(
+        error instanceof Error ? error.message : "Deal could not be created.",
+      );
     } finally {
       setCreatingDeal(false);
     }
   };
 
   const handleStageMove = async (dealId: string, newStage: string) => {
+    setStageError(null);
     try {
-      await fetch(`/api/listings/${dealId}`, {
+      const response = await fetch(`/api/listings/${dealId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stage: newStage }),
       });
-      setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stage: newStage } : d));
-    } catch {
-      // silent
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          data.error || "The opportunity stage could not be updated",
+        );
+      }
+      setDeals((prev) =>
+        prev.map((d) => (d.id === dealId ? { ...d, stage: newStage } : d)),
+      );
+    } catch (reason) {
+      setStageError(
+        reason instanceof Error
+          ? reason.message
+          : "The opportunity stage could not be updated",
+      );
     }
   };
 
   if (loading) {
+    return <LoadingState label="Loading opportunities" />;
+  }
+
+  if (loadError) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 w-40 bg-muted rounded animate-pulse" />
-        <div className="grid grid-cols-7 gap-3">
-          {[1, 2, 3, 4, 5, 6, 7].map(i => (
-            <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />
-          ))}
-        </div>
-      </div>
+      <ErrorState
+        title="Opportunities could not be loaded"
+        description={loadError}
+        action={<Button onClick={() => void loadDeals()}>Try again</Button>}
+      />
     );
   }
 
   return (
-    <div className="space-y-6 -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Pipeline</h1>
           <p className="text-muted-foreground mt-1">
             {deals.length} deal{deals.length !== 1 ? "s" : ""} ·
-            {wonDeals.length > 0 && ` ${wonDeals.length} closed · ${formatPrice(String(totalValue)) || "$0"} closed value`}
-            {deals.filter(d => d.stage !== "closed_won" && d.stage !== "closed_lost").length > 0 &&
-              ` · ${deals.filter(d => d.stage !== "closed_won" && d.stage !== "closed_lost").length} in progress`
-            }
+            {wonDeals.length > 0 &&
+              ` ${wonDeals.length} closed · ${formatPrice(String(totalValue)) || "$0"} closed value`}
+            {deals.filter(
+              (d) => d.stage !== "closed_won" && d.stage !== "closed_lost",
+            ).length > 0 &&
+              ` · ${deals.filter((d) => d.stage !== "closed_won" && d.stage !== "closed_lost").length} in progress`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            <button onClick={() => setView("kanban")}
-              className={"px-3 py-1.5 text-xs font-medium transition-colors " +
-                (view === "kanban" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground")}>
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="flex overflow-hidden rounded-lg border border-border"
+            role="group"
+            aria-label="Pipeline view"
+          >
+            <button
+              type="button"
+              onClick={() => setView("kanban")}
+              aria-pressed={view === "kanban"}
+              className={
+                "px-3 py-1.5 text-xs font-medium transition-colors " +
+                (view === "kanban"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:text-foreground")
+              }
+            >
               Board
             </button>
-            <button onClick={() => setView("list")}
-              className={"px-3 py-1.5 text-xs font-medium transition-colors " +
-                (view === "list" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground")}>
+            <button
+              type="button"
+              onClick={() => setView("list")}
+              aria-pressed={view === "list"}
+              className={
+                "px-3 py-1.5 text-xs font-medium transition-colors " +
+                (view === "list"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:text-foreground")
+              }
+            >
               List
             </button>
           </div>
-          <button onClick={() => setShowAddDeal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
-            <Plus className="w-4 h-4" />
+          <Button onClick={() => setShowAddDeal(true)}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Add deal
-          </button>
+          </Button>
         </div>
       </div>
 
+      {stageError ? (
+        <p
+          className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+          role="alert"
+        >
+          {stageError}
+        </p>
+      ) : null}
+
       {deals.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-16 text-center">
-          <Home className="w-12 h-12 text-muted-foreground/40 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No deals yet</h3>
-          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            Add your first property listing to start tracking your pipeline. Each listing becomes a deal you can move through stages.
-          </p>
-          <button onClick={() => setShowAddDeal(true)}
-            className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
-            <Plus className="w-4 h-4" /> Add your first deal
-          </button>
-        </div>
+        <EmptyState
+          icon={Home}
+          title="No opportunities yet"
+          description="Add your first property listing to start tracking the pipeline. Each listing becomes an opportunity you can move through stages."
+          action={
+            <Button onClick={() => setShowAddDeal(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" /> Add your first
+              deal
+            </Button>
+          }
+        />
       ) : view === "kanban" ? (
         /* Kanban board */
         <div className="flex gap-3 overflow-x-auto pb-4">
@@ -232,70 +379,135 @@ export default function DealsPage() {
                 <div className="flex items-center justify-between mb-3 px-1">
                   <div className="flex items-center gap-2">
                     <div className={"w-2 h-2 rounded-full " + stage.color} />
-                    <span className="text-xs font-semibold text-foreground">{stage.label}</span>
-                    <span className="text-xs text-muted-foreground">({stageDeals.length})</span>
+                    <span className="text-xs font-semibold text-foreground">
+                      {stage.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ({stageDeals.length})
+                    </span>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {stageDeals.map((deal) => (
-                    <div key={deal.id}
-                      onClick={() => setActiveStage(activeStage === deal.id ? null : deal.id)}
-                      className={"rounded-xl border bg-card p-4 cursor-pointer hover:border-primary/50 transition-all " +
-                        (activeStage === deal.id ? "border-primary shadow-md" : "border-border")}>
-                      <div className="flex items-start justify-between mb-2">
-                        <p className="text-sm font-medium text-foreground leading-tight line-clamp-2">{deal.address}</p>
-                        {deal.price && (
-                          <p className="text-sm font-bold text-foreground ml-2 flex-shrink-0">
-                            {formatPrice(deal.price)}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-                        {deal.bedrooms && <span>{deal.bedrooms} bed</span>}
-                        {deal.bedrooms && deal.bathrooms && <span>·</span>}
-                        {deal.bathrooms && <span>{deal.bathrooms} bath</span>}
-                        <span>·</span>
-                        <span>{daysOnMarket(deal.created_at)}d</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={"inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold " + stage.bg + " " + stage.text}>
-                          {stage.label}
-                        </span>
-                        <div className="flex gap-1">
-                          {STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(deal.stage || "inquiry")).map((prevStage) => {
-                            const nextIdx = STAGE_ORDER.indexOf(deal.stage || "inquiry");
-                            const prevIdx = STAGE_ORDER.indexOf(prevStage);
-                            if (prevIdx >= nextIdx - 1 && prevIdx < nextIdx) {
-                              return (
-                                <button key={prevStage}
-                                  onClick={(e) => { e.stopPropagation(); handleStageMove(deal.id, prevStage); }}
-                                  className="p-1 rounded hover:bg-muted transition-colors"
-                                  title={"Move to " + (STAGES.find(s => s.id === prevStage)?.label)}>
-                                  <ChevronRight className="w-3 h-3 text-muted-foreground rotate-180" />
-                                </button>
-                              );
+                  {stageDeals.map((deal) => {
+                    const currentIndex = STAGE_ORDER.indexOf(
+                      deal.stage || "inquiry",
+                    );
+                    const previousStage =
+                      currentIndex > 0 ? STAGE_ORDER[currentIndex - 1] : null;
+                    const nextStage =
+                      currentIndex < STAGE_ORDER.length - 2
+                        ? STAGE_ORDER[currentIndex + 1]
+                        : null;
+
+                    return (
+                      <article
+                        key={deal.id}
+                        className={
+                          "rounded-xl border bg-card p-4 transition-all hover:border-primary/50 " +
+                          (activeStage === deal.id
+                            ? "border-primary shadow-md"
+                            : "border-border")
+                        }
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveStage(
+                              activeStage === deal.id ? null : deal.id,
+                            )
+                          }
+                          aria-expanded={activeStage === deal.id}
+                          className="w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="mb-2 flex items-start justify-between">
+                            <span className="line-clamp-2 text-sm font-medium leading-tight text-foreground">
+                              {deal.address}
+                            </span>
+                            {deal.price ? (
+                              <span className="ml-2 flex-shrink-0 text-sm font-bold text-foreground">
+                                {formatPrice(deal.price)}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                            {deal.bedrooms ? (
+                              <span>{deal.bedrooms} bed</span>
+                            ) : null}
+                            {deal.bedrooms && deal.bathrooms ? (
+                              <span>·</span>
+                            ) : null}
+                            {deal.bathrooms ? (
+                              <span>{deal.bathrooms} bath</span>
+                            ) : null}
+                            <span>·</span>
+                            <span>{daysOnMarket(deal.created_at)}d</span>
+                          </span>
+                        </button>
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={
+                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold " +
+                              stage.bg +
+                              " " +
+                              stage.text
                             }
-                            return null;
-                          })}
-                          {STAGE_ORDER.indexOf(deal.stage || "inquiry") < STAGE_ORDER.length - 2 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const nextIdx = STAGE_ORDER.indexOf(deal.stage || "inquiry") + 1;
-                                handleStageMove(deal.id, STAGE_ORDER[nextIdx]);
-                              }}
-                              className="p-1 rounded hover:bg-muted transition-colors"
-                              title={"Move to " + (STAGES.find(s => s.id === STAGE_ORDER[STAGE_ORDER.indexOf(deal.stage || "inquiry") + 1])?.label)}>
-                              <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                            </button>
-                          )}
+                          >
+                            {stage.label}
+                          </span>
+                          <div className="flex gap-1">
+                            {previousStage ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleStageMove(deal.id, previousStage)
+                                }
+                                className="rounded p-2 transition-colors hover:bg-muted"
+                                aria-label={
+                                  "Move " +
+                                  deal.address +
+                                  " to " +
+                                  (STAGES.find(
+                                    (item) => item.id === previousStage,
+                                  )?.label ?? previousStage)
+                                }
+                              >
+                                <ChevronRight
+                                  className="h-3 w-3 rotate-180 text-muted-foreground"
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            ) : null}
+                            {nextStage ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleStageMove(deal.id, nextStage)
+                                }
+                                className="rounded p-2 transition-colors hover:bg-muted"
+                                aria-label={
+                                  "Move " +
+                                  deal.address +
+                                  " to " +
+                                  (STAGES.find((item) => item.id === nextStage)
+                                    ?.label ?? nextStage)
+                                }
+                              >
+                                <ChevronRight
+                                  className="h-3 w-3 text-muted-foreground"
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      </article>
+                    );
+                  })}
                   {stageDeals.length === 0 && (
                     <div className="rounded-xl border border-dashed border-border bg-card/50 p-6 text-center">
-                      <p className="text-xs text-muted-foreground">Drop deals here</p>
+                      <p className="text-xs text-muted-foreground">
+                        Drop deals here
+                      </p>
                     </div>
                   )}
                 </div>
@@ -305,31 +517,62 @@ export default function DealsPage() {
         </div>
       ) : (
         /* List view */
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <table className="w-full">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="w-full min-w-[720px]">
+            <caption className="sr-only">Opportunity pipeline</caption>
             <thead>
               <tr className="border-b border-border">
-                {["Property", "Stage", "Bed/Bath", "Price", "Days", "Next Action"].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">{h}</th>
+                {[
+                  "Property",
+                  "Stage",
+                  "Bed/Bath",
+                  "Price",
+                  "Days",
+                  "Next Action",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {deals.map((deal) => {
-                const stage = STAGES.find(s => s.id === deal.stage) || STAGES[0];
+                const stage =
+                  STAGES.find((s) => s.id === deal.stage) || STAGES[0];
                 return (
-                  <tr key={deal.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={deal.id}
+                    className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                  >
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-foreground">{deal.address}</p>
-                      <p className="text-xs text-muted-foreground">{deal.property_type || "Property"}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {deal.address}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {deal.property_type || "Property"}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={"inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold " + stage.bg + " " + stage.text}>
+                      <span
+                        className={
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold " +
+                          stage.bg +
+                          " " +
+                          stage.text
+                        }
+                      >
                         {stage.label}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {[deal.bedrooms, deal.bathrooms].filter(Boolean).join(" / ") || "—"}
+                      {[deal.bedrooms, deal.bathrooms]
+                        .filter(Boolean)
+                        .join(" / ") || "—"}
                     </td>
                     <td className="px-4 py-3 text-sm font-bold text-foreground">
                       {deal.price ? formatPrice(deal.price) : "—"}
@@ -339,12 +582,18 @@ export default function DealsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <button
+                        type="button"
                         onClick={() => {
-                          const nextIdx = Math.min(STAGE_ORDER.indexOf(deal.stage || "inquiry") + 1, STAGE_ORDER.length - 1);
+                          const nextIdx = Math.min(
+                            STAGE_ORDER.indexOf(deal.stage || "inquiry") + 1,
+                            STAGE_ORDER.length - 1,
+                          );
                           handleStageMove(deal.id, STAGE_ORDER[nextIdx]);
                         }}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-semibold hover:bg-primary/20 transition-colors">
-                        Advance <ChevronRight className="w-3 h-3" />
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-semibold hover:bg-primary/20 transition-colors"
+                      >
+                        Advance{" "}
+                        <ChevronRight className="w-3 h-3" aria-hidden="true" />
                       </button>
                     </td>
                   </tr>
@@ -354,69 +603,161 @@ export default function DealsPage() {
           </table>
         </div>
       )}
-      {/* Add Deal Modal */}
-      {showAddDeal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAddDeal(false)}>
-          <div className="bg-card rounded-xl border border-border p-6 w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Add New Deal</h3>
-            <form className="space-y-3" onSubmit={handleCreateDeal}>
+      <Dialog
+        open={showAddDeal}
+        onOpenChange={(open) => {
+          setShowAddDeal(open);
+          if (!open) setDealError(null);
+        }}
+      >
+        <DialogContent>
+          <form onSubmit={handleCreateDeal}>
+            <DialogHeader>
+              <DialogTitle>Add opportunity</DialogTitle>
+              <DialogDescription>
+                Add a property to the pipeline. You can move it through stages
+                at any time.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-5 space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground" htmlFor="deal-address">Property Address</label>
-                <input id="deal-address" type="text" placeholder="123 Example St" value={dealForm.address}
-                  onChange={(event) => setDealForm((current) => ({ ...current, address: event.target.value }))}
-                  className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                <label
+                  className="text-xs text-muted-foreground"
+                  htmlFor="deal-address"
+                >
+                  Property Address
+                </label>
+                <Input
+                  id="deal-address"
+                  type="text"
+                  placeholder="123 Example St"
+                  value={dealForm.address}
+                  onChange={(event) =>
+                    setDealForm((current) => ({
+                      ...current,
+                      address: event.target.value,
+                    }))
+                  }
+                  className="mt-1"
+                  required
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground" htmlFor="deal-price">Price</label>
-                  <input id="deal-price" type="text" placeholder="500,000" value={dealForm.price}
-                    onChange={(event) => setDealForm((current) => ({ ...current, price: event.target.value }))}
-                    className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                  <label
+                    className="text-xs text-muted-foreground"
+                    htmlFor="deal-price"
+                  >
+                    Price
+                  </label>
+                  <Input
+                    id="deal-price"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="500,000"
+                    value={dealForm.price}
+                    onChange={(event) =>
+                      setDealForm((current) => ({
+                        ...current,
+                        price: event.target.value,
+                      }))
+                    }
+                    className="mt-1"
+                  />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground" htmlFor="deal-stage">Stage</label>
-                  <select id="deal-stage" value={dealForm.stage}
-                    onChange={(event) => setDealForm((current) => ({ ...current, stage: event.target.value }))}
-                    className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm">
+                  <label
+                    className="text-xs text-muted-foreground"
+                    htmlFor="deal-stage"
+                  >
+                    Stage
+                  </label>
+                  <Select
+                    id="deal-stage"
+                    value={dealForm.stage}
+                    onChange={(event) =>
+                      setDealForm((current) => ({
+                        ...current,
+                        stage: event.target.value,
+                      }))
+                    }
+                    className="mt-1"
+                  >
                     <option value="inquiry">New Inquiry</option>
                     <option value="contacted">Contacted</option>
                     <option value="qualified">Qualified</option>
                     <option value="proposal">Proposal</option>
                     <option value="negotiation">Negotiating</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground" htmlFor="deal-bedrooms">Bedrooms</label>
-                  <input id="deal-bedrooms" type="number" min="1" placeholder="3" value={dealForm.bedrooms}
-                    onChange={(event) => setDealForm((current) => ({ ...current, bedrooms: event.target.value }))}
-                    className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                  <label
+                    className="text-xs text-muted-foreground"
+                    htmlFor="deal-bedrooms"
+                  >
+                    Bedrooms
+                  </label>
+                  <Input
+                    id="deal-bedrooms"
+                    type="number"
+                    min="1"
+                    placeholder="3"
+                    value={dealForm.bedrooms}
+                    onChange={(event) =>
+                      setDealForm((current) => ({
+                        ...current,
+                        bedrooms: event.target.value,
+                      }))
+                    }
+                    className="mt-1"
+                  />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground" htmlFor="deal-bathrooms">Bathrooms</label>
-                  <input id="deal-bathrooms" type="number" min="1" placeholder="2" value={dealForm.bathrooms}
-                    onChange={(event) => setDealForm((current) => ({ ...current, bathrooms: event.target.value }))}
-                    className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+                  <label
+                    className="text-xs text-muted-foreground"
+                    htmlFor="deal-bathrooms"
+                  >
+                    Bathrooms
+                  </label>
+                  <Input
+                    id="deal-bathrooms"
+                    type="number"
+                    min="1"
+                    placeholder="2"
+                    value={dealForm.bathrooms}
+                    onChange={(event) =>
+                      setDealForm((current) => ({
+                        ...current,
+                        bathrooms: event.target.value,
+                      }))
+                    }
+                    className="mt-1"
+                  />
                 </div>
               </div>
               {dealError && (
-                <p className="text-sm text-red-600" role="alert">{dealError}</p>
+                <p className="text-sm text-destructive" role="alert">
+                  {dealError}
+                </p>
               )}
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setDealError(null); setShowAddDeal(false); }}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-input text-sm font-semibold text-foreground hover:bg-muted transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" disabled={creatingDeal}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
-                  {creatingDeal ? "Creating…" : "Create Deal"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button
+                type="submit"
+                isLoading={creatingDeal}
+                loadingText="Creating…"
+              >
+                Create opportunity
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

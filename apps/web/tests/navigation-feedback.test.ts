@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { PageSkeleton } from "@clippy/ui";
 import { describe, expect, it } from "vitest";
 
 const dashboardLoading = readFileSync(
@@ -17,9 +20,12 @@ const mobileNav = readFileSync(
 
 describe("dashboard navigation feedback", () => {
   it("provides an accessible route-level skeleton", () => {
-    expect(dashboardLoading).toContain('role="status"');
-    expect(dashboardLoading).toContain('aria-label="Loading page"');
-    expect(dashboardLoading).toContain("animate-pulse");
+    const html = renderToStaticMarkup(createElement(PageSkeleton));
+
+    expect(dashboardLoading).toContain("<PageSkeleton />");
+    expect(html).toContain('role="status"');
+    expect(html).toContain("Loading page");
+    expect(html).toContain("animate-pulse");
   });
 
   it("acknowledges desktop navigation immediately", () => {

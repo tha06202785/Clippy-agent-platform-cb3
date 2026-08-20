@@ -1,12 +1,11 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
-const BASE = process.env.E2E_BASE_URL || "http://localhost:3000";
+const BASE =
+  process.env.E2E_BASE_URL || process.env.BASE_URL || "http://localhost:3000";
 const EMAIL = process.env.TEST_EMAIL || "";
 const PASSWORD = process.env.TEST_PASSWORD || "";
 const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET || "";
-const HAS_SCENARIO_CREDENTIALS = Boolean(
-  EMAIL && PASSWORD && INTERNAL_SECRET,
-);
+const HAS_SCENARIO_CREDENTIALS = Boolean(EMAIL && PASSWORD && INTERNAL_SECRET);
 
 test.describe("End-to-end lead scenarios", () => {
   test.skip(
@@ -14,7 +13,7 @@ test.describe("End-to-end lead scenarios", () => {
     "TEST_EMAIL, TEST_PASSWORD and INTERNAL_API_SECRET are required",
   );
   // Helper: sign in
-  async function signIn(page: any) {
+  async function signIn(page: Page) {
     await page.goto("/sign-in");
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);

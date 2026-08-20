@@ -153,6 +153,42 @@ describe("Google knowledge sync", () => {
     expect(item && isLikelyRealEstateLead(item)).toBe(false);
   });
 
+  it("rejects broad interest language without property context", () => {
+    const item = gmailMessageToKnowledge({
+      id: "course-interest",
+      threadId: "course-interest",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "Accounting course" },
+          { name: "From", value: "student@example.com" },
+        ],
+        body: {
+          data: encode("I'm interested in the course. Please contact me."),
+        },
+      },
+    });
+
+    expect(item && isLikelyRealEstateLead(item)).toBe(false);
+  });
+
+  it("does not match rent inside an unrelated word", () => {
+    const item = gmailMessageToKnowledge({
+      id: "current-project",
+      threadId: "current-project",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "Current project" },
+          { name: "From", value: "colleague@example.com" },
+        ],
+        body: { data: encode("I am interested in the current project.") },
+      },
+    });
+
+    expect(item && isLikelyRealEstateLead(item)).toBe(false);
+  });
+
   it("accepts a trusted portal property enquiry from an automated sender", () => {
     const item = gmailMessageToKnowledge({
       id: "portal-enquiry",

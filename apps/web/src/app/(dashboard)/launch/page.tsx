@@ -126,10 +126,7 @@ export default async function LaunchCentrePage() {
       .select("id", { count: "exact", head: true })
       .eq("org_id", orgId)
       .eq("status", "indexed"),
-    supabase
-      .from("integrations")
-      .select("provider,status")
-      .eq("org_id", orgId),
+    supabase.from("integrations").select("provider,status").eq("org_id", orgId),
     admin
       .from("integration_health")
       .select("provider,status,last_error")
@@ -237,15 +234,13 @@ export default async function LaunchCentrePage() {
       ) &&
       Boolean(
         message.raw_json?.approval_id ||
-          (message.raw_json?.automation_approval_id &&
-            PROOF_REPLY_ACTION_KEYS.includes(
-              String(message.raw_json?.action_key || ""),
-            )),
+        (message.raw_json?.automation_approval_id &&
+          PROOF_REPLY_ACTION_KEYS.includes(
+            String(message.raw_json?.action_key || ""),
+          )),
       ),
   ).length;
-  const linkedGmailEnquiryCount = (
-    proofEnquiriesResult.data ?? []
-  ).filter(
+  const linkedGmailEnquiryCount = (proofEnquiriesResult.data ?? []).filter(
     (enquiry) =>
       enquiry.source === "gmail" &&
       enquiry.metadata?.test_data !== true &&
@@ -329,7 +324,7 @@ export default async function LaunchCentrePage() {
   const pilotScore = Math.round((totalCompleted / totalChecks) * 100);
 
   return (
-    <main className="space-y-6 bg-neutral-50 p-4 pb-28 md:p-6">
+    <div className="space-y-6">
       <section className="overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-blue-50 p-6 shadow-sm md:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
@@ -340,7 +335,8 @@ export default async function LaunchCentrePage() {
               Turn your Clippy workspace into a pilot-ready agency
             </h1>
             <p className="mt-2 text-neutral-600">
-              Complete one verified business flow before inviting agents or using automation.
+              Complete one verified business flow before inviting agents or
+              using automation.
             </p>
           </div>
           <div className="min-w-52 rounded-2xl border border-white/80 bg-white/80 p-5 shadow-sm backdrop-blur">
@@ -440,6 +436,6 @@ export default async function LaunchCentrePage() {
         </div>
         <ReadinessCards steps={productionProof.steps} />
       </section>
-    </main>
+    </div>
   );
 }

@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import {
+  isMessageDeleted,
+  isMessageHidden,
+  isMessageVisible,
+} from "@/lib/conversations/message-visibility";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const view =
+    req.nextUrl.searchParams.get("view") === "hidden" ? "hidden" : "visible";
   const ip = await getClientIp();
   const { allowed, remaining, resetAt } = checkRateLimit(ip, "conversations");
   if (!allowed) {
@@ -54,7 +61,9 @@ export async function GET(req: NextRequest) {
     const { data: messages, error: messagesError } = conversationIds.length
       ? await supabase
           .from("messages")
-          .select("id,conversation_id,direction_in_out,text,created_at,read_at")
+          .select(
+            "id,conversation_id,direction_in_out,text,created_at,read_at,raw_json",
+          )
           .eq("org_id", orgMember.org_id)
           .in("conversation_id", conversationIds)
           .order("created_at", { ascending: false })
@@ -62,11 +71,30 @@ export async function GET(req: NextRequest) {
       : { data: [], error: null };
     if (messagesError) throw messagesError;
 
+    const storedMessageCounts = new Map<string, number>();
+    const hiddenMessageCounts = new Map<string, number>();
+    for (const message of messages || []) {
+      storedMessageCounts.set(
+        message.conversation_id,
+        (storedMessageCounts.get(message.conversation_id) || 0) + 1,
+      );
+      if (isMessageDeleted(message)) continue;
+      if (isMessageHidden(message)) {
+        hiddenMessageCounts.set(
+          message.conversation_id,
+          (hiddenMessageCounts.get(message.conversation_id) || 0) + 1,
+        );
+      }
+    }
+
+    const messagesForView = (messages || []).filter((message) =>
+      view === "hidden" ? isMessageHidden(message) : isMessageVisible(message),
+    );
     const summaries = new Map<
       string,
       { latest_message: unknown; unread_count: number; message_count: number }
     >();
-    for (const message of messages || []) {
+    for (const message of messagesForView) {
       const summary = summaries.get(message.conversation_id) || {
         latest_message: null,
         unread_count: 0,
@@ -80,16 +108,22 @@ export async function GET(req: NextRequest) {
       summaries.set(message.conversation_id, summary);
     }
 
-    return NextResponse.json(
-      (conversations || []).map((conversation) => ({
+    const response = (conversations || [])
+      .map((conversation) => ({
         ...conversation,
         ...(summaries.get(conversation.id) || {
           latest_message: null,
           unread_count: 0,
           message_count: 0,
         }),
-      })),
-    );
+        hidden_count: hiddenMessageCounts.get(conversation.id) || 0,
+      }))
+      .filter((conversation) => {
+        if (view === "hidden") return conversation.message_count > 0;
+        const storedCount = storedMessageCounts.get(conversation.id) || 0;
+        return conversation.message_count > 0 || storedCount === 0;
+      });
+    return NextResponse.json(response);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

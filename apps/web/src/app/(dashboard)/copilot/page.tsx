@@ -244,5 +244,11 @@ export default async function Copilot({
       "google" | "inspection" | undefined,
   };
 
-  return <CopilotPage contextItems={items} initialContext={initialContext} />;
+  return (
+    <CopilotPage
+      contextItems={items}
+      initialContext={initialContext}
+      initialPrompt={firstParam(params.prompt)}
+    />
+  );
 }

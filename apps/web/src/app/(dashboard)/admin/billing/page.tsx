@@ -1,7 +1,15 @@
 "use client";
 export const dynamic = "force-dynamic";
 import { useState, useEffect } from "react";
-import { DollarSign, CreditCard, CheckCircle, AlertCircle, Download, ExternalLink, Loader2 } from "lucide-react";
+import {
+  DollarSign,
+  CreditCard,
+  CheckCircle,
+  AlertCircle,
+  Download,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
 
 interface Subscription {
   plan: string;
@@ -37,9 +45,8 @@ function formatCurrency(amount: number, currency: string = "usd"): string {
 }
 
 function formatDate(value: number | string): string {
-  const date = typeof value === "number"
-    ? new Date(value * 1000)
-    : new Date(value);
+  const date =
+    typeof value === "number" ? new Date(value * 1000) : new Date(value);
 
   return date.toLocaleDateString("en-AU", {
     month: "short",
@@ -123,6 +130,7 @@ export default function BillingPage() {
           </p>
         </div>
         <button
+          type="button"
           onClick={handleManageSubscription}
           disabled={portalLoading}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
@@ -190,16 +198,20 @@ export default function BillingPage() {
           <p className="text-xs text-muted-foreground">Payment status</p>
           <p
             className={`text-lg font-bold mt-1 ${
-              isPaid ? "text-emerald-600" : isPastDue ? "text-red-600" : "text-amber-600"
+              isPaid
+                ? "text-emerald-600"
+                : isPastDue
+                  ? "text-red-600"
+                  : "text-amber-600"
             }`}
           >
             {loading
               ? "—"
               : isPaid
-              ? "Current"
-              : isPastDue
-              ? "Past due"
-              : "No plan"}
+                ? "Current"
+                : isPastDue
+                  ? "Past due"
+                  : "No plan"}
           </p>
           {nextPayment && isPaid && (
             <p className="text-sm text-muted-foreground">
@@ -226,22 +238,37 @@ export default function BillingPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                >
                   Invoice
                 </th>
-                <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                >
                   Date
                 </th>
-                <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                >
                   Description
                 </th>
-                <th className="text-right p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="text-right p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                >
                   Amount
                 </th>
-                <th className="text-center p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="text-center p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                >
                   Status
                 </th>
-                <th className="p-4" />
+                <th scope="col" className="p-4" />
               </tr>
             </thead>
             <tbody>
@@ -281,9 +308,13 @@ export default function BillingPage() {
                           href={inv.hosted_invoice_url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          aria-label={`Open invoice from ${formatDate(inv.created)}`}
                           className="inline-flex items-center gap-1 p-1.5 rounded-lg hover:bg-muted transition-colors"
                         >
-                          <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                          <ExternalLink
+                            className="w-4 h-4 text-muted-foreground"
+                            aria-hidden="true"
+                          />
                         </a>
                       )}
                     </td>

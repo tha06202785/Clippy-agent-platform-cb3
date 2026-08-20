@@ -27,6 +27,7 @@ export async function deliverApprovedMessage({
   content,
   subject,
   threadId,
+  subjectMode = "reply",
 }: {
   admin: AdminClient;
   orgId: string;
@@ -35,6 +36,7 @@ export async function deliverApprovedMessage({
   content: string;
   subject?: string | null;
   threadId?: string | null;
+  subjectMode?: "reply" | "forward" | "plain";
 }) {
   const provider =
     channel === "email"
@@ -66,11 +68,17 @@ export async function deliverApprovedMessage({
     const credentials = await refreshGoogleCredentials(admin, orgId, stored);
     if (!credentials.access_token) throw new Error("Gmail access has expired");
     const safeRecipient = recipient.replace(/[\r\n]/g, "").trim();
-    const safeSubject = (subject || "Reply from your real estate agent")
+    const safeSubject = (subject || "Message from your real estate agent")
       .replace(/[\r\n]/g, " ")
-      .replace(/^\s*re:\s*/i, "")
+      .replace(/^\s*(?:re|fwd?):\s*/i, "")
       .trim();
-    const encodedSubject = `=?UTF-8?B?${Buffer.from(`Re: ${safeSubject}`, "utf8").toString("base64")}?=`;
+    const subjectPrefix =
+      subjectMode === "forward"
+        ? "Fwd: "
+        : subjectMode === "reply"
+          ? "Re: "
+          : "";
+    const encodedSubject = `=?UTF-8?B?${Buffer.from(`${subjectPrefix}${safeSubject}`, "utf8").toString("base64")}?=`;
     const encodedBody = Buffer.from(content, "utf8").toString("base64");
     const mime = [
       `To: ${safeRecipient}`,

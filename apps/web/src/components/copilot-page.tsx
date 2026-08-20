@@ -14,9 +14,6 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
-  Clipboard,
-  ExternalLink,
-  Mail,
   MessageCircle,
   Search,
   Send,
@@ -27,15 +24,20 @@ import {
   X,
 } from "lucide-react";
 import {
-  buildDraftLaunchUrl,
-  type ProposedInspectionSlotAction,
-  type ProposedDraftAction,
-} from "@/lib/copilot-actions";
-import {
   resolveInitialCopilotContextItem,
   type CopilotContextItem,
   type CopilotContextSelection,
 } from "@/lib/copilot-context";
+import type {
+  ProposedDraftAction,
+  ProposedInspectionSlotAction,
+} from "@/lib/copilot-actions";
+import {
+  DraftApprovalCard,
+  InspectionSlotApprovalCard,
+  type DraftActionState,
+  type InspectionSlotActionState,
+} from "@/components/copilot/action-cards";
 
 const quickActions = [
   {
@@ -73,20 +75,6 @@ type ChatMessage = {
   contextLabel?: string;
   draftAction?: DraftActionState;
   slotAction?: InspectionSlotActionState;
-};
-
-type InspectionSlotActionState = ProposedInspectionSlotAction & {
-  status: "pending" | "creating" | "created";
-  error?: string;
-  slotId?: string;
-};
-
-type DraftActionState = ProposedDraftAction & {
-  context: CopilotContextSelection;
-  status: "draft" | "approving" | "approved";
-  error?: string;
-  approvedAt?: string;
-  sent?: boolean;
 };
 
 const contextGroups = [
@@ -153,377 +141,14 @@ function updateContextUrl(context?: CopilotContextSelection) {
   window.history.replaceState({}, "", `${url.pathname}${url.search}`);
 }
 
-function DraftApprovalCard({
-  action,
-  onChange,
-  onApprove,
-}: {
-  action: DraftActionState;
-  onChange: (patch: Partial<DraftActionState>) => void;
-  onApprove: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const launchUrl = buildDraftLaunchUrl(action);
-  const channelLabel =
-    action.channel === "sms"
-      ? "Text"
-      : action.channel === "whatsapp"
-        ? "WhatsApp"
-        : action.channel === "email"
-          ? "Email"
-          : "Copy";
-
-  const copyDraft = async () => {
-    await navigator.clipboard.writeText(action.content);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  };
-
-  const openDraft = () => {
-    if (!launchUrl) return;
-    if (launchUrl.startsWith("https://")) {
-      window.open(launchUrl, "_blank", "noopener,noreferrer");
-    } else {
-      window.location.href = launchUrl;
-    }
-  };
-
-  return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/70">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 px-4 py-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-amber-700" />
-            <h3 className="text-sm font-semibold text-neutral-900">
-              {action.title}
-            </h3>
-          </div>
-          <p className="mt-0.5 text-[11px] text-neutral-500">
-            {action.status === "approved"
-              ? action.sent
-                ? "Approved and delivered through the connected channel"
-                : "Approved and ready for your final send"
-              : "Review and edit before approval"}
-          </p>
-        </div>
-        <span
-          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.05em] ${
-            action.status === "approved"
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-amber-100 text-amber-700"
-          }`}
-        >
-          {action.status === "approved"
-            ? action.sent
-              ? "Sent"
-              : "Approved"
-            : "Approval required"}
-        </span>
-      </div>
-
-      <div className="space-y-3 p-4">
-        {action.adaptiveIntelligence && (
-          <div className="flex items-start gap-2 rounded-xl border border-violet-100 bg-violet-50 px-3 py-2.5 text-xs text-violet-900">
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
-            <div>
-              <p className="font-semibold">Adapted to your Agent DNA</p>
-              <p className="mt-0.5 text-[11px] leading-5 text-violet-700">
-                {action.adaptiveIntelligence.examplesUsed > 0
-                  ? `${action.adaptiveIntelligence.examplesUsed} similar sanitised example${action.adaptiveIntelligence.examplesUsed === 1 ? "" : "s"}`
-                  : "Learned style profile"}
-                {action.adaptiveIntelligence.clientPreferences.length > 0
-                  ? ` · ${action.adaptiveIntelligence.clientPreferences.length} client preference${action.adaptiveIntelligence.clientPreferences.length === 1 ? "" : "s"}`
-                  : ""}
-                {` · ${action.adaptiveIntelligence.profileConfidence}% confidence`}
-              </p>
-            </div>
-          </div>
-        )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-neutral-400">
-              Channel
-            </span>
-            <p className="mt-1 text-xs font-semibold text-neutral-800">
-              {channelLabel}
-            </p>
-          </div>
-          <div>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-neutral-400">
-              Recipient
-            </span>
-            <p className="mt-1 truncate text-xs font-semibold text-neutral-800">
-              {action.recipient.name ||
-                action.recipient.email ||
-                action.recipient.phone ||
-                "No recipient selected"}
-            </p>
-          </div>
-        </div>
-
-        {action.channel === "email" && (
-          <label className="block">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-neutral-400">
-              Subject
-            </span>
-            <input
-              value={action.subject || ""}
-              onChange={(event) => onChange({ subject: event.target.value })}
-              disabled={action.status === "approved"}
-              className="mt-1 h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:bg-neutral-50"
-            />
-          </label>
-        )}
-
-        <label className="block">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-neutral-400">
-            Draft
-          </span>
-          <textarea
-            value={action.content}
-            onChange={(event) => onChange({ content: event.target.value })}
-            disabled={action.status === "approved"}
-            rows={7}
-            className="mt-1 w-full resize-y rounded-xl border border-neutral-200 bg-white p-3 text-sm leading-6 text-neutral-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:bg-neutral-50"
-          />
-        </label>
-
-        {action.error && (
-          <p
-            role="alert"
-            className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700"
-          >
-            {action.error}
-          </p>
-        )}
-
-        {action.status === "approved" ? (
-          <div className="space-y-2">
-            {action.sent ? (
-              <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-100 px-4 py-3 text-xs font-semibold text-emerald-800">
-                <CheckCircle2 className="h-4 w-4" />
-                Delivered successfully. Clippy recorded your final version for
-                learning.
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {launchUrl && (
-                  <button
-                    type="button"
-                    onClick={openDraft}
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Open {channelLabel}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => void copyDraft()}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50"
-                >
-                  <Clipboard className="h-4 w-4" />
-                  {copied ? "Copied" : "Copy approved text"}
-                </button>
-              </div>
-            )}
-            <p className="text-center text-[11px] text-neutral-500">
-              {action.sent
-                ? "Delivery is recorded in the selected conversation."
-                : "Approval is recorded. Opening the channel does not mean the message has been sent."}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={onApprove}
-              disabled={action.status === "approving" || !action.content.trim()}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              {action.status === "approving"
-                ? "Recording approval…"
-                : "Approve this draft"}
-            </button>
-            <p className="text-center text-[11px] text-neutral-500">
-              Nothing is sent when you approve. You choose the final send in
-              your email or messaging app.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function InspectionSlotApprovalCard({
-  action,
-  onChange,
-  onApprove,
-}: {
-  action: InspectionSlotActionState;
-  onChange: (patch: Partial<InspectionSlotActionState>) => void;
-  onApprove: () => void;
-}) {
-  const format = (value: string) =>
-    new Intl.DateTimeFormat("en-AU", {
-      dateStyle: "full",
-      timeStyle: "short",
-      timeZone: "Australia/Melbourne",
-    }).format(new Date(value));
-  const proposedSlots = action.slots?.length
-    ? action.slots
-    : [
-        {
-          startsAt: action.startsAt,
-          endsAt: action.endsAt,
-          conflicts: action.conflicts,
-          alternativeSlots: action.alternativeSlots,
-        },
-      ];
-  const unresolvedConflicts = proposedSlots.reduce(
-    (total, slot) => total + slot.conflicts.length,
-    0,
-  );
-  const selectAlternative = (
-    index: number,
-    alternative: { startsAt: string; endsAt: string },
-  ) => {
-    const slots = proposedSlots.map((slot, slotIndex) =>
-      slotIndex === index
-        ? { ...slot, ...alternative, conflicts: [], alternativeSlots: [] }
-        : slot,
-    );
-    onChange({
-      slots,
-      ...(index === 0
-        ? {
-            startsAt: alternative.startsAt,
-            endsAt: alternative.endsAt,
-            conflicts: [],
-            alternativeSlots: [],
-          }
-        : {}),
-      error: undefined,
-    });
-  };
-  return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/70">
-      <div className="flex items-center justify-between gap-3 border-b border-emerald-200 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="h-4 w-4 text-emerald-700" />
-          <h3 className="text-sm font-semibold text-neutral-900">
-            {action.title}
-          </h3>
-        </div>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-          {action.status === "created" ? "Created" : "Approval required"}
-        </span>
-      </div>
-      <div className="space-y-3 p-4 text-sm text-neutral-800">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-            Property
-          </p>
-          <p className="font-semibold">{action.propertyAddress}</p>
-        </div>
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-            {proposedSlots.length === 1
-              ? "Time"
-              : `${proposedSlots.length} inspection times`}
-          </p>
-          <div className="mt-2 space-y-2">
-            {proposedSlots.map((slot, index) => (
-              <div
-                key={`${slot.startsAt}:${index}`}
-                className="rounded-xl border border-neutral-200 bg-white p-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold">{format(slot.startsAt)}</p>
-                  <span
-                    className={`text-[10px] font-semibold uppercase ${slot.conflicts.length ? "text-amber-700" : "text-emerald-700"}`}
-                  >
-                    {slot.conflicts.length ? "Conflict" : "Available"}
-                  </span>
-                </div>
-                {slot.conflicts.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-xs font-medium text-amber-800">
-                      {slot.conflicts[0].title || "Calendar conflict"} — choose
-                      another time:
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {slot.alternativeSlots.map((alternative) => (
-                        <button
-                          key={alternative.startsAt}
-                          type="button"
-                          onClick={() => selectAlternative(index, alternative)}
-                          className="rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
-                        >
-                          {new Intl.DateTimeFormat("en-AU", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            timeZone: "Australia/Melbourne",
-                          }).format(new Date(alternative.startsAt))}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-neutral-500">
-            30 minutes each · capacity {action.capacity}
-          </p>
-        </div>
-        {action.error && (
-          <p
-            role="alert"
-            className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700"
-          >
-            {action.error}
-          </p>
-        )}
-        {action.status === "created" ? (
-          <p className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-700">
-            <CheckCircle2 className="h-4 w-4" />{" "}
-            {proposedSlots.length === 1
-              ? "Inspection slot"
-              : `${proposedSlots.length} inspection slots`}{" "}
-            published and recorded.
-          </p>
-        ) : (
-          <button
-            type="button"
-            onClick={onApprove}
-            disabled={action.status === "creating" || unresolvedConflicts > 0}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            {action.status === "creating"
-              ? "Creating slot…"
-              : proposedSlots.length === 1
-                ? "Approve and create slot"
-                : `Approve and create ${proposedSlots.length} slots`}
-          </button>
-        )}
-        <p className="text-center text-[11px] text-neutral-500">
-          Clippy will re-check conflicts immediately before creation.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export function CopilotPage({
   contextItems,
   initialContext,
+  initialPrompt = "",
 }: {
   contextItems: CopilotContextItem[];
   initialContext: CopilotContextSelection;
+  initialPrompt?: string;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -533,7 +158,7 @@ export function CopilotPage({
         "G'day! I'm Clippy. Choose the client, property, enquiry or conversation I should work with, then tell me what you need.",
     },
   ]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => initialPrompt.slice(0, 12_000));
   const [loading, setLoading] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
   const [contextOpen, setContextOpen] = useState(false);
@@ -547,6 +172,13 @@ export function CopilotPage({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (!initialPrompt) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("prompt");
+    window.history.replaceState(null, "", url.toString());
+  }, [initialPrompt]);
 
   useEffect(() => {
     if (contextOpen) searchRef.current?.focus();

@@ -6,6 +6,19 @@ import { CRM_OPTIONS, crmName } from "@/lib/crm-catalog";
 import { buildOnboardingSummary } from "@/lib/onboarding";
 import { BrandLogo } from "@/components/brand-logo";
 
+interface ImportResults {
+  contacts: number;
+  listings: number;
+  inspections: number;
+  calendar_events: number;
+}
+
+interface ImportProgressItem {
+  name: string;
+  count: number;
+  done: boolean;
+}
+
 const agencyTypes = [
   { id: "residential_sales", label: "Residential Sales", icon: "🏠" },
   { id: "property_management", label: "Property Management", icon: "🔑" },
@@ -39,13 +52,13 @@ export default function OnboardingWizard() {
   const router = useRouter();
   const [phase, setPhase] = useState(0);
   const [importing, setImporting] = useState(false);
-  const [importResults, setImportResults] = useState<any>({
+  const [importResults, setImportResults] = useState<ImportResults>({
     contacts: 0,
     listings: 0,
     inspections: 0,
     calendar_events: 0,
   });
-  const [importProgress, setImportProgress] = useState<any[]>([
+  const [importProgress, setImportProgress] = useState<ImportProgressItem[]>([
     { name: "Contacts & Leads", count: 0, done: false },
     { name: "Listings", count: 0, done: false },
     { name: "Inspections", count: 0, done: false },
@@ -78,7 +91,9 @@ export default function OnboardingWizard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-      const result = await response.json().catch(() => ({}));
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
       if (!response.ok) {
         throw new Error(result.error || "Unable to save agency setup");
       }
@@ -97,24 +112,29 @@ export default function OnboardingWizard() {
     setImportError("");
     try {
       const response = await fetch("/api/import", { method: "POST" });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.success) {
+      const data = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+        results?: ImportResults;
+      };
+      if (!response.ok || !data.success || !data.results) {
         throw new Error(data.error || "Business data could not be imported");
       }
 
-      setImportResults(data.results);
+      const results = data.results;
+      setImportResults(results);
       setImportCompleted(true);
       setImportProgress([
         {
           name: "Contacts & Leads",
-          count: data.results.contacts,
+          count: results.contacts,
           done: true,
         },
-        { name: "Listings", count: data.results.listings, done: true },
-        { name: "Inspections", count: data.results.inspections, done: true },
+        { name: "Listings", count: results.listings, done: true },
+        { name: "Inspections", count: results.inspections, done: true },
         {
           name: "Calendar Events",
-          count: data.results.calendar_events,
+          count: results.calendar_events,
           done: true,
         },
       ]);
@@ -142,7 +162,10 @@ export default function OnboardingWizard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ importCompleted }),
       });
-      const result = await response.json().catch(() => ({}));
+      const result = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+      };
       if (!response.ok || !result.success) {
         throw new Error(
           result.error || "Onboarding completion could not be saved",
@@ -186,8 +209,8 @@ export default function OnboardingWizard() {
               "Import your listings and contacts",
               "Learn your writing style",
               "Be ready to help immediately",
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
+            ].map((item) => (
+              <div key={item} className="flex items-center gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <Check className="w-3.5 h-3.5 text-primary" />
                 </div>
@@ -206,6 +229,7 @@ export default function OnboardingWizard() {
           </div>
 
           <button
+            type="button"
             onClick={() => setPhase(1)}
             className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
           >
@@ -230,10 +254,14 @@ export default function OnboardingWizard() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label
+                htmlFor="agency-name"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
                 Agency Name
               </label>
               <input
+                id="agency-name"
                 type="text"
                 value={formData.agencyName}
                 onChange={(e) =>
@@ -244,17 +272,19 @@ export default function OnboardingWizard() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+            <fieldset>
+              <legend className="block text-sm font-medium text-foreground mb-2">
                 Agency Type
-              </label>
+              </legend>
               <div className="grid grid-cols-2 gap-2">
                 {agencyTypes.map((type) => (
                   <button
+                    type="button"
                     key={type.id}
                     onClick={() =>
                       setFormData({ ...formData, agencyType: type.id })
                     }
+                    aria-pressed={formData.agencyType === type.id}
                     className={
                       "p-3 rounded-xl border-2 transition-all text-left " +
                       (formData.agencyType === type.id
@@ -267,13 +297,17 @@ export default function OnboardingWizard() {
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label
+                htmlFor="agency-size"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
                 Agency Size
               </label>
               <select
+                id="agency-size"
                 value={formData.agencySize}
                 onChange={(e) =>
                   setFormData({ ...formData, agencySize: e.target.value })
@@ -290,10 +324,14 @@ export default function OnboardingWizard() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label
+                htmlFor="agency-location"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
                 Office Location
               </label>
               <input
+                id="agency-location"
                 type="text"
                 value={formData.location}
                 onChange={(e) =>
@@ -304,17 +342,19 @@ export default function OnboardingWizard() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+            <fieldset>
+              <legend className="block text-sm font-medium text-foreground mb-2">
                 Brand Personality
-              </label>
+              </legend>
               <div className="grid grid-cols-2 gap-2">
                 {brandPersonalities.map((brand) => (
                   <button
+                    type="button"
                     key={brand.id}
                     onClick={() =>
                       setFormData({ ...formData, brandPersonality: brand.id })
                     }
+                    aria-pressed={formData.brandPersonality === brand.id}
                     className={
                       "p-3 rounded-xl border-2 transition-all text-left " +
                       (formData.brandPersonality === brand.id
@@ -329,10 +369,11 @@ export default function OnboardingWizard() {
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
           </div>
 
           <button
+            type="button"
             onClick={() => setPhase(2)}
             disabled={!formData.agencyName || !formData.agencyType}
             className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -362,7 +403,11 @@ export default function OnboardingWizard() {
 
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+            <label className="sr-only" htmlFor="crm-search">
+              Search your CRM
+            </label>
             <input
+              id="crm-search"
               value={crmSearch}
               onChange={(event) => setCrmSearch(event.target.value)}
               placeholder="Search your CRM"
@@ -384,6 +429,7 @@ export default function OnboardingWizard() {
                   onClick={() =>
                     setFormData({ ...formData, primaryCrm: crm.id })
                   }
+                  aria-pressed={selected}
                   className={`group rounded-2xl border-2 p-4 text-left transition-all ${
                     selected
                       ? "border-primary bg-primary/5 shadow-md"
@@ -420,10 +466,14 @@ export default function OnboardingWizard() {
 
           {formData.primaryCrm === "other" && (
             <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">
+              <label
+                htmlFor="other-crm-name"
+                className="mb-2 block text-sm font-medium text-foreground"
+              >
                 CRM or platform name
               </label>
               <input
+                id="other-crm-name"
                 value={formData.otherCrmName}
                 onChange={(event) =>
                   setFormData({
@@ -454,6 +504,7 @@ export default function OnboardingWizard() {
           )}
 
           <button
+            type="button"
             onClick={saveAgencySetup}
             disabled={
               loading ||
@@ -521,9 +572,9 @@ export default function OnboardingWizard() {
                 icon: "📸",
                 endpoint: "/api/integrations/facebook",
               },
-            ].map((item, i) => (
+            ].map((item) => (
               <div
-                key={i}
+                key={item.name}
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
               >
                 <span className="text-2xl">{item.icon}</span>
@@ -534,6 +585,7 @@ export default function OnboardingWizard() {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => (window.location.href = item.endpoint)}
                   className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
                 >
@@ -550,6 +602,7 @@ export default function OnboardingWizard() {
           </div>
 
           <button
+            type="button"
             onClick={() => setPhase(4)}
             className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
           >
@@ -580,9 +633,9 @@ export default function OnboardingWizard() {
                   <span className="font-medium">Importing your data...</span>
                 </div>
                 <div className="space-y-2">
-                  {importProgress.map((item, i) => (
+                  {importProgress.map((item) => (
                     <div
-                      key={i}
+                      key={item.name}
                       className="flex items-center justify-between text-sm"
                     >
                       <span className="text-muted-foreground">{item.name}</span>
@@ -620,9 +673,9 @@ export default function OnboardingWizard() {
                   item: "Calendar Events",
                   count: importResults.calendar_events || "Auto-detect",
                 },
-              ].map((item, i) => (
+              ].map((item) => (
                 <div
-                  key={i}
+                  key={item.item}
                   className="flex items-center justify-between p-4 rounded-xl border border-border bg-card"
                 >
                   <span className="font-medium text-sm">{item.item}</span>
@@ -646,6 +699,7 @@ export default function OnboardingWizard() {
           {!importing && (
             <div className="grid gap-3 sm:grid-cols-2">
               <button
+                type="button"
                 onClick={handleImport}
                 className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
@@ -715,6 +769,7 @@ export default function OnboardingWizard() {
           )}
 
           <button
+            type="button"
             onClick={completeOnboarding}
             disabled={completionLoading}
             className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-60"

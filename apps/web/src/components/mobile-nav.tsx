@@ -27,7 +27,10 @@ export function MobileNav() {
   useEffect(() => setPendingHref(null), [pathname]);
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border safe-area-bottom">
+    <nav
+      aria-label="Mobile navigation"
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-xl safe-area-bottom lg:hidden"
+    >
       <div className="flex items-center justify-around h-16 px-2">
         {items.map((item) => {
           const Icon = item.icon;
@@ -54,9 +57,12 @@ export function MobileNav() {
               )}
             >
               {pending ? (
-                <LoaderCircle className="h-5 w-5 animate-spin" />
+                <LoaderCircle
+                  className="h-5 w-5 motion-safe:animate-spin"
+                  aria-hidden="true"
+                />
               ) : (
-                <Icon className="h-5 w-5" />
+                <Icon className="h-5 w-5" aria-hidden="true" />
               )}
               <span className="max-w-full truncate text-[9px] font-medium">
                 {item.label}

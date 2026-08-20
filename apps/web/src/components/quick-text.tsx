@@ -1,6 +1,14 @@
 "use client";
 import { useState } from "react";
-import { Send, X, Sparkles } from "lucide-react";
+import { Send, Sparkles } from "lucide-react";
+import { Button, Textarea, cn } from "@clippy/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const templates = [
   "Hi {name}, just following up on our conversation about {property}. Let me know if you have any questions!",
@@ -9,62 +17,107 @@ const templates = [
   "Thanks for your interest in {property}. I have sent through the details. Let me know your thoughts!",
 ];
 
+const suggestionLabels = [
+  "Follow up",
+  "Share property",
+  "Confirm appointment",
+  "Send details",
+];
+
 interface QuickTextProps {
   onClose: () => void;
   contactName?: string;
   contactPhone?: string;
 }
 
-export function QuickText({ onClose, contactName, contactPhone }: QuickTextProps) {
+export function QuickText({
+  onClose,
+  contactName,
+  contactPhone,
+}: QuickTextProps) {
   const [message, setMessage] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
 
   const handleTemplate = (idx: number) => {
     setSelectedTemplate(idx);
-    setMessage(templates[idx].replace(/{name}/g, contactName || "there").replace(/{property}/g, "your dream home").replace(/{date}/g, "tomorrow").replace(/{time}/g, "2pm"));
+    setMessage(
+      templates[idx]
+        .replace(/{name}/g, contactName || "there")
+        .replace(/{property}/g, "your dream home")
+        .replace(/{date}/g, "tomorrow")
+        .replace(/{time}/g, "2pm"),
+    );
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
-      <div className="bg-card rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-md shadow-xl animate-slide-up">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-foreground">Quick text</h2>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors">
-            <X className="w-5 h-5 text-muted-foreground" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="mb-4">
+          <DialogTitle>Quick text</DialogTitle>
+          <DialogDescription>
+            Choose a starting point, then review the message before selecting a
+            channel.
+          </DialogDescription>
+        </DialogHeader>
         {contactName && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted mb-4">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xs">
-              {contactName.split(" ").map(n => n[0]).join("")}
+          <div className="mb-4 flex items-center gap-2 rounded-lg bg-muted p-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+              {contactName
+                .split(" ")
+                .map((name) => name[0])
+                .join("")}
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">{contactName}</p>
+              <p className="text-sm font-medium text-foreground">
+                {contactName}
+              </p>
               <p className="text-xs text-muted-foreground">{contactPhone}</p>
             </div>
           </div>
         )}
         <div className="mb-4">
-          <div className="flex items-center gap-1 mb-2">
-            <Sparkles className="w-3 h-3 text-primary" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">AI suggestions</span>
+          <div className="mb-2 flex items-center gap-1">
+            <Sparkles className="h-3 w-3 text-primary" aria-hidden="true" />
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              AI suggestions
+            </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {["Follow up", "Schedule tour", "Confirm appointment", "Share property", "Price drop"].map((t) => (
-              <button key={t} className="px-2.5 py-1 rounded-full bg-muted text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors">{t}</button>
+            {suggestionLabels.map((label, index) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => handleTemplate(index)}
+                aria-pressed={selectedTemplate === index}
+                className={cn(
+                  "rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  selectedTemplate === index && "bg-primary/10 text-primary",
+                )}
+              >
+                {label}
+              </button>
             ))}
           </div>
         </div>
-        <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type your message..." rows={3}
-          className="w-full p-3 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
-        <div className="flex items-center gap-2 mt-4">
-          <button disabled={!message.trim()}
-            className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-            <Send className="w-4 h-4" /> Send via WhatsApp
-          </button>
-          <button className="px-4 py-3 border border-border rounded-xl text-sm text-muted-foreground hover:bg-muted transition-colors">SMS</button>
+        <label className="sr-only" htmlFor="quick-text-message">
+          Message
+        </label>
+        <Textarea
+          id="quick-text-message"
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          placeholder="Type your message…"
+          rows={4}
+        />
+        <div className="mt-4 flex items-center gap-2">
+          <Button className="min-h-12 flex-1" disabled={!message.trim()}>
+            <Send className="h-4 w-4" aria-hidden="true" /> Send via WhatsApp
+          </Button>
+          <Button className="min-h-12" variant="outline">
+            SMS
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

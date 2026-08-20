@@ -9,6 +9,7 @@ import {
   normaliseImportEmail,
   normaliseImportPhone,
 } from "@/lib/crm-import-deduplication";
+import { isLikelyRealEstateLead } from "@/lib/integrations/gmail-relevance";
 
 export const dynamic = "force-dynamic";
 
@@ -31,57 +32,14 @@ const buildInfo = () => ({
 
 const elapsed = (startedAt: number) => Date.now() - startedAt;
 
-const REAL_ESTATE_TERMS = [
-  "property",
-  "inspection",
-  "inspect",
-  "open home",
-  "open house",
-  "listing",
-  "buyer",
-  "buying",
-  "vendor",
-  "selling",
-  "rental",
-  "rent",
-  "lease",
-  "tenant",
-  "apartment",
-  "townhouse",
-  "auction",
-  "offer",
-  "real estate",
-  "enquiry",
-  "inquiry",
-  "domain.com.au",
-  "realestate.com.au",
-];
-
-const NON_LEAD_TERMS = [
-  "unsubscribe",
-  "newsletter",
-  "receipt",
-  "invoice",
-  "security alert",
-  "password",
-  "verification code",
-  "one-time code",
-  "order confirmation",
-  "delivery update",
-  "statement available",
-  "marketing preferences",
-];
-
 function isRelevantStoredEmail(document: any) {
   const metadata = document.source_metadata || {};
-  const email = String(metadata.email_address || "");
-  const content =
-    `${document.title || ""} ${metadata.body || ""}`.toLowerCase();
-  if (!email || /^(no-?reply|notifications?|mailer-daemon)@/i.test(email)) {
-    return false;
-  }
-  if (NON_LEAD_TERMS.some((term) => content.includes(term))) return false;
-  return REAL_ESTATE_TERMS.some((term) => content.includes(term));
+  return isLikelyRealEstateLead({
+    source: "email",
+    title: String(document.title || ""),
+    content: String(document.content || metadata.body || ""),
+    metadata,
+  });
 }
 
 export async function GET() {
@@ -252,7 +210,7 @@ export async function GET() {
           .limit(2000),
         supabase
           .from("knowledge_documents")
-          .select("id,title,status,source_metadata")
+          .select("id,title,content,status,source_metadata")
           .eq("org_id", orgId)
           .eq("source", "email")
           .limit(2000),

@@ -4,6 +4,7 @@ import {
   embedKnowledge,
   KNOWLEDGE_EMBEDDING_MODEL,
 } from "@/lib/knowledge-indexing";
+import { isMessageVisible } from "@/lib/conversations/message-visibility";
 
 type SupabaseLike = any;
 type JsonRecord = Record<string, unknown>;
@@ -1044,6 +1045,7 @@ export async function learnFromStoredMessages(
   let learned = 0;
   let preferences = 0;
   for (const message of messages || []) {
+    if (!isMessageVisible(message)) continue;
     const conversation = relatedConversation(message.conversations);
     const channel = String(conversation.channel || "unknown");
     if (settings.excluded_channels.includes(channel)) continue;

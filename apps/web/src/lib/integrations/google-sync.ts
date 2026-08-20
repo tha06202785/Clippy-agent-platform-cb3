@@ -18,6 +18,14 @@ import {
   resanitiseStoredCommunicationExamples,
   storeCommunicationExample,
 } from "@/lib/adaptive-learning";
+import { isLikelyRealEstateLead } from "@/lib/integrations/gmail-relevance";
+import {
+  hideMessageRaw,
+  isMessageVisible,
+  messageRaw,
+} from "@/lib/conversations/message-visibility";
+
+export { isLikelyRealEstateLead } from "@/lib/integrations/gmail-relevance";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
@@ -58,92 +66,6 @@ export async function mapWithConcurrency<T, R>(
   );
   return results;
 }
-const REAL_ESTATE_TERMS = [
-  "property",
-  "inspection",
-  "inspect",
-  "open home",
-  "open house",
-  "listing",
-  "buyer",
-  "buying",
-  "vendor",
-  "selling",
-  "rental",
-  "rent",
-  "lease",
-  "tenant",
-  "apartment",
-  "townhouse",
-  "auction",
-  "offer",
-  "real estate",
-  "enquiry",
-  "inquiry",
-  "domain.com.au",
-  "realestate.com.au",
-];
-const NON_LEAD_TERMS = [
-  "unsubscribe",
-  "newsletter",
-  "receipt",
-  "invoice",
-  "security alert",
-  "password",
-  "verification code",
-  "one-time code",
-  "order confirmation",
-  "delivery update",
-  "statement available",
-  "marketing preferences",
-  "manage preferences",
-  "email preferences",
-  "view in browser",
-  "view this email",
-  "read online",
-  "weekly digest",
-  "issue #",
-];
-const LEAD_INTENT_TERMS = [
-  "i'm interested",
-  "i am interested",
-  "interested in",
-  "would like to inspect",
-  "book an inspection",
-  "arrange an inspection",
-  "request an inspection",
-  "inspection still available",
-  "available for inspection",
-  "make an offer",
-  "want to buy",
-  "want to rent",
-  "looking to buy",
-  "looking to rent",
-  "enquiring about",
-  "inquiring about",
-  "contact me",
-];
-const LEAD_SUBJECT_TERMS = [
-  "enquiry",
-  "inquiry",
-  "inspection",
-  "buyer",
-  "rental application",
-  "offer",
-];
-const LEAD_FOLLOW_UP_TERMS = [
-  "confirmation",
-  "confirm my",
-  "didn't get",
-  "didn’t get",
-  "did not get",
-  "haven't received",
-  "haven’t received",
-  "have not received",
-  "not received",
-  "waiting for",
-  "please resend",
-];
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -478,41 +400,6 @@ async function resolveGmailEnquiry({
   return { enquiryId: created.id, listingId };
 }
 
-export function isLikelyRealEstateLead(item: GoogleKnowledgeItem): boolean {
-  if (item.source !== "email") return false;
-  const email = String(item.metadata.email_address || "");
-  const subject = item.title.toLowerCase();
-  const content = `${item.title} ${item.content}`.toLowerCase();
-  if (!email) return false;
-
-  const trustedPortal = /@(domain\.com\.au|realestate\.com\.au)$/i.test(email);
-  const automatedSender = /^(no-?reply|notifications?|mailer-daemon)@/i.test(
-    email,
-  );
-  if (automatedSender && !trustedPortal) return false;
-  if (NON_LEAD_TERMS.some((term) => content.includes(term))) return false;
-
-  const hasIntent = LEAD_INTENT_TERMS.some((term) => content.includes(term));
-  const hasRealEstateContext = REAL_ESTATE_TERMS.some((term) =>
-    content.includes(term),
-  );
-  const subjectLooksLikeLead = LEAD_SUBJECT_TERMS.some((term) =>
-    subject.includes(term),
-  );
-  const hasFollowUpIntent = LEAD_FOLLOW_UP_TERMS.some((term) =>
-    content.includes(term),
-  );
-  const linkCount = content.match(/https?:\/\//g)?.length || 0;
-  if (linkCount >= 3 && !hasIntent && !trustedPortal) return false;
-
-  return (
-    hasIntent ||
-    (hasFollowUpIntent && hasRealEstateContext) ||
-    (subjectLooksLikeLead && hasRealEstateContext) ||
-    (trustedPortal && hasRealEstateContext)
-  );
-}
-
 export function calendarEventToKnowledge(
   event: CalendarEvent,
 ): GoogleKnowledgeItem | null {
@@ -698,8 +585,292 @@ async function fetchGmailItems(
   );
   return messages
     .map((message) => (message ? gmailMessageToKnowledge(message) : null))
-    .filter((item): item is GoogleKnowledgeItem => Boolean(item))
-    .filter(isLikelyRealEstateLead);
+    .filter((item): item is GoogleKnowledgeItem => Boolean(item));
+}
+
+function storedMessageToGmailItem(message: {
+  id?: string;
+  text?: string | null;
+  created_at?: string | null;
+  raw_json?: unknown;
+}): GoogleKnowledgeItem | null {
+  const raw = messageRaw(message.raw_json);
+  const externalId = String(raw.external_message_id || message.id || "");
+  if (!externalId) return null;
+  const subject = String(raw.subject || "(No subject)");
+  const from = String(raw.from || "");
+  const body = String(message.text || "").trim();
+  if (!body) return null;
+  return {
+    externalId,
+    revision: String(message.created_at || externalId),
+    source: "email",
+    title: subject,
+    content: `${subject}\n${body}`,
+    metadata: {
+      email_address: extractEmailAddress(from),
+      from,
+      body,
+      thread_id: raw.gmail_thread_id || raw.external_thread_id || null,
+    },
+  };
+}
+
+async function filterGmailItemsForImport(
+  admin: AdminClient,
+  orgId: string,
+  items: GoogleKnowledgeItem[],
+): Promise<GoogleKnowledgeItem[]> {
+  const directlyRelevant = new Set(
+    items.filter(isLikelyRealEstateLead).map((item) => String(item.externalId)),
+  );
+  const unresolvedThreadIds = Array.from(
+    new Set(
+      items
+        .filter((item) => !directlyRelevant.has(item.externalId))
+        .map((item) => String(item.metadata.thread_id || ""))
+        .filter(Boolean),
+    ),
+  );
+  if (!unresolvedThreadIds.length) {
+    return items.filter((item) => directlyRelevant.has(item.externalId));
+  }
+
+  const { data: conversations, error: conversationError } = await admin
+    .from("conversations")
+    .select("id,external_thread_id")
+    .eq("org_id", orgId)
+    .eq("channel", "email")
+    .in("external_thread_id", unresolvedThreadIds);
+  if (conversationError) {
+    throw new Error(
+      `Gmail relevance thread lookup failed: ${conversationError.code}`,
+    );
+  }
+  const conversationIds = (conversations || []).map(
+    (conversation) => conversation.id,
+  );
+  if (!conversationIds.length) {
+    return items.filter((item) => directlyRelevant.has(item.externalId));
+  }
+
+  const { data: storedMessages, error: messageError } = await admin
+    .from("messages")
+    .select("id,conversation_id,text,created_at,raw_json")
+    .eq("org_id", orgId)
+    .in("conversation_id", conversationIds)
+    .order("created_at", { ascending: false })
+    .limit(1_000);
+  if (messageError) {
+    throw new Error(`Gmail relevance history failed: ${messageError.code}`);
+  }
+
+  const confirmedConversationIds = new Set<string>();
+  for (const message of storedMessages || []) {
+    if (!isMessageVisible(message)) continue;
+    const candidate = storedMessageToGmailItem(message);
+    if (candidate && isLikelyRealEstateLead(candidate)) {
+      confirmedConversationIds.add(message.conversation_id);
+    }
+  }
+  const confirmedThreadIds = new Set(
+    (conversations || [])
+      .filter((conversation) => confirmedConversationIds.has(conversation.id))
+      .map((conversation) => String(conversation.external_thread_id || ""))
+      .filter(Boolean),
+  );
+
+  return items.filter(
+    (item) =>
+      directlyRelevant.has(item.externalId) ||
+      confirmedThreadIds.has(String(item.metadata.thread_id || "")),
+  );
+}
+
+async function quarantineIrrelevantStoredGmail(
+  admin: AdminClient,
+  orgId: string,
+) {
+  const { data: conversations, error: conversationError } = await admin
+    .from("conversations")
+    .select("id,listing_id")
+    .eq("org_id", orgId)
+    .eq("channel", "email")
+    .limit(500);
+  if (conversationError) {
+    throw new Error(`Gmail cleanup lookup failed: ${conversationError.code}`);
+  }
+
+  const conversationIds = (conversations || []).map(
+    (conversation) => conversation.id,
+  );
+  const { data: storedMessages, error: messageError } = conversationIds.length
+    ? await admin
+        .from("messages")
+        .select(
+          "id,conversation_id,direction_in_out,text,created_at,read_at,raw_json",
+        )
+        .eq("org_id", orgId)
+        .in("conversation_id", conversationIds)
+        .order("created_at", { ascending: false })
+        .limit(5_000)
+    : { data: [], error: null };
+  if (messageError) {
+    throw new Error(`Gmail cleanup history failed: ${messageError.code}`);
+  }
+
+  const byConversation = new Map<string, typeof storedMessages>();
+  for (const message of storedMessages || []) {
+    const history = byConversation.get(message.conversation_id) || [];
+    history.push(message);
+    byConversation.set(message.conversation_id, history);
+  }
+
+  const quarantine: Array<{
+    id: string;
+    raw_json: unknown;
+  }> = [];
+  const quarantinedConversationIds = new Set<string>();
+  for (const conversation of conversations || []) {
+    const history = byConversation.get(conversation.id) || [];
+    if (!history.length || conversation.listing_id) continue;
+    if (history.some((message) => message.direction_in_out === "out")) continue;
+    const hasRelevantMessage = history.some((message) => {
+      if (!isMessageVisible(message)) return false;
+      const candidate = storedMessageToGmailItem(message);
+      return Boolean(candidate && isLikelyRealEstateLead(candidate));
+    });
+    if (hasRelevantMessage) continue;
+    for (const message of history) {
+      if (message.direction_in_out !== "in" || !isMessageVisible(message)) {
+        continue;
+      }
+      quarantinedConversationIds.add(conversation.id);
+      quarantine.push({ id: message.id, raw_json: message.raw_json });
+    }
+  }
+
+  const now = new Date().toISOString();
+  await mapWithConcurrency(quarantine, 4, async (message) => {
+    const { error } = await admin
+      .from("messages")
+      .update({
+        read_at: now,
+        raw_json: {
+          ...hideMessageRaw(message.raw_json, {
+            at: now,
+            reason: "automatic_relevance_filter",
+          }),
+          relevance: "irrelevant",
+          relevance_version: 2,
+        },
+      })
+      .eq("id", message.id)
+      .eq("org_id", orgId);
+    if (error) throw error;
+  });
+  if (quarantinedConversationIds.size) {
+    const ids = Array.from(quarantinedConversationIds);
+    await Promise.all([
+      admin
+        .from("automation_approvals")
+        .update({
+          status: "expired",
+          reason: "Conversation failed the Gmail relevance policy",
+          updated_at: now,
+        })
+        .eq("org_id", orgId)
+        .eq("status", "pending")
+        .in("conversation_id", ids),
+      admin
+        .from("scheduled_communications")
+        .update({
+          status: "cancelled",
+          cancelled_at: now,
+          updated_at: now,
+          last_error: "Conversation failed the Gmail relevance policy",
+        })
+        .eq("org_id", orgId)
+        .in("status", ["scheduled", "awaiting_approval"])
+        .in("conversation_id", ids),
+    ]);
+  }
+
+  const { data: emailDocuments, error: documentsError } = await admin
+    .from("knowledge_documents")
+    .select("id,title,content,source_metadata,status")
+    .eq("org_id", orgId)
+    .eq("source", "email")
+    .eq("status", "indexed")
+    .limit(1_000);
+  if (documentsError) {
+    throw new Error(`Gmail knowledge cleanup failed: ${documentsError.code}`);
+  }
+  const irrelevantDocumentIds = (emailDocuments || [])
+    .filter((document) => {
+      const metadata = messageRaw(document.source_metadata);
+      return !isLikelyRealEstateLead({
+        source: "email",
+        title: String(document.title || ""),
+        content: String(document.content || metadata.body || ""),
+        metadata: {
+          ...metadata,
+          email_address:
+            metadata.email_address ||
+            extractEmailAddress(String(metadata.from || "")),
+        },
+      });
+    })
+    .map((document) => document.id);
+  if (irrelevantDocumentIds.length) {
+    const { error } = await admin
+      .from("knowledge_documents")
+      .update({ status: "archived", health: "disabled", updated_at: now })
+      .eq("org_id", orgId)
+      .in("id", irrelevantDocumentIds);
+    if (error) throw error;
+  }
+
+  const { data: sentExamples, error: examplesError } = await admin
+    .from("communication_examples")
+    .select("id,lead_id,conversation_id,subject,content,metadata")
+    .eq("org_id", orgId)
+    .eq("source", "gmail_sent")
+    .eq("excluded", false)
+    .limit(2_000);
+  if (examplesError) {
+    throw new Error(`Gmail learning cleanup failed: ${examplesError.code}`);
+  }
+  const irrelevantExampleIds = (sentExamples || [])
+    .filter((example) => {
+      if (example.lead_id || example.conversation_id) return false;
+      const metadata = messageRaw(example.metadata);
+      return !isLikelyRealEstateLead({
+        source: "email",
+        title: String(example.subject || ""),
+        content: `${String(example.subject || "")}\n${String(example.content || "")}`,
+        metadata: {
+          email_address: String(
+            metadata.recipient_email || "individual@example.com",
+          ),
+        },
+      });
+    })
+    .map((example) => example.id);
+  if (irrelevantExampleIds.length) {
+    const { error } = await admin
+      .from("communication_examples")
+      .update({ excluded: true, updated_at: now })
+      .eq("org_id", orgId)
+      .in("id", irrelevantExampleIds);
+    if (error) throw error;
+  }
+
+  return {
+    hiddenMessages: quarantine.length,
+    archivedKnowledge: irrelevantDocumentIds.length,
+    excludedLearning: irrelevantExampleIds.length,
+  };
 }
 
 async function syncGmailSentLearning(
@@ -794,6 +965,16 @@ async function syncGmailSentLearning(
     const conversation = message.threadId
       ? conversationByThread.get(message.threadId)
       : null;
+    const relevantStandaloneMessage = isLikelyRealEstateLead({
+      source: "email",
+      title: subject,
+      content: `${subject}\n${body}`,
+      metadata: {
+        email_address: extractEmailAddress(to),
+        body,
+      },
+    });
+    if (!conversation && !relevantStandaloneMessage) continue;
     const stored = await storeCommunicationExample({
       supabase: admin,
       orgId,
@@ -813,6 +994,9 @@ async function syncGmailSentLearning(
       metadata: {
         gmail_thread_id: message.threadId || null,
         import_window: isBackfill ? "historical_180d" : "incremental",
+        recipient_email: extractEmailAddress(to) || null,
+        relevance: conversation ? "confirmed_thread" : "content_confirmed",
+        relevance_version: 2,
       },
     });
     if (stored) learned += 1;
@@ -942,6 +1126,8 @@ async function importGmailLeads(
         subject: item.title,
         from: item.metadata.from,
         gmail_thread_id: threadId,
+        relevance: "confirmed",
+        relevance_version: 2,
       },
     });
     if (messageError)
@@ -983,12 +1169,14 @@ async function importGmailLeads(
       .eq("id", conversation.id);
     imported += 1;
   }
-  const { count } = await admin
+  const { data: storedEmailMessages } = await admin
     .from("messages")
-    .select("id", { count: "exact", head: true })
+    .select("id,raw_json")
     .eq("org_id", orgId)
-    .contains("raw_json", { channel: "email" });
-  return { indexed: imported, unchanged, total: count || 0 };
+    .contains("raw_json", { channel: "email" })
+    .limit(5_000);
+  const total = (storedEmailMessages || []).filter(isMessageVisible).length;
+  return { indexed: imported, unchanged, total };
 }
 
 async function fetchCalendarItems(
@@ -1232,10 +1420,16 @@ export async function syncGoogleKnowledge(
   if (!credentials.access_token)
     throw new Error("Google access token is missing");
 
-  const [gmailItems, calendarItems] = await Promise.all([
+  const cleanup = await quarantineIrrelevantStoredGmail(admin, orgId);
+  const [fetchedGmailItems, calendarItems] = await Promise.all([
     fetchGmailItems(credentials.access_token, integration.last_sync_at),
     fetchCalendarItems(credentials.access_token),
   ]);
+  const gmailItems = await filterGmailItemsForImport(
+    admin,
+    orgId,
+    fetchedGmailItems,
+  );
   // Keep Gmail inbox and Sent scans sequential so their bounded worker pools
   // cannot combine into a per-user request spike.
   const learning = await syncGmailSentLearning(
@@ -1267,6 +1461,22 @@ export async function syncGoogleKnowledge(
         imported_this_sync: gmail.indexed,
         total_gmail_messages: gmail.total,
       },
+    });
+  }
+  if (
+    cleanup.hiddenMessages > 0 ||
+    cleanup.archivedKnowledge > 0 ||
+    cleanup.excludedLearning > 0
+  ) {
+    await recordClippyActivity(admin, {
+      orgId,
+      userId,
+      action: "irrelevant_gmail_quarantined",
+      category: "communication",
+      title: "Irrelevant Gmail removed from AI context",
+      description: `${cleanup.hiddenMessages} unrelated message${cleanup.hiddenMessages === 1 ? " was" : "s were"} hidden, ${cleanup.archivedKnowledge} unrelated knowledge item${cleanup.archivedKnowledge === 1 ? " was" : "s were"} archived, and ${cleanup.excludedLearning} unrelated sent-email example${cleanup.excludedLearning === 1 ? " was" : "s were"} excluded.`,
+      impactSummary: "Clippy conversation and knowledge context was cleaned",
+      metadata: cleanup,
     });
   }
   return { gmail, calendar, learning: { ...learning, messageHistory } };

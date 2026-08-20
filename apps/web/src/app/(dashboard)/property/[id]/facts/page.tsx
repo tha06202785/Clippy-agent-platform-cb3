@@ -17,6 +17,14 @@ interface ListingFacts {
   last_verified_at?: string | null;
 }
 
+type ScalarFactKey =
+  | "verified_price"
+  | "verified_bedrooms"
+  | "verified_bathrooms"
+  | "verified_land_size"
+  | "verified_building_size"
+  | "verified_availability";
+
 export default function ListingFactsPage() {
   const params = useParams();
   const id = params?.id as string;
@@ -24,33 +32,57 @@ export default function ListingFactsPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [edit, setEdit] = useState<ListingFacts>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     fetch("/api/listings/" + id + "/facts")
-      .then(r => r.json())
-      .then(data => { setFacts(data); setEdit(data); })
-      .catch(() => {});
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.error || "Listing facts could not be loaded");
+        setFacts(data);
+        setEdit(data);
+      })
+      .catch((reason: unknown) =>
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Listing facts could not be loaded",
+        ),
+      );
   }, [id]);
 
   const save = async () => {
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch("/api/listings/" + id + "/facts", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(edit),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setFacts(data);
-        setEditing(false);
-      }
-    } catch {}
-    setSaving(false);
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.error || "Listing facts could not be saved");
+      setFacts(data);
+      setEditing(false);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Listing facts could not be saved",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const fields = [
+  const fields: Array<{
+    key: ScalarFactKey;
+    label: string;
+    type: "text" | "number";
+  }> = [
     { key: "verified_price", label: "Verified Price", type: "text" },
     { key: "verified_bedrooms", label: "Verified Bedrooms", type: "number" },
     { key: "verified_bathrooms", label: "Verified Bathrooms", type: "number" },
@@ -64,75 +96,154 @@ export default function ListingFactsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Listing Facts</h1>
-          <p className="text-muted-foreground text-sm mt-1">Authoritative source of truth for AI replies</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Authoritative source of truth for AI replies
+          </p>
         </div>
         {facts.last_verified_at && (
           <div className="flex items-center gap-1 text-xs text-emerald-600">
-            <CheckCircle className="w-3 h-3" /> Verified {new Date(facts.last_verified_at).toLocaleDateString()}
+            <CheckCircle className="w-3 h-3" /> Verified{" "}
+            {new Date(facts.last_verified_at).toLocaleDateString()}
           </div>
         )}
       </div>
 
+      {error ? (
+        <p
+          className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
+
       {!editing ? (
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="grid grid-cols-2 gap-4">
-            {fields.map(f => (
+            {fields.map((f) => (
               <div key={f.key}>
                 <p className="text-xs text-muted-foreground">{f.label}</p>
-                <p className="text-sm font-medium text-foreground">{(facts as any)[f.key] || "Not set"}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {facts[f.key] || "Not set"}
+                </p>
               </div>
             ))}
           </div>
           <div className="mt-4">
             <p className="text-xs text-muted-foreground">School Zones</p>
-            <p className="text-sm text-foreground">{(facts.school_zones || []).join(", ") || "Not set"}</p>
+            <p className="text-sm text-foreground">
+              {(facts.school_zones || []).join(", ") || "Not set"}
+            </p>
           </div>
           <div className="mt-2">
             <p className="text-xs text-muted-foreground">Nearby Amenities</p>
-            <p className="text-sm text-foreground">{(facts.nearby_amenities || []).join(", ") || "Not set"}</p>
+            <p className="text-sm text-foreground">
+              {(facts.nearby_amenities || []).join(", ") || "Not set"}
+            </p>
           </div>
-          <button onClick={() => setEditing(true)}
-            className="mt-4 flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-sm hover:bg-muted">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="mt-4 flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-sm hover:bg-muted"
+          >
             <Edit3 className="w-3.5 h-3.5" /> Edit Facts
           </button>
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          {fields.map(f => (
+          {fields.map((f) => (
             <div key={f.key}>
-              <label className="text-xs text-muted-foreground">{f.label}</label>
-              <input type={f.type} value={(edit as any)[f.key] || ""}
-                onChange={e => setEdit({...edit, [f.key]: e.target.value})}
-                className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+              <label
+                htmlFor={`fact-${f.key}`}
+                className="text-xs text-muted-foreground"
+              >
+                {f.label}
+              </label>
+              <input
+                id={`fact-${f.key}`}
+                type={f.type}
+                value={edit[f.key] ?? ""}
+                onChange={(e) =>
+                  setEdit({
+                    ...edit,
+                    [f.key]:
+                      f.type === "number" && e.target.value
+                        ? Number(e.target.value)
+                        : e.target.value || null,
+                  })
+                }
+                className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm"
+              />
             </div>
           ))}
           <div>
-            <label className="text-xs text-muted-foreground">School Zones (comma separated)</label>
-            <input type="text" value={(edit.school_zones || []).join(", ")}
-              onChange={e => setEdit({...edit, school_zones: e.target.value.split(", ").filter(Boolean)})}
-              className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+            <label
+              htmlFor="fact-school-zones"
+              className="text-xs text-muted-foreground"
+            >
+              School Zones (comma separated)
+            </label>
+            <input
+              id="fact-school-zones"
+              type="text"
+              value={(edit.school_zones || []).join(", ")}
+              onChange={(e) =>
+                setEdit({
+                  ...edit,
+                  school_zones: e.target.value.split(", ").filter(Boolean),
+                })
+              }
+              className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm"
+            />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Nearby Amenities (comma separated)</label>
-            <input type="text" value={(edit.nearby_amenities || []).join(", ")}
-              onChange={e => setEdit({...edit, nearby_amenities: e.target.value.split(", ").filter(Boolean)})}
-              className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm" />
+            <label
+              htmlFor="fact-nearby-amenities"
+              className="text-xs text-muted-foreground"
+            >
+              Nearby Amenities (comma separated)
+            </label>
+            <input
+              id="fact-nearby-amenities"
+              type="text"
+              value={(edit.nearby_amenities || []).join(", ")}
+              onChange={(e) =>
+                setEdit({
+                  ...edit,
+                  nearby_amenities: e.target.value.split(", ").filter(Boolean),
+                })
+              }
+              className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm"
+            />
           </div>
           <div className="flex gap-3">
-            <button onClick={() => { setEditing(false); setEdit(facts); }}
-              className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted">
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false);
+                setEdit(facts);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted"
+            >
               <X className="w-3.5 h-3.5" /> Cancel
             </button>
-            <button onClick={save} disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 disabled:opacity-50">
-              <Save className="w-3.5 h-3.5" /> {saving ? "Saving..." : "Save Facts"}
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />{" "}
+              {saving ? "Saving..." : "Save Facts"}
             </button>
           </div>
         </div>
       )}
 
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-        <strong>AI uses these facts</strong> — The AI brain reads listing_facts before replying to leads. Only verified data is used. Never set a value you cannot confirm.
+        <strong>AI uses these facts</strong> — The AI brain reads listing_facts
+        before replying to leads. Only verified data is used. Never set a value
+        you cannot confirm.
       </div>
     </div>
   );
