@@ -7,6 +7,7 @@ export const protectedPaths = [
   "/inbox",
   "/clients",
   "/deals",
+  "/properties",
   "/inspections",
   "/copilot",
   "/briefing",

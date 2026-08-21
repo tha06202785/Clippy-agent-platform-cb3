@@ -88,7 +88,7 @@ export function buildLaunchReadiness(
       key: "property",
       title: "First property",
       description: `${input.propertyCount} propert${input.propertyCount === 1 ? "y" : "ies"} available for contextual conversations.`,
-      href: "/inspections",
+      href: "/properties",
       action: "Add or import a property",
       complete: input.propertyCount > 0,
     },

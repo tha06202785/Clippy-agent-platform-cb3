@@ -45,6 +45,23 @@ test.describe("Authenticated flows", () => {
         page.getByRole("link", { name: item, exact: true }).first(),
       ).toBeVisible();
     }
+    await expect(
+      page.getByRole("link", { name: "Properties", exact: true }).first(),
+    ).toHaveAttribute("href", "/properties");
+  });
+
+  test("properties page exposes search and property creation", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.goto("/properties");
+    await expect(
+      page.getByRole("heading", { name: "Property directory" }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Search properties")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Add property" }),
+    ).toBeVisible();
   });
 
   test("conversations page loads its list state", async ({ page }) => {
