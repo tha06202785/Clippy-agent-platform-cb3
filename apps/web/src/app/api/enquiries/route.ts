@@ -25,6 +25,11 @@ const createEnquirySchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
+const linkEnquirySchema = z.object({
+  id: z.string().uuid(),
+  listing_id: z.string().uuid(),
+});
+
 async function authenticatedOrg() {
   const supabase = await createClient();
   const {
@@ -152,6 +157,102 @@ export async function POST(request: NextRequest) {
     console.error("Enquiry creation failed", error);
     return NextResponse.json(
       { error: "Enquiry could not be created" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const { supabase, orgId } = await authenticatedOrg();
+    if (!orgId) {
+      return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+    }
+
+    const parsed = linkEnquirySchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || "Invalid property link" },
+        { status: 400 },
+      );
+    }
+
+    const [enquiryResult, listingResult] = await Promise.all([
+      supabase
+        .from("property_enquiries")
+        .select("id,listing_id")
+        .eq("id", parsed.data.id)
+        .eq("org_id", orgId)
+        .maybeSingle(),
+      supabase
+        .from("listings")
+        .select("id,address,status")
+        .eq("id", parsed.data.listing_id)
+        .eq("org_id", orgId)
+        .maybeSingle(),
+    ]);
+
+    if (enquiryResult.error || !enquiryResult.data) {
+      return NextResponse.json(
+        { error: "Enquiry does not belong to this organisation" },
+        { status: 400 },
+      );
+    }
+    if (listingResult.error || !listingResult.data) {
+      return NextResponse.json(
+        { error: "Property does not belong to this organisation" },
+        { status: 400 },
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("property_enquiries")
+      .update({
+        listing_id: parsed.data.listing_id,
+        last_activity_at: new Date().toISOString(),
+      })
+      .eq("id", parsed.data.id)
+      .eq("org_id", orgId)
+      .select("id,lead_id,listing_id,source,status,last_activity_at,metadata")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    const { error: conversationError } = await supabase
+      .from("conversations")
+      .update({ listing_id: parsed.data.listing_id })
+      .eq("enquiry_id", parsed.data.id)
+      .eq("org_id", orgId);
+    if (conversationError) {
+      console.error(
+        "Enquiry conversation property link failed",
+        conversationError.code,
+      );
+      const { error: rollbackError } = await supabase
+        .from("property_enquiries")
+        .update({ listing_id: enquiryResult.data.listing_id })
+        .eq("id", parsed.data.id)
+        .eq("org_id", orgId);
+      if (rollbackError) {
+        console.error("Enquiry property rollback failed", rollbackError.code);
+      }
+      return NextResponse.json(
+        { error: "The enquiry conversation could not be linked" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      ...data,
+      listings: listingResult.data,
+      conversation_linked: true,
+    });
+  } catch (error) {
+    console.error("Enquiry property link failed", error);
+    return NextResponse.json(
+      { error: "Property could not be linked to the enquiry" },
       { status: 500 },
     );
   }

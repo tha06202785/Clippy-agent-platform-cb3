@@ -345,7 +345,7 @@ export default async function Property360Page({
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <Link
-        href="/deals"
+        href="/properties"
         className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 transition hover:text-emerald-700"
       >
         <ArrowLeft className="h-4 w-4" />

@@ -662,6 +662,15 @@ export default async function Client360Page({
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                       )}
+                      {!enquiry.listings && (
+                        <Link
+                          href={`/properties?enquiry_id=${enquiry.id}`}
+                          className="inline-flex items-center gap-1 font-bold text-emerald-700"
+                        >
+                          Link property
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      )}
                     </div>
                   </article>
                 ))}

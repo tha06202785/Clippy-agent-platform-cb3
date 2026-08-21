@@ -79,7 +79,7 @@ const primaryNav: NavItem[] = [
     color: "text-orange-500",
   },
   {
-    href: "/inspections",
+    href: "/properties",
     label: "Properties",
     icon: Building2,
     color: "text-purple-500",
@@ -145,7 +145,8 @@ const pageTitles: Array<[string, string]> = [
   ["/inbox", "Conversations"],
   ["/clients", "Clients"],
   ["/deals", "Opportunities"],
-  ["/inspections", "Properties"],
+  ["/properties", "Properties"],
+  ["/inspections", "Inspections"],
   ["/copilot", "Clippy"],
   ["/briefing", "Daily brief"],
   ["/knowledge", "Agency brain"],

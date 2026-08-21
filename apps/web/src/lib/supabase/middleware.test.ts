@@ -6,6 +6,8 @@ describe("workspace route protection", () => {
     "/dashboard",
     "/calendar",
     "/clients",
+    "/properties",
+    "/properties/123",
     "/inspections",
     "/knowledge",
     "/knowledge/documents/123",
