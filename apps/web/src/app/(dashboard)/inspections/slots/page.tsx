@@ -1,7 +1,11 @@
 "use client";
 export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
-import { Plus, Clock, Calendar, Trash2, Edit3 } from "lucide-react";
+import { Plus, Clock, Calendar, AlertCircle } from "lucide-react";
+import {
+  addMinutesToLocalDateTime,
+  createInspectionSlotSchema,
+} from "@/lib/validation";
 
 interface Slot {
   id: string;
@@ -32,6 +36,7 @@ export default function SlotsPage() {
   const [listings, setListings] = useState<
     Array<{ id: string; address: string | null }>
   >([]);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/listings")
@@ -54,20 +59,38 @@ export default function SlotsPage() {
   }, []);
 
   const createSlot = async () => {
-    if (!form.listing_id || !form.starts_at) return;
+    setFormError(null);
+    const startsAt = form.starts_at ? new Date(form.starts_at) : null;
+    const endsAt = form.ends_at ? new Date(form.ends_at) : null;
+    const parsed = createInspectionSlotSchema.safeParse({
+      listing_id: form.listing_id,
+      starts_at:
+        startsAt && !Number.isNaN(startsAt.getTime())
+          ? startsAt.toISOString()
+          : "",
+      ends_at:
+        endsAt && !Number.isNaN(endsAt.getTime()) ? endsAt.toISOString() : "",
+      capacity: Number(form.capacity),
+      inspection_type: form.inspection_type,
+      timezone:
+        Intl.DateTimeFormat().resolvedOptions().timeZone ||
+        "Australia/Melbourne",
+      location_notes: form.location_notes || null,
+    });
+    if (!parsed.success) {
+      setFormError(
+        parsed.error.issues[0]?.message ||
+          "Check the inspection details and try again.",
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       const res = await fetch("/api/inspection-slots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          listing_id: form.listing_id,
-          starts_at: form.starts_at,
-          ends_at: form.ends_at || form.starts_at,
-          capacity: parseInt(form.capacity),
-          inspection_type: form.inspection_type,
-          location_notes: form.location_notes || null,
-        }),
+        body: JSON.stringify(parsed.data),
       });
       if (res.ok) {
         const newSlot = await res.json();
@@ -81,9 +104,20 @@ export default function SlotsPage() {
           inspection_type: "open_home",
           location_notes: "",
         });
+      } else {
+        const result = await res.json().catch(() => null);
+        setFormError(
+          result?.error ||
+            "The inspection slot could not be created. Please try again.",
+        );
       }
-    } catch {}
-    setSaving(false);
+    } catch {
+      setFormError(
+        "Clippy could not reach the server. Check your connection and try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleStatus = async (id: string, currentStatus: string) => {
@@ -126,7 +160,10 @@ export default function SlotsPage() {
         </div>
         <button
           type="button"
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            setFormError(null);
+            setShowForm(true);
+          }}
           className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90"
         >
           <Plus className="w-4 h-4" /> New Slot
@@ -162,6 +199,8 @@ export default function SlotsPage() {
                 onChange={(e) =>
                   setForm({ ...form, listing_id: e.target.value })
                 }
+                required
+                aria-invalid={Boolean(formError && !form.listing_id)}
                 className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm"
               >
                 <option value="">Select a listing...</option>
@@ -202,9 +241,17 @@ export default function SlotsPage() {
                 id="slot-start"
                 type="datetime-local"
                 value={form.starts_at}
-                onChange={(e) =>
-                  setForm({ ...form, starts_at: e.target.value })
-                }
+                onChange={(e) => {
+                  const startsAt = e.target.value;
+                  setForm({
+                    ...form,
+                    starts_at: startsAt,
+                    ends_at: addMinutesToLocalDateTime(startsAt, 30),
+                  });
+                  setFormError(null);
+                }}
+                required
+                aria-invalid={Boolean(formError && !form.starts_at)}
                 className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm"
               />
             </div>
@@ -219,7 +266,13 @@ export default function SlotsPage() {
                 id="slot-end"
                 type="datetime-local"
                 value={form.ends_at}
-                onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
+                min={form.starts_at || undefined}
+                onChange={(e) => {
+                  setForm({ ...form, ends_at: e.target.value });
+                  setFormError(null);
+                }}
+                required
+                aria-invalid={Boolean(formError)}
                 className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm"
               />
             </div>
@@ -234,6 +287,7 @@ export default function SlotsPage() {
                 id="slot-capacity"
                 type="number"
                 min="1"
+                max="100"
                 value={form.capacity}
                 onChange={(e) => setForm({ ...form, capacity: e.target.value })}
                 className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background text-sm"
@@ -258,10 +312,22 @@ export default function SlotsPage() {
               />
             </div>
           </div>
+          {formError && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={() => {
+                setFormError(null);
+                setShowForm(false);
+              }}
               className="px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted"
             >
               Cancel
