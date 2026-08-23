@@ -181,6 +181,30 @@ describe("Google knowledge sync", () => {
     expect(item && isLikelyRealEstateLead(item)).toBe(false);
   });
 
+  it("rejects the controlled Netflix subscription receipt", () => {
+    const item = gmailMessageToKnowledge({
+      id: "clippy-noise-0823",
+      threadId: "clippy-noise-0823",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          {
+            name: "Subject",
+            value: "Your Netflix subscription receipt — CLIPPY-NOISE-0823",
+          },
+          { name: "From", value: "Netflix <info@mailer.netflix.com>" },
+        ],
+        body: {
+          data: encode(
+            "Your monthly Netflix subscription payment of $25.99 was successful.",
+          ),
+        },
+      },
+    });
+
+    expect(item && isLikelyRealEstateLead(item)).toBe(false);
+  });
+
   it("rejects broad interest language without property context", () => {
     const item = gmailMessageToKnowledge({
       id: "course-interest",
@@ -294,6 +318,7 @@ describe("Google knowledge sync", () => {
   });
 
   it.each([
+    ["Family dinner", "Dinner with family"],
     ["Paid school fees", "Pay the next school instalment"],
     ["Year 9 City Experience - Day 2", "Meet at Federation Square"],
     ["Cricket training", "Indoor nets at 6 pm"],
