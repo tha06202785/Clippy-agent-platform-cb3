@@ -18,14 +18,20 @@ import {
   resanitiseStoredCommunicationExamples,
   storeCommunicationExample,
 } from "@/lib/adaptive-learning";
-import { isLikelyRealEstateLead } from "@/lib/integrations/gmail-relevance";
+import {
+  isLikelyRealEstateCalendarItem,
+  isLikelyRealEstateLead,
+} from "@/lib/integrations/gmail-relevance";
 import {
   hideMessageRaw,
   isMessageVisible,
   messageRaw,
 } from "@/lib/conversations/message-visibility";
 
-export { isLikelyRealEstateLead } from "@/lib/integrations/gmail-relevance";
+export {
+  isLikelyRealEstateCalendarItem,
+  isLikelyRealEstateLead,
+} from "@/lib/integrations/gmail-relevance";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
@@ -440,6 +446,10 @@ export function calendarEventToKnowledge(
       starts_at: event.start?.dateTime || event.start?.date || null,
       ends_at: event.end?.dateTime || event.end?.date || null,
       location: event.location || null,
+      organizer_email: event.organizer?.email || null,
+      attendee_emails: (event.attendees || [])
+        .map((attendee) => attendee.email)
+        .filter(Boolean),
       updated_at: event.updated || null,
     },
   };
@@ -633,7 +643,17 @@ async function filterGmailItemsForImport(
     ),
   );
   if (!unresolvedThreadIds.length) {
-    return items.filter((item) => directlyRelevant.has(item.externalId));
+    return items
+      .filter((item) => directlyRelevant.has(item.externalId))
+      .map((item) => ({
+        ...item,
+        metadata: {
+          ...item.metadata,
+          clippy_business_message: true,
+          relevance: "content_confirmed",
+          relevance_version: 3,
+        },
+      }));
   }
 
   const { data: conversations, error: conversationError } = await admin
@@ -651,7 +671,17 @@ async function filterGmailItemsForImport(
     (conversation) => conversation.id,
   );
   if (!conversationIds.length) {
-    return items.filter((item) => directlyRelevant.has(item.externalId));
+    return items
+      .filter((item) => directlyRelevant.has(item.externalId))
+      .map((item) => ({
+        ...item,
+        metadata: {
+          ...item.metadata,
+          clippy_business_message: true,
+          relevance: "content_confirmed",
+          relevance_version: 3,
+        },
+      }));
   }
 
   const { data: storedMessages, error: messageError } = await admin
@@ -680,11 +710,167 @@ async function filterGmailItemsForImport(
       .filter(Boolean),
   );
 
-  return items.filter(
-    (item) =>
-      directlyRelevant.has(item.externalId) ||
-      confirmedThreadIds.has(String(item.metadata.thread_id || "")),
+  return items.flatMap((item) => {
+    const reason = directlyRelevant.has(item.externalId)
+      ? "content_confirmed"
+      : confirmedThreadIds.has(String(item.metadata.thread_id || ""))
+        ? "thread_confirmed"
+        : null;
+    if (!reason) return [];
+    return [
+      {
+        ...item,
+        metadata: {
+          ...item.metadata,
+          clippy_business_message: true,
+          relevance: reason,
+          relevance_version: 3,
+        },
+      },
+    ];
+  });
+}
+
+async function removeEmptyIrrelevantGmailLeads(
+  admin: AdminClient,
+  orgId: string,
+  conversationCandidates: Array<{
+    id: string;
+    lead_id?: string | null;
+  }>,
+  irrelevantConversationIds: Set<string>,
+): Promise<number> {
+  const candidateLeadIds = Array.from(
+    new Set(
+      conversationCandidates
+        .filter(
+          (conversation) =>
+            conversation.lead_id &&
+            irrelevantConversationIds.has(conversation.id),
+        )
+        .map((conversation) => String(conversation.lead_id)),
+    ),
   );
+  if (!candidateLeadIds.length) return 0;
+
+  const [
+    leadsResult,
+    conversationsResult,
+    enquiriesResult,
+    bookingsResult,
+    tasksResult,
+  ] = await Promise.all([
+    admin
+      .from("leads")
+      .select("id,source,phone,notes,assigned_to_user_id")
+      .eq("org_id", orgId)
+      .in("id", candidateLeadIds),
+    admin
+      .from("conversations")
+      .select("id,lead_id,channel,listing_id")
+      .eq("org_id", orgId)
+      .in("lead_id", candidateLeadIds),
+    admin
+      .from("property_enquiries")
+      .select("id,lead_id,source,listing_id")
+      .eq("org_id", orgId)
+      .in("lead_id", candidateLeadIds),
+    admin
+      .from("inspection_bookings")
+      .select("lead_id")
+      .eq("org_id", orgId)
+      .in("lead_id", candidateLeadIds),
+    admin
+      .from("tasks")
+      .select("lead_id")
+      .eq("org_id", orgId)
+      .in("lead_id", candidateLeadIds),
+  ]);
+
+  const lookupError = [
+    leadsResult.error,
+    conversationsResult.error,
+    enquiriesResult.error,
+    bookingsResult.error,
+    tasksResult.error,
+  ].find(Boolean);
+  if (lookupError) {
+    throw new Error(
+      `Gmail lead cleanup safeguard failed: ${lookupError.code || lookupError.message}`,
+    );
+  }
+
+  type CleanupConversation = {
+    id: string;
+    lead_id: string;
+    channel: string;
+    listing_id: string | null;
+  };
+  type CleanupEnquiry = {
+    id: string;
+    lead_id: string;
+    source: string;
+    listing_id: string | null;
+  };
+  const conversationsByLead = new Map<string, CleanupConversation[]>();
+  for (const conversation of (conversationsResult.data ||
+    []) as CleanupConversation[]) {
+    const current = conversationsByLead.get(conversation.lead_id) || [];
+    current.push(conversation);
+    conversationsByLead.set(conversation.lead_id, current);
+  }
+  const enquiriesByLead = new Map<string, CleanupEnquiry[]>();
+  for (const enquiry of (enquiriesResult.data || []) as CleanupEnquiry[]) {
+    const current = enquiriesByLead.get(enquiry.lead_id) || [];
+    current.push(enquiry);
+    enquiriesByLead.set(enquiry.lead_id, current);
+  }
+  const protectedLeadIds = new Set(
+    [...(bookingsResult.data || []), ...(tasksResult.data || [])].map(
+      (record) => record.lead_id,
+    ),
+  );
+
+  const removableLeadIds = (leadsResult.data || [])
+    .filter((lead) => {
+      if (
+        lead.source !== "email" ||
+        lead.phone ||
+        lead.notes ||
+        lead.assigned_to_user_id ||
+        protectedLeadIds.has(lead.id)
+      ) {
+        return false;
+      }
+      const conversations = conversationsByLead.get(lead.id) || [];
+      if (
+        !conversations.length ||
+        conversations.some(
+          (conversation) =>
+            conversation.channel !== "email" ||
+            conversation.listing_id ||
+            !irrelevantConversationIds.has(conversation.id),
+        )
+      ) {
+        return false;
+      }
+      const enquiries = enquiriesByLead.get(lead.id) || [];
+      return enquiries.every(
+        (enquiry) => enquiry.source === "gmail" && !enquiry.listing_id,
+      );
+    })
+    .map((lead) => lead.id);
+
+  if (!removableLeadIds.length) return 0;
+  const { error: deleteError } = await admin
+    .from("leads")
+    .delete()
+    .eq("org_id", orgId)
+    .in("id", removableLeadIds);
+  if (deleteError) {
+    throw new Error(`Gmail false-client cleanup failed: ${deleteError.code}`);
+  }
+  return removableLeadIds.length;
 }
 
 async function quarantineIrrelevantStoredGmail(
@@ -693,7 +879,7 @@ async function quarantineIrrelevantStoredGmail(
 ) {
   const { data: conversations, error: conversationError } = await admin
     .from("conversations")
-    .select("id,listing_id")
+    .select("id,lead_id,listing_id")
     .eq("org_id", orgId)
     .eq("channel", "email")
     .limit(500);
@@ -731,6 +917,7 @@ async function quarantineIrrelevantStoredGmail(
     raw_json: unknown;
   }> = [];
   const quarantinedConversationIds = new Set<string>();
+  const irrelevantConversationIds = new Set<string>();
   for (const conversation of conversations || []) {
     const history = byConversation.get(conversation.id) || [];
     if (!history.length || conversation.listing_id) continue;
@@ -741,6 +928,7 @@ async function quarantineIrrelevantStoredGmail(
       return Boolean(candidate && isLikelyRealEstateLead(candidate));
     });
     if (hasRelevantMessage) continue;
+    irrelevantConversationIds.add(conversation.id);
     for (const message of history) {
       if (message.direction_in_out !== "in" || !isMessageVisible(message)) {
         continue;
@@ -762,7 +950,7 @@ async function quarantineIrrelevantStoredGmail(
             reason: "automatic_relevance_filter",
           }),
           relevance: "irrelevant",
-          relevance_version: 2,
+          relevance_version: 3,
         },
       })
       .eq("id", message.id)
@@ -866,10 +1054,18 @@ async function quarantineIrrelevantStoredGmail(
     if (error) throw error;
   }
 
+  const removedLeads = await removeEmptyIrrelevantGmailLeads(
+    admin,
+    orgId,
+    conversations || [],
+    irrelevantConversationIds,
+  );
+
   return {
     hiddenMessages: quarantine.length,
     archivedKnowledge: irrelevantDocumentIds.length,
     excludedLearning: irrelevantExampleIds.length,
+    removedLeads,
   };
 }
 
@@ -996,7 +1192,7 @@ async function syncGmailSentLearning(
         import_window: isBackfill ? "historical_180d" : "incremental",
         recipient_email: extractEmailAddress(to) || null,
         relevance: conversation ? "confirmed_thread" : "content_confirmed",
-        relevance_version: 2,
+        relevance_version: 3,
       },
     });
     if (stored) learned += 1;
@@ -1036,6 +1232,7 @@ async function importGmailLeads(
   let imported = 0;
   let unchanged = 0;
   for (const item of items) {
+    if (item.metadata.clippy_business_message !== true) continue;
     const { data: existingMessage } = await admin
       .from("messages")
       .select("id")
@@ -1126,8 +1323,8 @@ async function importGmailLeads(
         subject: item.title,
         from: item.metadata.from,
         gmail_thread_id: threadId,
-        relevance: "confirmed",
-        relevance_version: 2,
+        relevance: item.metadata.relevance || "confirmed",
+        relevance_version: 3,
       },
     });
     if (messageError)
@@ -1204,6 +1401,134 @@ async function fetchCalendarItems(
     .filter((item): item is GoogleKnowledgeItem => Boolean(item));
 }
 
+async function filterCalendarItemsForImport(
+  admin: AdminClient,
+  orgId: string,
+  items: GoogleKnowledgeItem[],
+): Promise<GoogleKnowledgeItem[]> {
+  if (!items.length) return [];
+
+  const [bookingsResult, listingsResult] = await Promise.all([
+    admin
+      .from("inspection_bookings")
+      .select("google_calendar_event_id")
+      .eq("org_id", orgId)
+      .not("google_calendar_event_id", "is", null)
+      .limit(1_000),
+    admin.from("listings").select("address").eq("org_id", orgId).limit(500),
+  ]);
+  if (bookingsResult.error) {
+    throw new Error(
+      `Calendar booking relevance lookup failed: ${bookingsResult.error.code}`,
+    );
+  }
+  if (listingsResult.error) {
+    throw new Error(
+      `Calendar listing relevance lookup failed: ${listingsResult.error.code}`,
+    );
+  }
+
+  const bookingEventIds = new Set(
+    (bookingsResult.data || [])
+      .map((booking) => booking.google_calendar_event_id)
+      .filter(Boolean),
+  );
+  const listingAddresses = (listingsResult.data || [])
+    .map((listing) => String(listing.address || ""))
+    .filter(Boolean)
+    .map(normaliseAddress)
+    .filter((address) => address.length >= 6);
+
+  return items.flatMap((item) => {
+    let reason:
+      | "explicit_workflow"
+      | "inspection_booking"
+      | "known_listing"
+      | null = null;
+    if (isLikelyRealEstateCalendarItem(item)) {
+      reason = "explicit_workflow";
+    } else if (bookingEventIds.has(item.externalId)) {
+      reason = "inspection_booking";
+    } else {
+      const normalisedContent = normaliseAddress(
+        `${item.title} ${item.content}`,
+      );
+      if (
+        listingAddresses.some((address) => normalisedContent.includes(address))
+      ) {
+        reason = "known_listing";
+      }
+    }
+    if (!reason) return [];
+    return [
+      {
+        ...item,
+        metadata: {
+          ...item.metadata,
+          clippy_business_event: true,
+          relevance: reason,
+          relevance_version: 3,
+        },
+      },
+    ];
+  });
+}
+
+async function archiveIrrelevantStoredCalendarKnowledge(
+  admin: AdminClient,
+  orgId: string,
+): Promise<number> {
+  const { data: documents, error } = await admin
+    .from("knowledge_documents")
+    .select("id,title,content,external_id,external_revision,source_metadata")
+    .eq("org_id", orgId)
+    .eq("source", "calendar")
+    .eq("status", "indexed")
+    .limit(2_000);
+  if (error) {
+    throw new Error(`Calendar knowledge cleanup failed: ${error.code}`);
+  }
+  if (!documents?.length) return 0;
+
+  const storedItems = documents.map((document) => ({
+    externalId: String(document.external_id || document.id),
+    revision: String(document.external_revision || document.id),
+    source: "calendar" as const,
+    title: String(document.title || ""),
+    content: String(document.content || ""),
+    metadata: messageRaw(document.source_metadata),
+  }));
+  const relevantItems = await filterCalendarItemsForImport(
+    admin,
+    orgId,
+    storedItems,
+  );
+  const relevantIds = new Set(relevantItems.map((item) => item.externalId));
+  const irrelevantDocumentIds = documents
+    .filter(
+      (document) =>
+        !relevantIds.has(String(document.external_id || document.id)),
+    )
+    .map((document) => document.id);
+  if (!irrelevantDocumentIds.length) return 0;
+
+  const { error: archiveError } = await admin
+    .from("knowledge_documents")
+    .update({
+      status: "archived",
+      health: "disabled",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("org_id", orgId)
+    .in("id", irrelevantDocumentIds);
+  if (archiveError) {
+    throw new Error(
+      `Calendar knowledge archive failed: ${archiveError.code}`,
+    );
+  }
+  return irrelevantDocumentIds.length;
+}
+
 async function indexGoogleItems(
   admin: AdminClient,
   orgId: string,
@@ -1223,7 +1548,7 @@ async function indexGoogleItems(
 
   const { data: existing, error: existingError } = await admin
     .from("knowledge_documents")
-    .select("id,external_id,external_revision")
+    .select("id,external_id,external_revision,status")
     .eq("org_id", orgId)
     .eq("source", source)
     .in(
@@ -1238,7 +1563,8 @@ async function indexGoogleItems(
   );
   const changed = items.filter(
     (item) =>
-      existingById.get(item.externalId)?.external_revision !== item.revision,
+      existingById.get(item.externalId)?.external_revision !== item.revision ||
+      existingById.get(item.externalId)?.status !== "indexed",
   );
   const unchanged = items.length - changed.length;
   if (!changed.length) {
@@ -1420,16 +1746,19 @@ export async function syncGoogleKnowledge(
   if (!credentials.access_token)
     throw new Error("Google access token is missing");
 
-  const cleanup = await quarantineIrrelevantStoredGmail(admin, orgId);
-  const [fetchedGmailItems, calendarItems] = await Promise.all([
+  const [gmailCleanup, archivedCalendarKnowledge] = await Promise.all([
+    quarantineIrrelevantStoredGmail(admin, orgId),
+    archiveIrrelevantStoredCalendarKnowledge(admin, orgId),
+  ]);
+  const cleanup = { ...gmailCleanup, archivedCalendarKnowledge };
+  const [fetchedGmailItems, fetchedCalendarItems] = await Promise.all([
     fetchGmailItems(credentials.access_token, integration.last_sync_at),
     fetchCalendarItems(credentials.access_token),
   ]);
-  const gmailItems = await filterGmailItemsForImport(
-    admin,
-    orgId,
-    fetchedGmailItems,
-  );
+  const [gmailItems, calendarItems] = await Promise.all([
+    filterGmailItemsForImport(admin, orgId, fetchedGmailItems),
+    filterCalendarItemsForImport(admin, orgId, fetchedCalendarItems),
+  ]);
   // Keep Gmail inbox and Sent scans sequential so their bounded worker pools
   // cannot combine into a per-user request spike.
   const learning = await syncGmailSentLearning(
@@ -1466,16 +1795,19 @@ export async function syncGoogleKnowledge(
   if (
     cleanup.hiddenMessages > 0 ||
     cleanup.archivedKnowledge > 0 ||
-    cleanup.excludedLearning > 0
+    cleanup.excludedLearning > 0 ||
+    cleanup.removedLeads > 0 ||
+    cleanup.archivedCalendarKnowledge > 0
   ) {
     await recordClippyActivity(admin, {
       orgId,
       userId,
       action: "irrelevant_gmail_quarantined",
       category: "communication",
-      title: "Irrelevant Gmail removed from AI context",
-      description: `${cleanup.hiddenMessages} unrelated message${cleanup.hiddenMessages === 1 ? " was" : "s were"} hidden, ${cleanup.archivedKnowledge} unrelated knowledge item${cleanup.archivedKnowledge === 1 ? " was" : "s were"} archived, and ${cleanup.excludedLearning} unrelated sent-email example${cleanup.excludedLearning === 1 ? " was" : "s were"} excluded.`,
-      impactSummary: "Clippy conversation and knowledge context was cleaned",
+      title: "Irrelevant personal data removed from Clippy",
+      description: `${cleanup.hiddenMessages} unrelated Gmail message${cleanup.hiddenMessages === 1 ? " was" : "s were"} hidden, ${cleanup.removedLeads} false client record${cleanup.removedLeads === 1 ? " was" : "s were"} removed, ${cleanup.archivedKnowledge + cleanup.archivedCalendarKnowledge} unrelated knowledge item${cleanup.archivedKnowledge + cleanup.archivedCalendarKnowledge === 1 ? " was" : "s were"} archived, and ${cleanup.excludedLearning} unrelated sent-email example${cleanup.excludedLearning === 1 ? " was" : "s were"} excluded.`,
+      impactSummary:
+        "Clippy CRM, conversation, learning and knowledge context was cleaned",
       metadata: cleanup,
     });
   }
