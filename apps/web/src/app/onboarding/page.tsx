@@ -5,6 +5,7 @@ import { ArrowRight, Check, Database, Loader, Search } from "lucide-react";
 import { CRM_OPTIONS, crmName } from "@/lib/crm-catalog";
 import { buildOnboardingSummary } from "@/lib/onboarding";
 import { BrandLogo } from "@/components/brand-logo";
+import { getOnboardingCompletionPath } from "@/lib/founding-offer";
 
 interface ImportResults {
   contacts: number;
@@ -171,7 +172,11 @@ export default function OnboardingWizard() {
           result.error || "Onboarding completion could not be saved",
         );
       }
-      router.push("/dashboard");
+      router.push(
+        getOnboardingCompletionPath(
+          typeof window === "undefined" ? "" : window.location.search,
+        ),
+      );
     } catch (error) {
       setCompletionError(
         error instanceof Error

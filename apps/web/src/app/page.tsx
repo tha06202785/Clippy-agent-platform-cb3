@@ -154,22 +154,23 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl text-center">
             <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800">
               <Sparkles className="h-4 w-4" />
-              An operating layer for Australian real estate teams
+              Founding 100 places now open
             </div>
             <h1 className="mx-auto mt-8 max-w-5xl text-5xl font-semibold leading-[1.08] tracking-[-0.035em] md:text-6xl">
-              Turn every enquiry into a clear next action.
+              Turn property enquiries into clear next actions.
             </h1>
             <p className="mx-auto mt-7 max-w-3xl text-lg font-normal leading-8 text-neutral-600">
-              Clippy brings conversations, opportunities, properties, and agency
-              knowledge into one workspace—so agents can respond with context
-              and principals can see what needs attention.
+              Clippy is the approval-first inbox-to-inspection copilot for
+              Australian real estate agents—organising client context and
+              helping you prepare the next response without replacing your
+              judgement.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
-                href="/signup"
+                href="/pricing"
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-7 py-3.5 text-sm font-medium text-white transition hover:bg-primary/90"
               >
-                Create a workspace
+                See Founding 100 pricing
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link

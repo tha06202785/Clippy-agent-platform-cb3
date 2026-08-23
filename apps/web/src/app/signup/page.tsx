@@ -7,6 +7,19 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { getSignupCompletionPath } from "@/lib/founding-offer";
+
+function onboardingPath(): string {
+  return getSignupCompletionPath(
+    typeof window === "undefined" ? "" : window.location.search,
+  );
+}
+
+function authCallbackUrl(): string {
+  const callback = new URL("/api/auth/callback", window.location.origin);
+  callback.searchParams.set("next", onboardingPath());
+  return callback.toString();
+}
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -29,7 +42,7 @@ export default function SignUpPage() {
         password,
         options: {
           data: { full_name: name },
-          emailRedirectTo: `${window.location.origin}/api/auth/callback?next=/onboarding`,
+          emailRedirectTo: authCallbackUrl(),
         },
       });
 
@@ -37,7 +50,7 @@ export default function SignUpPage() {
         setError(signUpError.message);
         setLoading(false);
       } else if (data.session) {
-        router.push("/onboarding");
+        router.push(onboardingPath());
       } else {
         setConfirmationEmail(email);
         setLoading(false);
@@ -55,7 +68,7 @@ export default function SignUpPage() {
       const { error: signUpError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/api/auth/callback?next=/onboarding`,
+          redirectTo: authCallbackUrl(),
         },
       });
       if (signUpError) setError(signUpError.message);
@@ -75,7 +88,7 @@ export default function SignUpPage() {
             Create your account
           </h1>
           <p className="mt-1 text-sm font-normal leading-6 text-muted-foreground">
-            Create a workspace account. No paid plan is selected on this screen.
+            Set up your workspace before choosing or activating a paid plan.
           </p>
         </div>
 

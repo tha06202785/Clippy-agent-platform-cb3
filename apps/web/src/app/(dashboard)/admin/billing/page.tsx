@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
+import { CheckoutButton } from "@/components/checkout-button";
 
 interface Subscription {
   plan: string;
@@ -30,14 +31,14 @@ interface Invoice {
 
 const PLAN_LABELS: Record<string, string> = {
   free: "Free",
-  starter: "Starter",
+  starter: "Founding Agent",
   professional: "Professional",
-  agency: "Agency",
+  agency: "Founding Team",
   past_due: "Past Due",
 };
 
-function formatCurrency(amount: number, currency: string = "usd"): string {
-  return new Intl.NumberFormat("en-US", {
+function formatCurrency(amount: number, currency: string = "aud"): string {
+  return new Intl.NumberFormat("en-AU", {
     style: "currency",
     currency: currency.toUpperCase(),
     minimumFractionDigits: 0,
@@ -129,19 +130,21 @@ export default function BillingPage() {
             Manage your subscription and invoices
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleManageSubscription}
-          disabled={portalLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
-        >
-          {portalLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <CreditCard className="w-4 h-4" />
-          )}
-          {portalLoading ? "Loading..." : "Manage subscription"}
-        </button>
+        {isPaid || isPastDue ? (
+          <button
+            type="button"
+            onClick={handleManageSubscription}
+            disabled={portalLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
+          >
+            {portalLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <CreditCard className="w-4 h-4" />
+            )}
+            {portalLoading ? "Loading..." : "Manage subscription"}
+          </button>
+        ) : null}
       </div>
 
       {error && (
@@ -150,6 +153,27 @@ export default function BillingPage() {
           {error}
         </div>
       )}
+
+      {!loading && !isPaid && !isPastDue ? (
+        <section className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+          <p className="text-sm font-semibold text-primary">Founding 100</p>
+          <h2 className="mt-1 text-xl font-bold text-foreground">
+            Activate Founding Agent for A$99/month
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Month-to-month with concierge setup and your founding price locked
+            for 12 months. Only an organisation owner or admin can activate
+            billing.
+          </p>
+          <CheckoutButton
+            plan="starter"
+            unauthenticatedPath="/sign-in?next=/admin/billing"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60"
+          >
+            Activate subscription
+          </CheckoutButton>
+        </section>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-3">
         {/* Current Plan */}

@@ -2,12 +2,29 @@ import { describe, expect, it } from "vitest";
 import { getPublicBillingCatalog } from "@/lib/billing";
 
 describe("public billing catalog", () => {
-  it("stays in pilot mode without an explicit checkout rollout", () => {
+  it("publishes the founding offer while keeping checkout unavailable", () => {
     expect(getPublicBillingCatalog({})).toEqual({
-      pricingStatus: "pilot",
+      pricingStatus: "assisted_checkout",
       currency: "AUD",
       checkoutEnabled: false,
-      plans: [],
+      plans: [
+        {
+          id: "starter",
+          name: "Founding Agent",
+          monthlyPriceCents: 9900,
+          audience: "Individual Australian real estate agents",
+          seats: 1,
+          checkoutAvailable: false,
+        },
+        {
+          id: "agency",
+          name: "Founding Team",
+          monthlyPriceCents: 39900,
+          audience: "Small agency teams joining through assisted onboarding",
+          seats: 5,
+          checkoutAvailable: false,
+        },
+      ],
     });
   });
 
@@ -22,13 +39,16 @@ describe("public billing catalog", () => {
     });
 
     expect(catalog.pricingStatus).toBe("checkout_ready");
-    expect(catalog.plans).toEqual([
-      {
-        id: "starter",
-        name: "Starter",
-        checkoutAvailable: true,
-      },
-    ]);
+    expect(catalog.plans[0]).toMatchObject({
+      id: "starter",
+      name: "Founding Agent",
+      monthlyPriceCents: 9900,
+      checkoutAvailable: true,
+    });
+    expect(catalog.plans[1]).toMatchObject({
+      id: "agency",
+      checkoutAvailable: false,
+    });
     expect(catalog.plans[0]).not.toHaveProperty("priceId");
     expect(JSON.stringify(catalog)).not.toContain("price_internal_secret");
   });
