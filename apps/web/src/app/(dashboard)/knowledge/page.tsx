@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Clock,
   Plus,
+  RefreshCw,
   Search,
   User,
   Users,
@@ -60,6 +61,11 @@ type AgentProfile = {
   confidence_score?: number;
   corrections_made?: number;
   status?: string;
+};
+
+type GoogleSyncResult = {
+  gmail?: { indexed?: number; unchanged?: number; total?: number };
+  calendar?: { indexed?: number; unchanged?: number; total?: number };
 };
 
 const layers: Record<
@@ -117,7 +123,9 @@ export default function KnowledgeDashboard() {
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -153,6 +161,12 @@ export default function KnowledgeDashboard() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const refreshWhenActive = () => void load();
+    window.addEventListener("focus", refreshWhenActive);
+    return () => window.removeEventListener("focus", refreshWhenActive);
   }, [load]);
 
   const handleSearch = async (event: FormEvent) => {
@@ -210,6 +224,36 @@ export default function KnowledgeDashboard() {
     }
   };
 
+  const syncGoogleKnowledge = async () => {
+    setSyncing(true);
+    setError(null);
+    setSyncNotice(null);
+    try {
+      const result = await jsonRequest<GoogleSyncResult>(
+        "/api/integrations/sync",
+        { method: "POST" },
+      );
+      await load();
+      const indexed =
+        (result.gmail?.indexed ?? 0) + (result.calendar?.indexed ?? 0);
+      const unchanged =
+        (result.gmail?.unchanged ?? 0) + (result.calendar?.unchanged ?? 0);
+      setSyncNotice(
+        indexed > 0
+          ? `Google sync complete. ${indexed} new knowledge ${indexed === 1 ? "item is" : "items are"} now available.`
+          : `Google sync complete. No new items; ${unchanged} existing ${unchanged === 1 ? "item is" : "items are"} already current.`,
+      );
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Google data could not be synchronised",
+      );
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const counts = useMemo(
     () =>
       knowledge.reduce<Record<string, number>>((accumulator, document) => {
@@ -221,6 +265,20 @@ export default function KnowledgeDashboard() {
   const indexed = knowledge.filter(
     (document) => document.status === "indexed",
   ).length;
+  const googleConnected = integrations.some(
+    (integration) =>
+      integration.provider === "gmail" &&
+      (integration.status === "healthy" ||
+        integration.status === "connected"),
+  );
+  const lastGoogleSync = integrations
+    .filter((integration) =>
+      ["gmail", "google-calendar"].includes(integration.provider),
+    )
+    .map((integration) => integration.last_sync_at)
+    .filter((value): value is string => Boolean(value))
+    .toSorted()
+    .at(-1);
 
   if (loading) return <LoadingState label="Loading agency knowledge" />;
 
@@ -234,13 +292,24 @@ export default function KnowledgeDashboard() {
             communication style.
           </p>
         </div>
-        <Dialog open={showAdd} onOpenChange={setShowAdd}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4" aria-hidden="true" /> Add knowledge
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!googleConnected}
+            isLoading={syncing}
+            loadingText="Syncing Google…"
+            onClick={() => void syncGoogleKnowledge()}
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" /> Sync Google
+          </Button>
+          <Dialog open={showAdd} onOpenChange={setShowAdd}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4" aria-hidden="true" /> Add knowledge
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
             <form onSubmit={addKnowledge}>
               <DialogHeader>
                 <DialogTitle>Add knowledge</DialogTitle>
@@ -336,8 +405,27 @@ export default function KnowledgeDashboard() {
                 </Button>
               </DialogFooter>
             </form>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <p>
+          {lastGoogleSync
+            ? `Last Google sync ${new Intl.DateTimeFormat(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(new Date(lastGoogleSync))}`
+            : googleConnected
+              ? "Google is connected and waiting for its first sync."
+              : "Connect Google to import relevant Gmail and Calendar knowledge."}
+        </p>
+        {syncNotice ? (
+          <p className="text-primary" role="status" aria-live="polite">
+            {syncNotice}
+          </p>
+        ) : null}
       </div>
 
       {error && !showAdd ? (
