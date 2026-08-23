@@ -6,6 +6,11 @@ import {
   createSafeDraftFallback,
   enforceFirstPersonAgentVoice,
 } from "@/lib/ai/draft-reply-fallback";
+import {
+  estimateCostMicros,
+  estimateCredits,
+  recordAIUsage,
+} from "@/lib/control-centre";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { queueAutomationApproval } from "@/lib/automation-policy";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -27,6 +32,9 @@ const one = <T>(value: T | T[] | null): T | null =>
   Array.isArray(value) ? value[0] || null : value;
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now();
+  const requestId = `conversation-draft-${randomUUID()}`;
+  let usageContext: { orgId: string; userId: string } | null = null;
   const ip = await getClientIp();
   const { allowed, remaining, resetAt } = checkRateLimit(ip, "ai");
   if (!allowed) {
@@ -66,6 +74,7 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       );
     }
+    usageContext = { orgId: membership.org_id, userId: user.id };
 
     const [
       { data: conversation, error: conversationError },
@@ -178,6 +187,10 @@ export async function POST(req: NextRequest) {
     let reply = "";
     let model = "safe-fallback";
     let provider = "local";
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cachedTokens = 0;
+    let providerFallback = false;
     try {
       const completion = await requestCopilotCompletion({
         userId: user.id,
@@ -219,7 +232,11 @@ export async function POST(req: NextRequest) {
       reply = completion.data.choices?.[0]?.message?.content?.trim() || "";
       model = completion.model;
       provider = completion.provider;
+      inputTokens = completion.data.usage?.prompt_tokens || 0;
+      outputTokens = completion.data.usage?.completion_tokens || 0;
+      cachedTokens = completion.data.usage?.cached_tokens || 0;
     } catch (providerError) {
+      providerFallback = true;
       console.warn(
         "Conversation draft provider fallback",
         providerError instanceof Error ? providerError.message : providerError,
@@ -300,7 +317,34 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    await recordAIUsage({
+      requestId,
+      orgId: membership.org_id,
+      userId: user.id,
+      featureKey: "copilot_chat",
+      provider,
+      model,
+      inputTokens,
+      outputTokens,
+      cachedTokens,
+      creditsUsed:
+        provider === "local" ? 0 : estimateCredits("copilot_chat", outputTokens),
+      costMicros: estimateCostMicros(inputTokens, outputTokens),
+      latencyMs: Date.now() - startedAt,
+      status: "success",
+      metadata: {
+        action: "conversation_draft",
+        conversation_id: conversation.id,
+        lead_id: conversation.lead_id,
+        listing_id: conversation.listing_id,
+        enquiry_id: conversation.enquiry_id,
+        provider_fallback: providerFallback,
+        adaptive_intelligence_used: adaptiveContext.enabled,
+      },
+    });
+
     return NextResponse.json({
+      request_id: requestId,
       draft_id: draftId,
       approval_id: approvalId,
       reply,
@@ -315,8 +359,25 @@ export async function POST(req: NextRequest) {
       "Conversation draft failed",
       error instanceof Error ? error.message : error,
     );
+    if (usageContext) {
+      await recordAIUsage({
+        requestId,
+        orgId: usageContext.orgId,
+        userId: usageContext.userId,
+        featureKey: "copilot_chat",
+        provider: "application",
+        model: "n/a",
+        latencyMs: Date.now() - startedAt,
+        status: "error",
+        errorCode: "draft_application_error",
+        metadata: { action: "conversation_draft" },
+      });
+    }
     return NextResponse.json(
-      { error: "Clippy could not draft a reply right now. Please try again." },
+      {
+        error: "Clippy could not draft a reply right now. Please try again.",
+        request_id: requestId,
+      },
       { status: 502 },
     );
   }
