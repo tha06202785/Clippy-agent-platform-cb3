@@ -6,9 +6,27 @@ export const PAID_PLAN_IDS = ["starter", "professional", "agency"] as const;
 export type PaidPlanId = (typeof PAID_PLAN_IDS)[number];
 
 const PLAN_NAMES: Record<PaidPlanId, string> = {
-  starter: "Starter",
+  starter: "Founding Agent",
   professional: "Professional",
-  agency: "Agency",
+  agency: "Founding Team",
+};
+
+const PUBLIC_PLAN_DETAILS: Partial<
+  Record<
+    PaidPlanId,
+    { monthlyPriceCents: number; audience: string; seats: number }
+  >
+> = {
+  starter: {
+    monthlyPriceCents: 9_900,
+    audience: "Individual Australian real estate agents",
+    seats: 1,
+  },
+  agency: {
+    monthlyPriceCents: 39_900,
+    audience: "Small agency teams joining through assisted onboarding",
+    seats: 5,
+  },
 };
 
 type BillingEnvironment = Record<string, string | undefined>;
@@ -25,8 +43,7 @@ export type BillingAccount = {
 
 export function isPaidPlan(value: unknown): value is PaidPlanId {
   return (
-    typeof value === "string" &&
-    PAID_PLAN_IDS.includes(value as PaidPlanId)
+    typeof value === "string" && PAID_PLAN_IDS.includes(value as PaidPlanId)
   );
 }
 
@@ -65,28 +82,25 @@ export function getPlanForPriceId(
   );
 }
 
-export function getPublicBillingCatalog(
-  env: BillingEnvironment = process.env,
-) {
+export function getPublicBillingCatalog(env: BillingEnvironment = process.env) {
   const checkoutEnabled = isPaidCheckoutEnabled(env);
 
   return {
-    pricingStatus: checkoutEnabled ? ("checkout_ready" as const) : ("pilot" as const),
+    pricingStatus: checkoutEnabled
+      ? ("checkout_ready" as const)
+      : ("assisted_checkout" as const),
     currency: "AUD",
     checkoutEnabled,
-    plans: checkoutEnabled
-      ? PAID_PLAN_IDS.filter((plan) => getPlanPriceId(plan, env)).map((id) => ({
-          id,
-          name: PLAN_NAMES[id],
-          checkoutAvailable: true,
-        }))
-      : [],
+    plans: (["starter", "agency"] as const).map((id) => ({
+      id,
+      name: PLAN_NAMES[id],
+      ...PUBLIC_PLAN_DETAILS[id],
+      checkoutAvailable: checkoutEnabled && Boolean(getPlanPriceId(id, env)),
+    })),
   };
 }
 
-export function getAppUrl(
-  env: BillingEnvironment = process.env,
-): string {
+export function getAppUrl(env: BillingEnvironment = process.env): string {
   const configured = env.NEXT_PUBLIC_APP_URL?.trim();
   if (!configured) return "https://useclippy.com";
 
@@ -117,9 +131,7 @@ export function getStripeClient(
   });
 }
 
-export function getBillingDataClient(
-  fallback: SupabaseClient,
-): SupabaseClient {
+export function getBillingDataClient(fallback: SupabaseClient): SupabaseClient {
   if (
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.SUPABASE_SERVICE_ROLE_KEY
