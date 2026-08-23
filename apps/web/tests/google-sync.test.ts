@@ -6,6 +6,7 @@ import {
   extractLeadName,
   extractLeadPhone,
   extractPropertyAddress,
+  isLikelyRealEstateCalendarItem,
   isLikelyRealEstateLead,
   mapWithConcurrency,
   stripQuotedReply,
@@ -153,6 +154,33 @@ describe("Google knowledge sync", () => {
     expect(item && isLikelyRealEstateLead(item)).toBe(false);
   });
 
+  it("rejects an automated subscription email with a corporate postal address", () => {
+    const item = gmailMessageToKnowledge({
+      id: "google-play-payment",
+      threadId: "google-play-payment",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          {
+            name: "Subject",
+            value: "Payment declined for an app subscription",
+          },
+          {
+            name: "From",
+            value: "Google Play <googleplay-noreply@google.com>",
+          },
+        ],
+        body: {
+          data: encode(
+            "Your subscription will be cancelled. Update payment. Google Asia Pacific Pte. Limited, 70 Pasir Panjang Road, Singapore 117371.",
+          ),
+        },
+      },
+    });
+
+    expect(item && isLikelyRealEstateLead(item)).toBe(false);
+  });
+
   it("rejects broad interest language without property context", () => {
     const item = gmailMessageToKnowledge({
       id: "course-interest",
@@ -226,6 +254,23 @@ describe("Google knowledge sync", () => {
     expect(item && isLikelyRealEstateLead(item)).toBe(true);
   });
 
+  it("accepts a short availability enquiry anchored to an address", () => {
+    const item = gmailMessageToKnowledge({
+      id: "short-property-enquiry",
+      threadId: "short-property-enquiry",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "25 Collins Street" },
+          { name: "From", value: "buyer@example.com" },
+        ],
+        body: { data: encode("Hi, is this still available?") },
+      },
+    });
+
+    expect(item && isLikelyRealEstateLead(item)).toBe(true);
+  });
+
   it("converts active calendar events and ignores cancellations", () => {
     const active = calendarEventToKnowledge({
       id: "event-123",
@@ -242,8 +287,39 @@ describe("Google knowledge sync", () => {
       title: "Inspection – 10 Collins Street",
     });
     expect(active?.content).toContain("buyer@example.com (accepted)");
+    expect(active && isLikelyRealEstateCalendarItem(active)).toBe(true);
     expect(
       calendarEventToKnowledge({ id: "cancelled", status: "cancelled" }),
     ).toBeNull();
+  });
+
+  it.each([
+    ["Paid school fees", "Pay the next school instalment"],
+    ["Year 9 City Experience - Day 2", "Meet at Federation Square"],
+    ["Cricket training", "Indoor nets at 6 pm"],
+  ])(
+    "does not place a personal Calendar event in Agency Brain: %s",
+    (summary, description) => {
+      const item = calendarEventToKnowledge({
+        id: summary,
+        summary,
+        description,
+        start: { dateTime: "2026-08-26T08:30:00+10:00" },
+        end: { dateTime: "2026-08-26T09:30:00+10:00" },
+      });
+
+      expect(item && isLikelyRealEstateCalendarItem(item)).toBe(false);
+    },
+  );
+
+  it("keeps a client follow-up Calendar event in Agency Brain", () => {
+    const item = calendarEventToKnowledge({
+      id: "buyer-follow-up",
+      summary: "Follow up with Alice Buyer",
+      start: { dateTime: "2026-08-22T11:00:00+10:00" },
+      end: { dateTime: "2026-08-22T11:15:00+10:00" },
+    });
+
+    expect(item && isLikelyRealEstateCalendarItem(item)).toBe(true);
   });
 });

@@ -88,7 +88,7 @@ interface DashboardData {
 }
 
 function formatResponseTime(seconds: number | null) {
-  if (seconds === null) return "—";
+  if (seconds === null) return "Forming";
   if (seconds < 60) return `${seconds}s`;
   return `${Math.round(seconds / 60)}m`;
 }
@@ -218,7 +218,7 @@ export default function DashboardPage() {
       label: "Response coverage",
       value:
         performance.response_coverage_percent === null
-          ? "—"
+          ? "Forming"
           : `${performance.response_coverage_percent}%`,
       detail:
         performance.inbound_bursts > 0

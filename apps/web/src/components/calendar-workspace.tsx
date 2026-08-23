@@ -134,7 +134,9 @@ export function CalendarWorkspace({
       const eventDay = dayKey(event.starts_at);
       const startsAt = new Date(event.starts_at).getTime();
       const matchesView =
-        selectedDay !== null
+        term
+          ? true
+          : selectedDay !== null
           ? eventDay === selectedDay
           : view === "today"
             ? eventDay === today
@@ -388,8 +390,9 @@ export function CalendarWorkspace({
               No events in this view
             </h2>
             <p className="mx-auto mt-1 max-w-sm text-sm text-neutral-500">
-              Try another date or sync Google Calendar to bring the latest
-              appointments into Clippy.
+              {search.trim()
+                ? "Try another search. Calendar search covers every loaded event."
+                : "Try another date or sync Google Calendar to bring the latest appointments into Clippy."}
             </p>
           </div>
         ) : (

@@ -34,8 +34,13 @@ interface DashboardData {
     blockedRequests?: number;
     totalCredits?: number;
     totalCostAud?: number;
-    averageLatencyMs?: number;
-    errorRate?: number;
+    monthlyErrorRate?: number | null;
+    recentWindowDays?: number;
+    recentRequests?: number;
+    recentFailedRequests?: number;
+    recentAverageLatencyMs?: number | null;
+    recentErrorRate?: number | null;
+    lastFailureAt?: string | null;
   };
   usageByFeature: Array<{
     feature: string;
@@ -79,7 +84,7 @@ interface MetricCardProps {
 interface StatusRowProps {
   label: string;
   value: string;
-  healthy: boolean;
+  healthy: boolean | null;
 }
 
 interface ListPanelProps {
@@ -200,7 +205,11 @@ export default function ControlCentrePage() {
             icon={Gauge}
             label="AI provider cost"
             value={money.format(metrics.totalCostAud || 0)}
-            detail={`${metrics.averageLatencyMs || 0} ms average latency`}
+            detail={
+              metrics.recentAverageLatencyMs == null
+                ? `No successful AI samples in ${metrics.recentWindowDays || 7} days`
+                : `${metrics.recentAverageLatencyMs} ms successful latency · ${metrics.recentWindowDays || 7} days`
+            }
           />
           <MetricCard
             icon={ShieldCheck}
@@ -254,9 +263,17 @@ export default function ControlCentrePage() {
             </div>
             <div className="mt-5 space-y-4">
               <StatusRow
-                label="AI error rate"
-                value={`${metrics.errorRate || 0}%`}
-                healthy={(metrics.errorRate || 0) < 5}
+                label={`AI error rate (${metrics.recentWindowDays || 7} days)`}
+                value={
+                  metrics.recentErrorRate == null
+                    ? "No samples"
+                    : `${metrics.recentErrorRate}% · ${metrics.recentRequests || 0} req`
+                }
+                healthy={
+                  metrics.recentErrorRate == null
+                    ? null
+                    : metrics.recentErrorRate < 5
+                }
               />
               <StatusRow
                 label="Open incidents"
@@ -412,11 +429,17 @@ function MetricCard({ icon: Icon, label, value, detail }: MetricCardProps) {
 }
 
 function StatusRow({ label, value, healthy }: StatusRowProps) {
+  const tone =
+    healthy === null
+      ? "bg-muted text-muted-foreground"
+      : healthy
+        ? "bg-emerald-100 text-emerald-800"
+        : "bg-amber-100 text-amber-800";
   return (
     <div className="flex items-center justify-between">
       <span className="text-sm text-muted-foreground">{label}</span>
       <span
-        className={`rounded-full px-2.5 py-1 text-xs font-medium ${healthy ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}
+        className={`rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}
       >
         {value}
       </span>

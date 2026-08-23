@@ -238,7 +238,7 @@ export function LeadDetailPanel({
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-border bg-card p-4 text-center">
                 <div className={"text-3xl font-bold " + scoreColor}>
-                  {lead.ai_score != null ? lead.ai_score : "—"}
+                  {lead.ai_score != null ? lead.ai_score : "Forming"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">AI Score</p>
               </div>

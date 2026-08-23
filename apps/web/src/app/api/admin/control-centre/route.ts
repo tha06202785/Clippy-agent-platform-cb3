@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin-access";
+import { calculateRecentAIReliability } from "@/lib/ai/usage-metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -30,26 +31,28 @@ export async function GET() {
     const monthStart = new Date();
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);
+    const reliabilityStart = new Date(Date.now() - 7 * 86_400_000);
+    const usageQueryStart = new Date(
+      Math.min(monthStart.getTime(), reliabilityStart.getTime()),
+    );
 
-    const [subscriptionResult, balanceResult, usageResult, incidentsResult, ticketsResult, integrationsResult] =
-      await Promise.all([
+    const [
+      subscriptionResult,
+      usageResult,
+      incidentsResult,
+      ticketsResult,
+      integrationsResult,
+    ] = await Promise.all([
         supabase
           .from("org_subscriptions")
           .select("status, current_period_end, plans(key,name,monthly_price_cents,included_credits,currency)")
           .eq("org_id", orgId)
           .maybeSingle(),
         supabase
-          .from("org_usage_balances")
-          .select("credits_included, credits_bonus, credits_used, cost_micros, period_start, period_end")
-          .eq("org_id", orgId)
-          .order("period_start", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
           .from("ai_usage_events")
           .select("feature_key, provider, model, credits_used, cost_micros, latency_ms, status, created_at")
           .eq("org_id", orgId)
-          .gte("created_at", monthStart.toISOString())
+          .gte("created_at", usageQueryStart.toISOString())
           .order("created_at", { ascending: false })
           .limit(500),
         supabase
@@ -72,15 +75,16 @@ export async function GET() {
           .limit(50),
       ]);
 
-    const usage = usageResult.data || [];
+    const allUsage = usageResult.data || [];
+    const usage = allUsage.filter(
+      (row: any) => new Date(row.created_at).getTime() >= monthStart.getTime(),
+    );
     const totalRequests = usage.length;
     const failedRequests = usage.filter((row: any) => row.status === "error").length;
     const blockedRequests = usage.filter((row: any) => row.status === "blocked").length;
     const totalCostMicros = usage.reduce((sum: number, row: any) => sum + Number(row.cost_micros || 0), 0);
     const totalCredits = usage.reduce((sum: number, row: any) => sum + Number(row.credits_used || 0), 0);
-    const averageLatencyMs = totalRequests
-      ? Math.round(usage.reduce((sum: number, row: any) => sum + Number(row.latency_ms || 0), 0) / totalRequests)
-      : 0;
+    const recentReliability = calculateRecentAIReliability(allUsage);
 
     const byFeature = Object.values(
       usage.reduce((acc: Record<string, any>, row: any) => {
@@ -102,15 +106,17 @@ export async function GET() {
       {
         organisation: { id: orgId, role: membership.role },
         subscription: subscriptionResult.data || null,
-        balance: balanceResult.data || null,
+        balance: { credits_used: totalCredits },
         metrics: {
           totalRequests,
           failedRequests,
           blockedRequests,
           totalCredits,
           totalCostAud: totalCostMicros / 1_000_000,
-          averageLatencyMs,
-          errorRate: totalRequests ? Math.round((failedRequests / totalRequests) * 1000) / 10 : 0,
+          monthlyErrorRate: totalRequests
+            ? Math.round((failedRequests / totalRequests) * 1000) / 10
+            : null,
+          ...recentReliability,
         },
         usageByFeature: byFeature,
         integrations: {

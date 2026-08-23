@@ -506,7 +506,7 @@ export default function KnowledgeDashboard() {
             </p>
             <p className="flex items-center gap-2">
               <User className="h-4 w-4 text-primary" aria-hidden="true" />
-              Tone: {profile?.communication_tone || "not configured"}
+              Tone: {profile?.communication_tone || "forming from approved examples"}
             </p>
             <p className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-primary" aria-hidden="true" />

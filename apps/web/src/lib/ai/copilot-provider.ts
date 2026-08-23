@@ -20,6 +20,17 @@ type CopilotCompletion = {
 };
 
 const PROVIDER_TIMEOUT_MS = 30_000;
+const COPILOT_MAX_TOKENS = 1_200;
+
+export class CopilotProviderUnavailableError extends Error {
+  readonly attemptedProviders: CopilotCompletion["provider"][];
+
+  constructor(attemptedProviders: CopilotCompletion["provider"][]) {
+    super("AI service is temporarily unavailable");
+    this.name = "CopilotProviderUnavailableError";
+    this.attemptedProviders = attemptedProviders;
+  }
+}
 
 function cleanEnv(value: string | undefined, fallback = "") {
   return value?.trim() || fallback;
@@ -72,11 +83,13 @@ export async function requestCopilotCompletion({
   userId: string;
 }): Promise<CopilotCompletion> {
   const failures: string[] = [];
+  const attemptedProviders: CopilotCompletion["provider"][] = [];
   const gatewayToken = cleanEnv(
     process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN,
   );
 
   if (gatewayToken) {
+    attemptedProviders.push("vercel-ai-gateway");
     const model = cleanEnv(process.env.COPILOT_MODEL, "openai/gpt-5.5");
     try {
       const data = await postCompletion({
@@ -86,11 +99,12 @@ export async function requestCopilotCompletion({
         body: {
           model,
           messages,
-          max_tokens: 1600,
+          max_tokens: COPILOT_MAX_TOKENS,
           temperature: 0.8,
           user: userId,
           providerOptions: {
             gateway: {
+              user: userId,
               models: [
                 "anthropic/claude-sonnet-4.6",
                 "google/gemini-3.1-pro-preview",
@@ -112,6 +126,7 @@ export async function requestCopilotCompletion({
 
   const ollamaToken = cleanEnv(process.env.OLLAMA_API_KEY);
   if (ollamaToken) {
+    attemptedProviders.push("ollama");
     const model = cleanEnv(process.env.OLLAMA_MODEL, "kimi-k2.6");
     const baseUrl = cleanEnv(process.env.OLLAMA_BASE_URL, "https://ollama.com");
     try {
@@ -122,7 +137,7 @@ export async function requestCopilotCompletion({
         body: {
           model,
           messages,
-          max_tokens: 1600,
+          max_tokens: COPILOT_MAX_TOKENS,
           temperature: 0.8,
         },
       });
@@ -143,5 +158,5 @@ export async function requestCopilotCompletion({
       failures,
     }),
   );
-  throw new Error("AI service is temporarily unavailable");
+  throw new CopilotProviderUnavailableError(attemptedProviders);
 }

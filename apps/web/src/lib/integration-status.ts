@@ -54,3 +54,14 @@ export function requiresReconnectAfterTest(
     "token_missing",
   ].includes(result.status || "");
 }
+
+export function isIntegrationStale(
+  lastSyncAt: string | undefined,
+  now = new Date(),
+  staleAfterDays = 7,
+): boolean {
+  if (!lastSyncAt) return false;
+  const lastSync = new Date(lastSyncAt).getTime();
+  if (!Number.isFinite(lastSync)) return false;
+  return now.getTime() - lastSync > staleAfterDays * 86_400_000;
+}

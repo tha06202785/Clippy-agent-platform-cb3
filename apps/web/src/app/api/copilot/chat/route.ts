@@ -19,7 +19,10 @@ import {
   recordComplianceInterventionAlert,
 } from "@/lib/control-centre";
 import { evaluateCopilotReply } from "@/lib/copilot-compliance";
-import { requestCopilotCompletion } from "@/lib/ai/copilot-provider";
+import {
+  CopilotProviderUnavailableError,
+  requestCopilotCompletion,
+} from "@/lib/ai/copilot-provider";
 import {
   findCalendarConflicts,
   normaliseGoogleCalendarEvents,
@@ -780,6 +783,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
+    const providerUnavailable =
+      error instanceof CopilotProviderUnavailableError;
     console.error("Copilot error:", error);
 
     if (error instanceof ContextConflictError) {
@@ -799,24 +804,33 @@ export async function POST(req: NextRequest) {
         orgId: usageContext.orgId,
         userId: usageContext.userId,
         featureKey: "copilot_chat",
-        provider: "ollama-cloud",
-        model: "kimi-k2.6",
+        provider: providerUnavailable
+          ? error.attemptedProviders.join("+") || "not-configured"
+          : "application",
+        model: providerUnavailable ? "configured-fallback-chain" : "n/a",
         latencyMs: Date.now() - startedAt,
         status: "error",
-        errorCode: "provider_or_application_error",
-        metadata: { message: message.slice(0, 300) },
+        errorCode: providerUnavailable
+          ? "provider_unavailable"
+          : "application_error",
+        metadata: {
+          error_class:
+            error instanceof Error ? error.name : "NonErrorException",
+        },
       });
     }
 
     return NextResponse.json(
       {
-        error: message,
+        error: providerUnavailable
+          ? message
+          : "Copilot could not complete this request.",
         reply: "I apologise, I encountered an error.",
         confidence: 0.5,
         escalation: { required: true, reason: "system_error" },
         request_id: requestId,
       },
-      { status: 500 },
+      { status: providerUnavailable ? 503 : 500 },
     );
   }
 }
