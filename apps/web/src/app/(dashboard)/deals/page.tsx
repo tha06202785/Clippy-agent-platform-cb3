@@ -209,6 +209,20 @@ export default function DealsPage() {
     const num = parseFloat((d.price || "0").replace(/[^0-9.]/g, ""));
     return sum + (isNaN(num) ? 0 : num);
   }, 0);
+  const inProgressDeals = deals.filter(
+    (deal) => deal.stage !== "closed_won" && deal.stage !== "closed_lost",
+  );
+  const pipelineSummary = [
+    `${deals.length} deal${deals.length === 1 ? "" : "s"}`,
+    wonDeals.length
+      ? `${wonDeals.length} closed · ${formatPrice(String(totalValue)) || "$0"} closed value`
+      : null,
+    inProgressDeals.length
+      ? `${inProgressDeals.length} in progress`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const handleCreateDeal = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -298,15 +312,7 @@ export default function DealsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Pipeline</h1>
-          <p className="text-muted-foreground mt-1">
-            {deals.length} deal{deals.length !== 1 ? "s" : ""} ·
-            {wonDeals.length > 0 &&
-              ` ${wonDeals.length} closed · ${formatPrice(String(totalValue)) || "$0"} closed value`}
-            {deals.filter(
-              (d) => d.stage !== "closed_won" && d.stage !== "closed_lost",
-            ).length > 0 &&
-              ` · ${deals.filter((d) => d.stage !== "closed_won" && d.stage !== "closed_lost").length} in progress`}
-          </p>
+          <p className="text-muted-foreground mt-1">{pipelineSummary}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div

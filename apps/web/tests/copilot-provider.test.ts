@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestCopilotCompletion } from "../src/lib/ai/copilot-provider";
+import {
+  CopilotProviderUnavailableError,
+  requestCopilotCompletion,
+} from "../src/lib/ai/copilot-provider";
 
 const originalEnv = { ...process.env };
 
@@ -35,7 +38,9 @@ describe("Copilot provider routing", () => {
       "https://ai-gateway.vercel.sh/v1/chat/completions",
     );
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
-      max_tokens: 1600,
+      max_tokens: 1200,
+      user: "user-1",
+      providerOptions: { gateway: { user: "user-1" } },
     });
   });
 
@@ -112,11 +117,13 @@ describe("Copilot provider routing", () => {
         ),
     );
 
-    await expect(
+    const failure = expect(
       requestCopilotCompletion({
         messages: [{ role: "user", content: "Hello" }],
         userId: "user-1",
       }),
-    ).rejects.toThrow("AI service is temporarily unavailable");
+    ).rejects;
+    await failure.toThrow("AI service is temporarily unavailable");
+    await failure.toBeInstanceOf(CopilotProviderUnavailableError);
   });
 });

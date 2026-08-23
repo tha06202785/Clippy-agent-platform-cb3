@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getGooglePermissionSummary,
+  isIntegrationStale,
   requiresReconnectAfterTest,
 } from "../src/lib/integration-status";
 
@@ -58,5 +59,12 @@ describe("integration status", () => {
         status: "token_expired",
       }),
     ).toBe(false);
+  });
+
+  it("marks connected integrations as stale after seven days", () => {
+    const now = new Date("2026-08-22T00:00:00.000Z");
+    expect(isIntegrationStale("2026-08-14T23:59:59.000Z", now)).toBe(true);
+    expect(isIntegrationStale("2026-08-21T00:00:00.000Z", now)).toBe(false);
+    expect(isIntegrationStale(undefined, now)).toBe(false);
   });
 });

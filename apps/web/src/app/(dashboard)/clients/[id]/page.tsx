@@ -433,7 +433,7 @@ export default async function Client360Page({
             },
             {
               label: "AI score",
-              value: client.ai_score ?? "—",
+              value: client.ai_score ?? "Forming",
               icon: Target,
             },
           ].map((metric) => (

@@ -160,4 +160,64 @@ test.describe("Authenticated flows", () => {
       page.getByRole("dialog", { name: "Add knowledge" }),
     ).toBeHidden();
   });
+
+  test("audited filters and view controls update the interface", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await signIn(page);
+
+    await page.goto("/clients");
+    const clientSearch = page.getByLabel("Search clients");
+    await clientSearch.fill("James");
+    await expect(clientSearch).toHaveValue("James");
+    await expect(page.getByText("James", { exact: false }).first()).toBeVisible();
+
+    await page.goto("/calendar");
+    const calendarSearch = page.getByLabel("Search calendar");
+    await calendarSearch.fill("Alice");
+    await expect(calendarSearch).toHaveValue("Alice");
+    await expect(
+      page.getByText("Follow up with Alice Buyer", { exact: false }).first(),
+    ).toBeVisible();
+
+    await page.goto("/properties");
+    await page.getByLabel("Filter properties by status").selectOption("sold");
+    await expect(page.getByText(/of \d+ properties?/)).toBeVisible();
+    const propertyStatuses = page.locator("article span", {
+      hasText: /^sold$/i,
+    });
+    await expect(
+      propertyStatuses.first().or(page.getByText("No matching properties")),
+    ).toBeVisible();
+
+    await page.goto("/deals");
+    await page.getByRole("button", { name: "List", exact: true }).click();
+    await expect(
+      page.getByRole("table", { name: "Opportunity pipeline" }),
+    ).toBeVisible();
+
+    await page.goto("/inbox");
+    const emailFilter = page.getByRole("button", { name: "Email", exact: true });
+    if (await emailFilter.isVisible()) {
+      await emailFilter.click();
+      await expect(emailFilter).toHaveAttribute("aria-pressed", "true");
+    }
+
+    await page.goto("/knowledge");
+    await page.getByLabel("Search agency knowledge").fill("school fees");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Search results" }),
+    ).toBeVisible();
+
+    await page.goto("/team");
+    await page.getByRole("button", { name: "Invite member" }).click();
+    await expect(page.getByLabel("Colleague email")).toBeVisible();
+
+    await page.goto("/admin/control-centre");
+    await page.getByRole("link", { name: "Billing", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/billing$/);
+    await expect(page.getByRole("heading", { name: "Billing" })).toBeVisible();
+  });
 });

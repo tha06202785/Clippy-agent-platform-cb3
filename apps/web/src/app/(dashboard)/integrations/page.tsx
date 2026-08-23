@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { requiresReconnectAfterTest } from "@/lib/integration-status";
+import {
+  isIntegrationStale,
+  requiresReconnectAfterTest,
+} from "@/lib/integration-status";
 import {
   Activity,
   AlertCircle,
@@ -163,7 +166,11 @@ export default function IntegrationsPage() {
           : [];
       const mapped = Object.entries(CONFIG).map(([provider, config]) => {
         const existing = statuses.find((item) => item.provider === provider);
-        const status = normaliseStatus(existing?.status);
+        const storedStatus = normaliseStatus(existing?.status);
+        const stale =
+          storedStatus === "healthy" &&
+          isIntegrationStale(existing?.last_sync_at);
+        const status = stale ? "warning" : storedStatus;
         return {
           provider,
           name: config.name,
@@ -173,7 +180,11 @@ export default function IntegrationsPage() {
           email: existing?.email,
           lastSync: existing?.last_sync_at,
           itemsIndexed: existing?.items_indexed ?? 0,
-          humanMessage: existing?.humanMessage,
+          humanMessage:
+            existing?.humanMessage ||
+            (stale
+              ? "This connection has not synced for more than 7 days. Test it or reconnect before relying on new enquiries."
+              : undefined),
           canAutoRefresh: existing?.canAutoRefresh,
           requiresReconnect: existing?.requires_reconnect,
           permissions: existing?.permissions,
