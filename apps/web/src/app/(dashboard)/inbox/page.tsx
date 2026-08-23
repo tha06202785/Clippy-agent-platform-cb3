@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ArrowLeft,
   Bot,
@@ -80,6 +87,7 @@ export default function InboxPage() {
   const [approved, setApproved] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [notice, setNotice] = useState("");
+  const draftPreviewRef = useRef<HTMLTextAreaElement>(null);
 
   const loadThreads = useCallback(async () => {
     try {
@@ -102,6 +110,18 @@ export default function InboxPage() {
   useEffect(() => {
     void loadThreads();
   }, [loadThreads]);
+
+  useEffect(() => {
+    if (!draft) return;
+    const frame = window.requestAnimationFrame(() => {
+      draftPreviewRef.current?.focus();
+      draftPreviewRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [draft]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -128,6 +148,7 @@ export default function InboxPage() {
       setError("");
       setDraft("");
       setDraftId(null);
+      setAutomationApprovalId(null);
       setApproved(false);
       setInstruction("");
       try {
@@ -175,7 +196,9 @@ export default function InboxPage() {
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "Clippy could not create a draft");
-      setDraft(data.reply || "");
+      const reply = typeof data.reply === "string" ? data.reply.trim() : "";
+      if (!reply) throw new Error("Clippy returned an empty draft. Try again.");
+      setDraft(reply);
       setDraftId(data.draft_id || null);
       setAutomationApprovalId(data.approval_id || null);
     } catch (cause) {
@@ -188,6 +211,11 @@ export default function InboxPage() {
       setDrafting(false);
     }
   }, [instruction, selectedId]);
+
+  const submitDraft = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void createDraft();
+  };
 
   const approveDraft = useCallback(async () => {
     if (!selected || !draftId || !draft.trim()) return;
@@ -540,7 +568,11 @@ export default function InboxPage() {
               <footer className="max-h-[55vh] overflow-y-auto border-t border-border bg-card p-4 pb-24 md:max-h-none md:pb-4">
                 <div className="mx-auto max-w-3xl rounded-lg border border-border bg-muted/40 p-3">
                   {draft ? (
-                    <div className="space-y-3">
+                    <div
+                      className="space-y-3"
+                      role="region"
+                      aria-label="Clippy draft preview"
+                    >
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="flex items-center gap-2 text-sm font-medium">
@@ -559,6 +591,7 @@ export default function InboxPage() {
                           onClick={() => {
                             setDraft("");
                             setDraftId(null);
+                            setAutomationApprovalId(null);
                             setApproved(false);
                           }}
                           className="rounded-md p-2 hover:bg-muted"
@@ -568,6 +601,8 @@ export default function InboxPage() {
                         </button>
                       </div>
                       <textarea
+                        ref={draftPreviewRef}
+                        data-testid="clippy-draft-preview"
                         aria-label="Edit Clippy reply"
                         value={draft}
                         onChange={(event) => {
@@ -651,22 +686,24 @@ export default function InboxPage() {
                           </a>
                         )}
                       </div>
-                      <div className="flex gap-2">
+                      <form
+                        className="flex gap-2"
+                        aria-label="Create Clippy draft"
+                        onSubmit={submitDraft}
+                      >
                         <input
+                          aria-label="Draft instruction"
                           value={instruction}
                           onChange={(event) =>
                             setInstruction(event.target.value)
                           }
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") void createDraft();
-                          }}
                           placeholder="Optional instruction, e.g. offer Tuesday at 4pm"
                           className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
                         />
                         <button
-                          type="button"
+                          type="submit"
                           disabled={drafting}
-                          onClick={() => void createDraft()}
+                          aria-busy={drafting}
                           className="inline-flex items-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
                         >
                           {drafting ? (
@@ -679,7 +716,7 @@ export default function InboxPage() {
                           )}
                           {drafting ? "Drafting…" : "Create draft"}
                         </button>
-                      </div>
+                      </form>
                     </div>
                   )}
                 </div>
