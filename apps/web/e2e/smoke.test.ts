@@ -4,11 +4,11 @@ test("landing page loads", async ({ page }) => {
   await page.goto("/");
   await expect(
     page.getByRole("heading", {
-      name: "Turn every enquiry into a clear next action.",
+      name: "Turn property enquiries into clear next actions.",
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Create a workspace" }).first(),
+    page.getByRole("link", { name: "See Founding 100 pricing" }).first(),
   ).toBeVisible();
   await expect(page.locator("main")).toBeVisible();
   expect(
@@ -22,7 +22,7 @@ test("pricing page loads", async ({ page }) => {
   await page.goto("/pricing");
   await expect(
     page.getByRole("heading", {
-      name: "Pilot scope before published pricing.",
+      name: "Win back the hours hiding in your inbox.",
     }),
   ).toBeVisible();
 });
@@ -46,7 +46,9 @@ test("subscription plans API returns honest rollout status", async ({
   expect(response.ok()).toBeTruthy();
   const data = await response.json();
   expect(Array.isArray(data.plans)).toBeTruthy();
-  expect(["pilot", "checkout_ready"]).toContain(data.pricingStatus);
+  expect(["assisted_checkout", "checkout_ready"]).toContain(
+    data.pricingStatus,
+  );
   expect(data.plans.every((plan: object) => !("priceId" in plan))).toBeTruthy();
 });
 
