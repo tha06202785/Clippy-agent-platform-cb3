@@ -34,6 +34,7 @@ import {
 } from "@/lib/adaptive-learning";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 type RecordValue = Record<string, unknown>;
 
@@ -472,10 +473,7 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (clientMemoryResult.error)
-        console.error(
-          "Client memory lookup failed:",
-          clientMemoryResult.error,
-        );
+        console.error("Client memory lookup failed:", clientMemoryResult.error);
       clientMemory = (clientMemoryResult.data ?? null) as RecordValue | null;
     }
 

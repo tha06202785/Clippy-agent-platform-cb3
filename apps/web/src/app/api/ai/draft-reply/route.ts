@@ -22,6 +22,7 @@ import {
 import { isMessageVisible } from "@/lib/conversations/message-visibility";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const requestSchema = z.object({
   conversation_id: z.string().uuid(),
@@ -328,7 +329,9 @@ export async function POST(req: NextRequest) {
       outputTokens,
       cachedTokens,
       creditsUsed:
-        provider === "local" ? 0 : estimateCredits("copilot_chat", outputTokens),
+        provider === "local"
+          ? 0
+          : estimateCredits("copilot_chat", outputTokens),
       costMicros: estimateCostMicros(inputTokens, outputTokens),
       latencyMs: Date.now() - startedAt,
       status: "success",
