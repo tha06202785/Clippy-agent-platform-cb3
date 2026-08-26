@@ -8,7 +8,7 @@ test("landing page loads", async ({ page }) => {
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "See Founding 100 pricing" }).first(),
+    page.getByRole("link", { name: "See Founding 20 pricing" }).first(),
   ).toBeVisible();
   await expect(page.locator("main")).toBeVisible();
   expect(
