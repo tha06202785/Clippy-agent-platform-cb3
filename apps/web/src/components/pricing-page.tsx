@@ -23,7 +23,7 @@ export function PricingPage() {
       <main className="mx-auto max-w-6xl px-6 py-20">
         <div className="text-center">
           <span className="inline-flex rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-            Founding 100
+            Founding 20
           </span>
           <h1 className="mt-6 text-4xl font-bold tracking-tight text-foreground md:text-5xl">
             Win back the hours hiding in your inbox.
@@ -44,7 +44,7 @@ export function PricingPage() {
                 <h2 className="mt-1 text-2xl font-bold">Founding Agent</h2>
               </div>
               <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                First 100 agents
+                First 20 agents
               </span>
             </div>
             <div className="mt-7 flex items-end gap-2">
@@ -70,7 +70,7 @@ export function PricingPage() {
               plan="starter"
               className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-semibold text-white transition hover:bg-primary/90 disabled:cursor-wait disabled:opacity-70"
             >
-              Claim a Founding 100 place
+              Claim a Founding 20 place
             </CheckoutButton>
             <p className="mt-3 text-center text-xs text-neutral-500">
               Workspace setup comes first. Payment is confirmed separately.
