@@ -154,7 +154,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl text-center">
             <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800">
               <Sparkles className="h-4 w-4" />
-              Founding 100 places now open
+              Founding 20 places now open
             </div>
             <h1 className="mx-auto mt-8 max-w-5xl text-5xl font-semibold leading-[1.08] tracking-[-0.035em] md:text-6xl">
               Turn property enquiries into clear next actions.
@@ -170,7 +170,7 @@ export default function LandingPage() {
                 href="/pricing"
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-7 py-3.5 text-sm font-medium text-white transition hover:bg-primary/90"
               >
-                See Founding 100 pricing
+                See Founding 20 pricing
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link

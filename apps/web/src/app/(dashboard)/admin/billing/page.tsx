@@ -156,7 +156,7 @@ export default function BillingPage() {
 
       {!loading && !isPaid && !isPastDue ? (
         <section className="rounded-xl border border-primary/20 bg-primary/5 p-5">
-          <p className="text-sm font-semibold text-primary">Founding 100</p>
+          <p className="text-sm font-semibold text-primary">Founding 20</p>
           <h2 className="mt-1 text-xl font-bold text-foreground">
             Activate Founding Agent for A$99/month
           </h2>
