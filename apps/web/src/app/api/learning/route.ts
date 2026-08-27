@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  AGENT_DNA_DEFINITIONS,
+  buildAgentDnaSchema,
+  buildSuggestedAgentDnaSections,
+  saveAgentDnaSectionSchema,
+} from "@/lib/agent-dna";
+import {
   addAgentGuidance,
   ensureLearningSettings,
   learnFromStoredMessages,
@@ -47,6 +53,8 @@ const actionSchema = z.discriminatedUnion("action", [
     example_id: z.string().uuid(),
   }),
   z.object({ action: z.literal("reset") }),
+  buildAgentDnaSchema,
+  saveAgentDnaSectionSchema,
 ]);
 
 async function userContext() {
@@ -92,6 +100,7 @@ export async function GET() {
       eventsResult,
       clientsResult,
       gmailResult,
+      dnaResult,
     ] = await Promise.all([
       supabase
         .from("agent_profiles")
@@ -134,13 +143,22 @@ export async function GET() {
         .eq("org_id", orgId)
         .eq("provider", "gmail")
         .maybeSingle(),
+      supabase
+        .from("agent_dna_sections")
+        .select(
+          "id,org_id,user_id,section_key,summary,rules,goals,agent_notes,source,status,confidence,evidence_count,version,confirmed_at,updated_at",
+        )
+        .eq("org_id", orgId)
+        .eq("user_id", user.id)
+        .order("section_key"),
     ]);
     const queryError =
       profileResult.error ||
       examplesResult.error ||
       eventsResult.error ||
       clientsResult.error ||
-      gmailResult.error;
+      gmailResult.error ||
+      dnaResult.error;
     if (queryError) throw queryError;
     const clientRows = clientsResult.data || [];
     const leadIds = clientRows.map((client) => client.lead_id).filter(Boolean);
@@ -175,6 +193,14 @@ export async function GET() {
       events,
       clients,
       gmail: gmailResult.data,
+      dna: {
+        definitions: AGENT_DNA_DEFINITIONS,
+        sections: dnaResult.data || [],
+        confirmed: (dnaResult.data || []).filter(
+          (section) => section.status === "confirmed",
+        ).length,
+        total: AGENT_DNA_DEFINITIONS.length,
+      },
       stats: {
         examples: examples.filter((example) => !example.excluded).length,
         excluded: examples.filter((example) => example.excluded).length,
@@ -217,6 +243,7 @@ export async function PATCH(request: NextRequest) {
     }
     const { supabase, user, orgId } = context;
     await ensureLearningSettings(supabase, orgId, user.id);
+
     const { data, error } = await supabase
       .from("communication_learning_settings")
       .update({
@@ -256,6 +283,115 @@ export async function POST(request: NextRequest) {
     const { supabase, user, orgId } = context;
     const admin = createAdminClient();
     await ensureLearningSettings(supabase, orgId, user.id);
+
+    if (parsed.data.action === "build_dna") {
+      const [
+        { data: profile, error: profileError },
+        { data: existing, error: existingError },
+      ] = await Promise.all([
+        supabase
+          .from("agent_profiles")
+          .select(
+            "style_summary,style_rules,avoid_phrases,learned_sample_count,confidence_score",
+          )
+          .eq("org_id", orgId)
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("agent_dna_sections")
+          .select("id,section_key,source,status")
+          .eq("org_id", orgId)
+          .eq("user_id", user.id),
+      ]);
+      if (profileError || existingError) throw profileError || existingError;
+
+      const suggestions = buildSuggestedAgentDnaSections(profile);
+      const existingByKey = new Map(
+        (existing || []).map((section) => [section.section_key, section]),
+      );
+      const missing = suggestions
+        .filter((section) => !existingByKey.has(section.section_key))
+        .map((section) => ({ ...section, org_id: orgId, user_id: user.id }));
+      if (missing.length) {
+        const { error } = await supabase
+          .from("agent_dna_sections")
+          .insert(missing);
+        if (error) throw error;
+      }
+
+      const voiceSuggestion = suggestions.find(
+        (section) => section.section_key === "voice",
+      );
+      const existingVoice = existingByKey.get("voice");
+      if (
+        voiceSuggestion &&
+        existingVoice &&
+        existingVoice.source !== "agent" &&
+        existingVoice.status !== "confirmed"
+      ) {
+        const { error } = await supabase
+          .from("agent_dna_sections")
+          .update({
+            summary: voiceSuggestion.summary,
+            rules: voiceSuggestion.rules,
+            goals: voiceSuggestion.goals,
+            source: voiceSuggestion.source,
+            status: voiceSuggestion.status,
+            confidence: voiceSuggestion.confidence,
+            evidence_count: voiceSuggestion.evidence_count,
+            version: 2,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingVoice.id)
+          .eq("org_id", orgId)
+          .eq("user_id", user.id);
+        if (error) throw error;
+      }
+
+      const { data: sections, error: sectionsError } = await supabase
+        .from("agent_dna_sections")
+        .select("*")
+        .eq("org_id", orgId)
+        .eq("user_id", user.id);
+      if (sectionsError) throw sectionsError;
+      return NextResponse.json({ sections });
+    }
+
+    if (parsed.data.action === "save_dna_section") {
+      const { data: existing } = await supabase
+        .from("agent_dna_sections")
+        .select("id,version")
+        .eq("org_id", orgId)
+        .eq("user_id", user.id)
+        .eq("section_key", parsed.data.section_key)
+        .maybeSingle();
+      const now = new Date().toISOString();
+      const { data: section, error } = await supabase
+        .from("agent_dna_sections")
+        .upsert(
+          {
+            org_id: orgId,
+            user_id: user.id,
+            section_key: parsed.data.section_key,
+            summary: parsed.data.summary,
+            rules: parsed.data.rules,
+            goals: parsed.data.goals,
+            agent_notes: parsed.data.agent_notes,
+            source: "agent",
+            status: parsed.data.status,
+            confidence: parsed.data.status === "confirmed" ? 100 : 0,
+            evidence_count: 0,
+            version: Number(existing?.version || 0) + 1,
+            confirmed_at: parsed.data.status === "confirmed" ? now : null,
+            updated_at: now,
+          },
+          { onConflict: "org_id,user_id,section_key" },
+        )
+        .select("*")
+        .single();
+      if (error) throw error;
+      return NextResponse.json({ section });
+    }
 
     if (parsed.data.action === "guidance") {
       const profile = await addAgentGuidance({
@@ -305,20 +441,29 @@ export async function POST(request: NextRequest) {
     }
 
     if (parsed.data.action === "reset") {
-      const [{ error: eventsError }, { error: examplesError }] =
-        await Promise.all([
-          supabase
-            .from("communication_learning_events")
-            .delete()
-            .eq("org_id", orgId)
-            .eq("user_id", user.id),
-          supabase
-            .from("communication_examples")
-            .delete()
-            .eq("org_id", orgId)
-            .eq("user_id", user.id),
-        ]);
-      if (eventsError || examplesError) throw eventsError || examplesError;
+      const [
+        { error: eventsError },
+        { error: examplesError },
+        { error: dnaError },
+      ] = await Promise.all([
+        supabase
+          .from("communication_learning_events")
+          .delete()
+          .eq("org_id", orgId)
+          .eq("user_id", user.id),
+        supabase
+          .from("communication_examples")
+          .delete()
+          .eq("org_id", orgId)
+          .eq("user_id", user.id),
+        supabase
+          .from("agent_dna_sections")
+          .delete()
+          .eq("org_id", orgId)
+          .eq("user_id", user.id),
+      ]);
+      if (eventsError || examplesError || dnaError)
+        throw eventsError || examplesError || dnaError;
       const now = new Date().toISOString();
       await Promise.all([
         supabase
