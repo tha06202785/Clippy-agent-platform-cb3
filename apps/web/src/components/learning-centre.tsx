@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, ErrorState, LoadingState } from "@clippy/ui";
+import { AgentDnaBuilder } from "@/components/agent-dna-builder";
+import type { AgentDnaDefinition, AgentDnaSection } from "@/lib/agent-dna";
 
 type LearningSettings = {
   learning_enabled: boolean;
@@ -105,6 +107,12 @@ type LearningData = {
     sources: Record<string, number>;
   };
   privacy: { raw_examples_retained: false; note: string };
+  dna: {
+    definitions: AgentDnaDefinition[];
+    sections: AgentDnaSection[];
+    confirmed: number;
+    total: number;
+  };
 };
 
 async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -509,16 +517,21 @@ export function LearningCentre() {
         </div>
       )}
 
+      <AgentDnaBuilder dna={data.dna} onAction={runAction} />
+
       <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <article className="rounded-2xl border bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
                 <UserRoundCog className="h-5 w-5 text-emerald-600" />
-                <h2 className="font-bold text-neutral-950">Your Agent DNA</h2>
+                <h2 className="font-bold text-neutral-950">
+                  Learned voice profile
+                </h2>
               </div>
               <p className="mt-1 text-xs text-neutral-500">
-                A living profile derived from messages you actually send.
+                The evidence-based Voice section derived from messages you
+                actually send.
               </p>
             </div>
             <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[10px] font-semibold text-neutral-600">

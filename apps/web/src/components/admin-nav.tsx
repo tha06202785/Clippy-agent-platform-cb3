@@ -10,12 +10,24 @@ import {
   LayoutDashboard,
   Settings,
   ShieldCheck,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const adminNav = [
-  { href: "/admin/platform", label: "Platform", icon: Building2, platformOnly: true },
+  {
+    href: "/admin/platform",
+    label: "Platform",
+    icon: Building2,
+    platformOnly: true,
+  },
+  {
+    href: "/admin/pilots",
+    label: "Pilot agents",
+    icon: UserPlus,
+    platformOnly: true,
+  },
   { href: "/admin/control-centre", label: "Operations", icon: Activity },
   { href: "/admin/qa", label: "Diagnostics", icon: ShieldCheck },
   { href: "/admin/agents", label: "Team access", icon: Users },
@@ -23,9 +35,15 @@ const adminNav = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-export function AdminNav({ isPlatformAdmin = false }: { isPlatformAdmin?: boolean }) {
+export function AdminNav({
+  isPlatformAdmin = false,
+}: {
+  isPlatformAdmin?: boolean;
+}) {
   const pathname = usePathname();
-  const visibleItems = adminNav.filter((item) => !item.platformOnly || isPlatformAdmin);
+  const visibleItems = adminNav.filter(
+    (item) => !item.platformOnly || isPlatformAdmin,
+  );
   const activeItem = visibleItems.find(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
   );
@@ -38,7 +56,9 @@ export function AdminNav({ isPlatformAdmin = false }: { isPlatformAdmin?: boolea
         {activeItem && (
           <>
             <ChevronRight className="h-3 w-3" />
-            <span className="font-medium text-foreground">{activeItem.label}</span>
+            <span className="font-medium text-foreground">
+              {activeItem.label}
+            </span>
           </>
         )}
       </div>

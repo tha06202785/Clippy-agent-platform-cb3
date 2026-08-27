@@ -5,6 +5,7 @@ import {
   KNOWLEDGE_EMBEDDING_MODEL,
 } from "@/lib/knowledge-indexing";
 import { isMessageVisible } from "@/lib/conversations/message-visibility";
+import { buildConfirmedAgentDnaPrompt } from "@/lib/agent-dna";
 
 type SupabaseLike = any;
 type JsonRecord = Record<string, unknown>;
@@ -1160,35 +1161,43 @@ export async function retrieveAdaptiveCommunicationContext({
     return empty;
   }
 
-  const [profileResult, memoryResult, examplesResult] = await Promise.all([
-    supabase
-      .from("agent_profiles")
-      .select(
-        "style_summary,style_rules,avoid_phrases,common_greetings,common_signoffs,average_message_words,learned_sample_count,confidence_score,last_learned_at",
-      )
-      .eq("org_id", orgId)
-      .eq("user_id", userId)
-      .maybeSingle(),
-    leadId
-      ? supabase
-          .from("client_memories")
-          .select(
-            "communication_preference,tone_preference,length_preference,language_preference,reminder_preference,best_contact_time,learning_excluded",
-          )
-          .eq("org_id", orgId)
-          .eq("lead_id", leadId)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    supabase
-      .from("communication_examples")
-      .select("content,subject,situation,embedding,quality_score,occurred_at")
-      .eq("org_id", orgId)
-      .eq("user_id", userId)
-      .eq("approved", true)
-      .eq("excluded", false)
-      .order("occurred_at", { ascending: false })
-      .limit(RETRIEVAL_CANDIDATE_LIMIT),
-  ]);
+  const [profileResult, memoryResult, examplesResult, dnaResult] =
+    await Promise.all([
+      supabase
+        .from("agent_profiles")
+        .select(
+          "style_summary,style_rules,avoid_phrases,common_greetings,common_signoffs,average_message_words,learned_sample_count,confidence_score,last_learned_at",
+        )
+        .eq("org_id", orgId)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      leadId
+        ? supabase
+            .from("client_memories")
+            .select(
+              "communication_preference,tone_preference,length_preference,language_preference,reminder_preference,best_contact_time,learning_excluded",
+            )
+            .eq("org_id", orgId)
+            .eq("lead_id", leadId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from("communication_examples")
+        .select("content,subject,situation,embedding,quality_score,occurred_at")
+        .eq("org_id", orgId)
+        .eq("user_id", userId)
+        .eq("approved", true)
+        .eq("excluded", false)
+        .order("occurred_at", { ascending: false })
+        .limit(RETRIEVAL_CANDIDATE_LIMIT),
+      supabase
+        .from("agent_dna_sections")
+        .select("section_key,summary,rules,goals,agent_notes,status")
+        .eq("org_id", orgId)
+        .eq("user_id", userId)
+        .eq("status", "confirmed")
+        .order("section_key"),
+    ]);
   if (profileResult.error)
     throw new Error(`Agent DNA lookup failed: ${profileResult.error.message}`);
   if (memoryResult.error)
@@ -1198,6 +1207,10 @@ export async function retrieveAdaptiveCommunicationContext({
   if (examplesResult.error)
     throw new Error(
       `Voice example lookup failed: ${examplesResult.error.message}`,
+    );
+  if (dnaResult.error)
+    throw new Error(
+      `Confirmed Agent DNA lookup failed: ${dnaResult.error.message}`,
     );
 
   const profile = record(profileResult.data);
@@ -1233,9 +1246,13 @@ export async function retrieveAdaptiveCommunicationContext({
     .map((rule) => rule.slice(0, 300));
   const learnedSampleCount = Number(profile.learned_sample_count || 0);
   const confidence = Number(profile.confidence_score || 0);
+  const confirmedDnaPrompt = buildConfirmedAgentDnaPrompt(
+    (dnaResult.data || []) as any,
+  );
   const prompt = [
     "ADAPTIVE COMMUNICATION GUIDANCE",
     "Priority: never override verified facts, compliance rules, agency policy, or the user's current instruction.",
+    confirmedDnaPrompt || null,
     profile.style_summary
       ? `Agent DNA: ${String(profile.style_summary)}`
       : null,

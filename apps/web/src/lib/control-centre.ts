@@ -31,17 +31,26 @@ export async function checkEntitlement(
   featureKey: FeatureKey,
 ): Promise<EntitlementDecision> {
   const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const monthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  ).toISOString();
 
   const { data: subscription } = await supabase
     .from("org_subscriptions")
-    .select("status, plans!inner(key), plan_id")
+    .select("status, trial_ends_at, plans!inner(key), plan_id")
     .eq("org_id", orgId)
     .maybeSingle();
 
   const planKey = (subscription as any)?.plans?.key || DEFAULT_PLAN;
   const subscriptionStatus = (subscription as any)?.status;
-  const active = !subscriptionStatus || ["trialing", "active", "past_due"].includes(subscriptionStatus);
+  const trialEndsAt = (subscription as any)?.trial_ends_at;
+  const trialActive =
+    subscriptionStatus === "trialing" &&
+    (!trialEndsAt || new Date(trialEndsAt).getTime() > now.getTime());
+  const active =
+    !subscriptionStatus ||
+    trialActive ||
+    ["active", "past_due"].includes(subscriptionStatus);
 
   if (!active) {
     return {
@@ -55,37 +64,46 @@ export async function checkEntitlement(
     };
   }
 
-  const { data: plan } = await supabase.from("plans").select("id").eq("key", planKey).maybeSingle();
+  const { data: plan } = await supabase
+    .from("plans")
+    .select("id")
+    .eq("key", planKey)
+    .maybeSingle();
 
-  const [{ data: planFeature }, { data: override }, { count: used }] = await Promise.all([
-    plan?.id
-      ? supabase
-          .from("plan_features")
-          .select("enabled, monthly_limit")
-          .eq("plan_id", plan.id)
-          .eq("feature_key", featureKey)
-          .maybeSingle()
-      : Promise.resolve({ data: null } as any),
-    supabase
-      .from("org_entitlement_overrides")
-      .select("enabled, monthly_limit, expires_at")
-      .eq("org_id", orgId)
-      .eq("feature_key", featureKey)
-      .maybeSingle(),
-    supabase
-      .from("ai_usage_events")
-      .select("id", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .eq("feature_key", featureKey)
-      .gte("created_at", monthStart),
-  ]);
+  const [{ data: planFeature }, { data: override }, { count: used }] =
+    await Promise.all([
+      plan?.id
+        ? supabase
+            .from("plan_features")
+            .select("enabled, monthly_limit")
+            .eq("plan_id", plan.id)
+            .eq("feature_key", featureKey)
+            .maybeSingle()
+        : Promise.resolve({ data: null } as any),
+      supabase
+        .from("org_entitlement_overrides")
+        .select("enabled, monthly_limit, expires_at")
+        .eq("org_id", orgId)
+        .eq("feature_key", featureKey)
+        .maybeSingle(),
+      supabase
+        .from("ai_usage_events")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("feature_key", featureKey)
+        .gte("created_at", monthStart),
+    ]);
 
-  const overrideActive = override && (!override.expires_at || new Date(override.expires_at) > now);
-  const enabled = overrideActive && override.enabled !== null ? override.enabled : planFeature?.enabled === true;
+  const overrideActive =
+    override && (!override.expires_at || new Date(override.expires_at) > now);
+  const enabled =
+    overrideActive && override.enabled !== null
+      ? override.enabled
+      : planFeature?.enabled === true;
   const monthlyLimit =
     overrideActive && override.monthly_limit !== null
       ? override.monthly_limit
-      : planFeature?.monthly_limit ?? null;
+      : (planFeature?.monthly_limit ?? null);
   const usage = used || 0;
 
   if (!enabled) {
@@ -95,8 +113,11 @@ export async function checkEntitlement(
       planKey,
       monthlyLimit,
       used: usage,
-      remaining: monthlyLimit === null ? null : Math.max(monthlyLimit - usage, 0),
-      usagePercent: monthlyLimit ? Math.min(Math.round((usage / monthlyLimit) * 100), 100) : null,
+      remaining:
+        monthlyLimit === null ? null : Math.max(monthlyLimit - usage, 0),
+      usagePercent: monthlyLimit
+        ? Math.min(Math.round((usage / monthlyLimit) * 100), 100)
+        : null,
     };
   }
 
@@ -118,11 +139,16 @@ export async function checkEntitlement(
     monthlyLimit,
     used: usage,
     remaining: monthlyLimit === null ? null : Math.max(monthlyLimit - usage, 0),
-    usagePercent: monthlyLimit ? Math.min(Math.round((usage / monthlyLimit) * 100), 100) : null,
+    usagePercent: monthlyLimit
+      ? Math.min(Math.round((usage / monthlyLimit) * 100), 100)
+      : null,
   };
 }
 
-export function estimateCredits(featureKey: FeatureKey, outputTokens = 0): number {
+export function estimateCredits(
+  featureKey: FeatureKey,
+  outputTokens = 0,
+): number {
   const base: Record<FeatureKey, number> = {
     copilot_chat: 3,
     knowledge_search: 1,
@@ -144,29 +170,29 @@ export function estimateCostMicros(
   inputUsdPerMillion = 0.5,
   outputUsdPerMillion = 2,
 ): number {
-  const usd = (inputTokens / 1_000_000) * inputUsdPerMillion + (outputTokens / 1_000_000) * outputUsdPerMillion;
+  const usd =
+    (inputTokens / 1_000_000) * inputUsdPerMillion +
+    (outputTokens / 1_000_000) * outputUsdPerMillion;
   return Math.max(0, Math.round(usd * 1_000_000));
 }
 
-export async function recordAIUsage(
-  event: {
-    requestId: string;
-    orgId: string;
-    userId?: string;
-    featureKey: FeatureKey;
-    provider: string;
-    model: string;
-    inputTokens?: number;
-    outputTokens?: number;
-    cachedTokens?: number;
-    creditsUsed?: number;
-    costMicros?: number;
-    latencyMs?: number;
-    status: "success" | "error" | "blocked";
-    errorCode?: string;
-    metadata?: Record<string, unknown>;
-  },
-): Promise<void> {
+export async function recordAIUsage(event: {
+  requestId: string;
+  orgId: string;
+  userId?: string;
+  featureKey: FeatureKey;
+  provider: string;
+  model: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedTokens?: number;
+  creditsUsed?: number;
+  costMicros?: number;
+  latencyMs?: number;
+  status: "success" | "error" | "blocked";
+  errorCode?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
   const supabase = createAdminClient();
   const { error } = await supabase.rpc("record_ai_usage", {
     p_request_id: event.requestId,
