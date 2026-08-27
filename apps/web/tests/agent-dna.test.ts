@@ -3,10 +3,25 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   AGENT_DNA_DEFINITIONS,
+  applyAgentDnaTemplateSchema,
   buildConfirmedAgentDnaPrompt,
   buildSuggestedAgentDnaSections,
   saveAgentDnaSectionSchema,
 } from "@/lib/agent-dna";
+import {
+  buildAgentDnaPreviews,
+  buildAgentDnaTemplateSections,
+  type AgentDnaTemplateChoices,
+} from "@/lib/agent-dna-templates";
+
+const guidedChoices: AgentDnaTemplateChoices = {
+  role: "residential_sales",
+  voice_style: "trusted_local",
+  response_length: "balanced",
+  conversion_style: "consultative",
+  approval_level: "all_external",
+  growth_goal: "referrals",
+};
 
 describe("ten-section Agent DNA", () => {
   it("creates all ten guided sections without pretending recommendations are confirmed", () => {
@@ -86,6 +101,75 @@ describe("ten-section Agent DNA", () => {
       saveAgentDnaSectionSchema.safeParse({ ...valid, section_key: "secret" })
         .success,
     ).toBe(false);
+  });
+
+  it("offers multiple one-click examples for every DNA section", () => {
+    expect(
+      AGENT_DNA_DEFINITIONS.every(
+        (definition) =>
+          definition.examples.length >= 2 &&
+          definition.examples.every((example) => example.length >= 20),
+      ),
+    ).toBe(true);
+  });
+
+  it("builds ten review-only drafts from the guided real-estate template", () => {
+    const sections = buildAgentDnaTemplateSections(guidedChoices);
+
+    expect(sections).toHaveLength(10);
+    expect(new Set(sections.map((section) => section.section_key)).size).toBe(
+      10,
+    );
+    expect(sections.every((section) => section.status === "draft")).toBe(true);
+    expect(sections.every((section) => section.confidence === 0)).toBe(true);
+    expect(
+      sections
+        .find((section) => section.section_key === "decisions")
+        ?.rules.join(" "),
+    ).toContain("my approval");
+    expect(
+      sections.find((section) => section.section_key === "growth")?.summary,
+    ).toContain("referrals");
+  });
+
+  it("validates all six guided choices and rejects unknown templates", () => {
+    expect(
+      applyAgentDnaTemplateSchema.safeParse({
+        action: "apply_dna_template",
+        ...guidedChoices,
+      }).success,
+    ).toBe(true);
+    expect(
+      applyAgentDnaTemplateSchema.safeParse({
+        action: "apply_dna_template",
+        ...guidedChoices,
+        role: "mortgage_broker",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("previews three realistic situations before creating drafts", () => {
+    const previews = buildAgentDnaPreviews(guidedChoices);
+
+    expect(previews).toHaveLength(3);
+    expect(previews.map((preview) => preview.title)).toEqual([
+      "New property enquiry",
+      "Hesitant client follow-up",
+      "Educational social post",
+    ]);
+    expect(previews[0]?.content).toContain("Saturday");
+  });
+
+  it("keeps confirmed sections when a guided template is applied", () => {
+    const route = readFileSync(
+      resolve(process.cwd(), "src/app/api/learning/route.ts"),
+      "utf8",
+    );
+
+    expect(route).toContain('parsed.data.action === "apply_dna_template"');
+    expect(route).toMatch(
+      /existingByKey\.get\(section\.section_key\)\?\.status !== "confirmed"/,
+    );
   });
 });
 

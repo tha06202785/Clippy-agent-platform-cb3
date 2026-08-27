@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
   AGENT_DNA_DEFINITIONS,
+  applyAgentDnaTemplateSchema,
   buildAgentDnaSchema,
   buildSuggestedAgentDnaSections,
   saveAgentDnaSectionSchema,
 } from "@/lib/agent-dna";
+import { buildAgentDnaTemplateSections } from "@/lib/agent-dna-templates";
 import {
   addAgentGuidance,
   ensureLearningSettings,
@@ -54,6 +56,7 @@ const actionSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("reset") }),
   buildAgentDnaSchema,
+  applyAgentDnaTemplateSchema,
   saveAgentDnaSectionSchema,
 ]);
 
@@ -355,6 +358,57 @@ export async function POST(request: NextRequest) {
         .eq("user_id", user.id);
       if (sectionsError) throw sectionsError;
       return NextResponse.json({ sections });
+    }
+
+    if (parsed.data.action === "apply_dna_template") {
+      const { data: existing, error: existingError } = await supabase
+        .from("agent_dna_sections")
+        .select("id,section_key,status,version")
+        .eq("org_id", orgId)
+        .eq("user_id", user.id);
+      if (existingError) throw existingError;
+
+      const existingByKey = new Map(
+        (existing || []).map((section) => [section.section_key, section]),
+      );
+      const templateSections = buildAgentDnaTemplateSections(parsed.data);
+      const now = new Date().toISOString();
+      const reviewableSections = templateSections
+        .filter(
+          (section) =>
+            existingByKey.get(section.section_key)?.status !== "confirmed",
+        )
+        .map((section) => ({
+          ...section,
+          org_id: orgId,
+          user_id: user.id,
+          version:
+            Number(existingByKey.get(section.section_key)?.version || 0) + 1,
+          confirmed_at: null,
+          updated_at: now,
+        }));
+
+      if (reviewableSections.length) {
+        const { error } = await supabase
+          .from("agent_dna_sections")
+          .upsert(reviewableSections, {
+            onConflict: "org_id,user_id,section_key",
+          });
+        if (error) throw error;
+      }
+
+      const { data: sections, error: sectionsError } = await supabase
+        .from("agent_dna_sections")
+        .select("*")
+        .eq("org_id", orgId)
+        .eq("user_id", user.id);
+      if (sectionsError) throw sectionsError;
+      return NextResponse.json({
+        sections,
+        preserved_confirmed: (existing || []).filter(
+          (section) => section.status === "confirmed",
+        ).length,
+      });
     }
 
     if (parsed.data.action === "save_dna_section") {

@@ -1,4 +1,12 @@
 import { z } from "zod";
+import {
+  AGENT_DNA_APPROVAL_KEYS,
+  AGENT_DNA_CONVERSION_STYLE_KEYS,
+  AGENT_DNA_GROWTH_GOAL_KEYS,
+  AGENT_DNA_RESPONSE_LENGTH_KEYS,
+  AGENT_DNA_ROLE_KEYS,
+  AGENT_DNA_VOICE_STYLE_KEYS,
+} from "@/lib/agent-dna-templates";
 
 export const AGENT_DNA_SECTION_KEYS = [
   "identity",
@@ -42,6 +50,7 @@ export type AgentDnaDefinition = {
   description: string;
   question: string;
   placeholder: string;
+  examples: string[];
 };
 
 export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
@@ -55,6 +64,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
       "What should Clippy always understand about who you are and what you stand for?",
     placeholder:
       "Example: I am calm, transparent and practical. I value trust over a quick sale.",
+    examples: [
+      "I’m a calm, honest local property advisor who explains things clearly and never pressures clients.",
+      "I’m a practical, evidence-led real-estate professional who protects trust before chasing a quick result.",
+    ],
   },
   {
     key: "voice",
@@ -66,6 +79,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
     question: "How should Clippy sound when writing or speaking as you?",
     placeholder:
       "Example: Warm and professional, short paragraphs, one clear next step, Australian English.",
+    examples: [
+      "Use friendly Australian English, short paragraphs and a professional but natural tone.",
+      "Sound polished and composed, lead with the answer and avoid jargon or exaggerated language.",
+    ],
   },
   {
     key: "content",
@@ -77,6 +94,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
       "What should your content help the audience understand, feel or do?",
     placeholder:
       "Example: Educate Melbourne buyers and vendors with useful local insights, without hype.",
+    examples: [
+      "Create useful local-market updates, vendor education and practical property campaign content.",
+      "Help buyers and sellers understand decisions using verified facts, clear explanations and no hype.",
+    ],
   },
   {
     key: "conversion",
@@ -88,6 +109,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
       "How do you guide genuine interest toward the next step without being pushy?",
     placeholder:
       "Example: Clarify intent, answer the real concern, then offer one relevant next action.",
+    examples: [
+      "Understand the client’s goal first, answer their concern and suggest one natural next step.",
+      "Help before selling, ask one useful question and never manufacture urgency or pressure.",
+    ],
   },
   {
     key: "decisions",
@@ -100,6 +125,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
       "Which filters should Clippy use before recommending or taking an action?",
     placeholder:
       "Example: Verify facts first; protect trust and compliance; ask me before commitments or price advice.",
+    examples: [
+      "Prioritise compliance, client interests, accuracy and long-term trust before speed or commission.",
+      "Show uncertainty and trade-offs, and ask me before commitments, pricing advice or sensitive actions.",
+    ],
   },
   {
     key: "client_relationships",
@@ -110,6 +139,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
     question: "How should clients feel after every interaction with you?",
     placeholder:
       "Example: Heard, clearly informed and confident about what happens next.",
+    examples: [
+      "Make clients feel heard, clearly informed and confident about what happens next.",
+      "Acknowledge concerns, set realistic expectations and always follow through on agreed actions.",
+    ],
   },
   {
     key: "operations",
@@ -121,6 +154,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
       "What should Clippy organise each day, and what must remain under your approval?",
     placeholder:
       "Example: Prioritise new enquiries, inspection follow-ups and overdue tasks; draft actions for review.",
+    examples: [
+      "Prioritise hot leads, today’s inspections, overdue follow-ups and urgent client requests.",
+      "Keep ownership, deadlines and blockers visible; draft external actions for my review.",
+    ],
   },
   {
     key: "idea_expansion",
@@ -132,6 +169,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
       "What must Clippy preserve when expanding one of your rough ideas?",
     placeholder:
       "Example: Keep my original opinion and intent; improve only clarity, structure and usefulness.",
+    examples: [
+      "Turn rough notes or voice messages into polished emails, posts, reports or scripts without changing my view.",
+      "Preserve my original intent, improve clarity and flag missing facts instead of inventing details.",
+    ],
   },
   {
     key: "audience_intelligence",
@@ -142,6 +183,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
     question: "Who matters most, and what signals should Clippy watch for?",
     placeholder:
       "Example: Melbourne vendors and buyers; track repeated questions, objections and preferred channels.",
+    examples: [
+      "Focus on local vendors and buyers; track repeated questions, objections and preferred communication channels.",
+      "Use explicit client signals and engagement patterns without guessing sensitive or personal attributes.",
+    ],
   },
   {
     key: "growth",
@@ -152,6 +197,10 @@ export const AGENT_DNA_DEFINITIONS: AgentDnaDefinition[] = [
     question: "What long-term outcomes should Clippy optimise for?",
     placeholder:
       "Example: Strong referrals, a trusted personal brand and sustainable agency growth.",
+    examples: [
+      "Build repeat business, referrals, local authority and a trustworthy personal brand.",
+      "Grow sustainable client relationships and capability rather than chasing short-term attention.",
+    ],
   },
 ];
 
@@ -171,6 +220,18 @@ export const saveAgentDnaSectionSchema = z
 
 export const buildAgentDnaSchema = z
   .object({ action: z.literal("build_dna") })
+  .strict();
+
+export const applyAgentDnaTemplateSchema = z
+  .object({
+    action: z.literal("apply_dna_template"),
+    role: z.enum(AGENT_DNA_ROLE_KEYS),
+    voice_style: z.enum(AGENT_DNA_VOICE_STYLE_KEYS),
+    response_length: z.enum(AGENT_DNA_RESPONSE_LENGTH_KEYS),
+    conversion_style: z.enum(AGENT_DNA_CONVERSION_STYLE_KEYS),
+    approval_level: z.enum(AGENT_DNA_APPROVAL_KEYS),
+    growth_goal: z.enum(AGENT_DNA_GROWTH_GOAL_KEYS),
+  })
   .strict();
 
 type VoiceProfileInput = {
