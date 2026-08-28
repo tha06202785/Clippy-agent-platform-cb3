@@ -131,7 +131,6 @@ async function saveSharedContactDetails({
       ...updates,
       stage: "new",
       last_activity_at: now,
-      updated_at: now,
     })
     .eq("id", leadId)
     .eq("org_id", orgId);

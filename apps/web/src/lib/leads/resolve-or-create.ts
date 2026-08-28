@@ -63,10 +63,7 @@ export async function resolveOrCreateLead({
       if (!existingLead?.full_name?.trim()) {
         const update = await supabase
           .from("leads")
-          .update({
-            full_name: name.trim(),
-            updated_at: new Date().toISOString(),
-          })
+          .update({ full_name: name.trim() })
           .eq("id", existingIdentity.lead_id)
           .eq("org_id", orgId);
         if (update.error) throw update.error;
