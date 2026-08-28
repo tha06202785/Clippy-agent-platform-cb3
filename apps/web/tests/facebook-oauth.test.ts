@@ -4,6 +4,7 @@ import {
   FACEBOOK_OAUTH_SCOPES,
   buildFacebookAuthorizationUrl,
   buildFacebookPageAccountsUrl,
+  buildFacebookPageSubscriptionUrl,
   buildFacebookTokenUrl,
   getFacebookOAuthRedirectUri,
   getSafeFacebookErrorDetails,
@@ -80,6 +81,22 @@ describe("Facebook OAuth URLs", () => {
         },
       },
     ]);
+  });
+
+  it("builds a Page webhook subscription request for Messenger events", () => {
+    const url = buildFacebookPageSubscriptionUrl(
+      "page/with spaces",
+      "secret-page-token",
+    );
+
+    expect(url.pathname).toBe("/v25.0/page%2Fwith%20spaces/subscribed_apps");
+    expect(url.searchParams.get("subscribed_fields")?.split(",")).toEqual([
+      "messages",
+      "messaging_postbacks",
+      "message_deliveries",
+      "messaging_reads",
+    ]);
+    expect(url.searchParams.get("access_token")).toBe("secret-page-token");
   });
 
   it("extracts only safe provider error metadata", () => {

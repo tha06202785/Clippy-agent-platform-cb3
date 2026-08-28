@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   buildFacebookPageAccountsUrl,
+  buildFacebookPageSubscriptionUrl,
   buildFacebookTokenUrl,
   getFacebookOAuthRedirectUri,
   getSafeFacebookErrorDetails,
@@ -145,6 +146,34 @@ export async function GET(req: NextRequest) {
     }
 
     const connectedAt = new Date().toISOString();
+    const subscriptionResults = await Promise.all(
+      pageConnections.map(async (page) => {
+        if (!page.accessToken) return { pageId: page.id, subscribed: false };
+        try {
+          const response = await fetch(
+            buildFacebookPageSubscriptionUrl(page.id, page.accessToken),
+            { method: "POST" },
+          );
+          if (!response.ok) {
+            const failurePayload = await response.json().catch(() => null);
+            console.warn("Facebook Page subscription failed", {
+              pageId: page.id,
+              status: response.status,
+              ...getSafeFacebookErrorDetails(failurePayload),
+            });
+          }
+          return { pageId: page.id, subscribed: response.ok };
+        } catch {
+          console.warn("Facebook Page subscription request failed", {
+            pageId: page.id,
+          });
+          return { pageId: page.id, subscribed: false };
+        }
+      }),
+    );
+    const subscribedPageIds = subscriptionResults
+      .filter((result) => result.subscribed)
+      .map((result) => result.pageId);
     const instagramPage = pageConnections.find((page) => page.instagram);
     const safePages = pageConnections.map((page) => ({
       id: page.id,
@@ -217,6 +246,7 @@ export async function GET(req: NextRequest) {
         items_indexed: 0,
         activity_summary: {
           pagesConnected: pageConnections.length,
+          pagesSubscribed: subscribedPageIds.length,
           connectedAt,
         },
       },
@@ -255,6 +285,7 @@ export async function GET(req: NextRequest) {
       metadata: {
         provider: requestedProvider,
         pages: pageConnections.length,
+        pagesSubscribed: subscribedPageIds.length,
         instagramConnected: Boolean(instagramPage?.instagram),
       },
       impact_summary: instagramPage?.instagram

@@ -32,7 +32,19 @@ async function resolveOrgByFacebookPageId(
     .eq("status", "connected");
   const integration = (integrations || []).find((candidate: any) => {
     const settings = candidate.settings_json || {};
-    return (settings.facebook_page_id || settings.page_id || "") === pageId;
+    const configuredPages = Array.isArray(settings.pages)
+      ? settings.pages
+      : [];
+    return (
+      (settings.facebook_page_id || settings.page_id || "") === pageId ||
+      configuredPages.some(
+        (page: unknown) =>
+          page !== null &&
+          typeof page === "object" &&
+          "id" in page &&
+          page.id === pageId,
+      )
+    );
   });
   return integration?.org_id || null;
 }

@@ -80,6 +80,21 @@ export function buildFacebookPageAccountsUrl(accessToken: string) {
   return url;
 }
 
+export function buildFacebookPageSubscriptionUrl(
+  pageId: string,
+  pageAccessToken: string,
+) {
+  const url = new URL(
+    `https://graph.facebook.com/${FACEBOOK_GRAPH_API_VERSION}/${encodeURIComponent(pageId)}/subscribed_apps`,
+  );
+  url.searchParams.set(
+    "subscribed_fields",
+    "messages,messaging_postbacks,message_deliveries,messaging_reads",
+  );
+  url.searchParams.set("access_token", pageAccessToken);
+  return url;
+}
+
 export function buildMetaObjectUrl(
   objectId: string,
   fields: string,
