@@ -25,4 +25,8 @@ describe("founding offer navigation", () => {
       "/dashboard",
     );
   });
+
+  it("takes invited pilot agents to their automatic setup checklist", () => {
+    expect(getOnboardingCompletionPath("?pilot=1")).toBe("/pilot/setup");
+  });
 });

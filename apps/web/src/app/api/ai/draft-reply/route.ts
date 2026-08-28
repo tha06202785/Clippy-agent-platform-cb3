@@ -195,6 +195,10 @@ export async function POST(req: NextRequest) {
     try {
       const completion = await requestCopilotCompletion({
         userId: user.id,
+        attemptTimeoutMs: 5_500,
+        providerBudgetMs: 9_500,
+        maxAttempts: 1,
+        maxTokens: 550,
         messages: [
           {
             role: "system",

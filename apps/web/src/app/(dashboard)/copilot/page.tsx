@@ -4,6 +4,7 @@ import type {
   CopilotContextItem,
   CopilotContextSelection,
 } from "@/lib/copilot-context";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,21 @@ export default async function Copilot({
     .limit(1)
     .maybeSingle();
   if (!membership?.org_id) redirect("/onboarding");
+
+  let pilotFeedbackEnabled = false;
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const admin = createAdminClient();
+    const { data: activePilot } = await admin
+      .from("pilot_invites")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .eq("org_id", membership.org_id)
+      .eq("status", "accepted")
+      .gt("trial_ends_at", new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+    pilotFeedbackEnabled = Boolean(activePilot);
+  }
 
   const [
     clientsResult,
@@ -249,6 +265,7 @@ export default async function Copilot({
       contextItems={items}
       initialContext={initialContext}
       initialPrompt={firstParam(params.prompt)}
+      pilotFeedbackEnabled={pilotFeedbackEnabled}
     />
   );
 }

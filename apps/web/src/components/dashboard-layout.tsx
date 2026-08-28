@@ -157,6 +157,7 @@ const pageTitles: Array<[string, string]> = [
   ["/team", "Team"],
   ["/import", "Import"],
   ["/onboarding", "Setup"],
+  ["/pilot/setup", "Pilot setup"],
   ["/launch", "Launch Centre"],
   ["/admin", "Administration"],
   ["/monitoring", "Monitoring"],

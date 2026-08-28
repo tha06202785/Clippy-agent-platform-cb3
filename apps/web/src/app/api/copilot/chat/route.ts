@@ -548,6 +548,10 @@ export async function POST(req: NextRequest) {
         { role: "user", content: message },
       ],
       userId: user.id,
+      attemptTimeoutMs: 5_500,
+      providerBudgetMs: 9_500,
+      maxAttempts: 1,
+      maxTokens: 650,
     });
     const ollamaData = completion.data;
     const model = completion.model;

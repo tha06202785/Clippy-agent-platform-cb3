@@ -11,8 +11,12 @@ import {
   UserRoundX,
 } from "lucide-react";
 import type { PilotInviteRecord, PilotInviteStatus } from "@/lib/pilot-invites";
+import type { PilotProgress } from "@/lib/pilot-progress";
 
-type DisplayInvite = PilotInviteRecord & { display_status: PilotInviteStatus };
+type DisplayInvite = PilotInviteRecord & {
+  display_status: PilotInviteStatus;
+  progress: PilotProgress | null;
+};
 
 type PilotData = {
   invites: DisplayInvite[];
@@ -263,7 +267,7 @@ export default function PilotInvitesPage() {
           </div>
         ) : data?.invites.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[980px] text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th scope="col" className="p-4">
@@ -271,6 +275,9 @@ export default function PilotInvitesPage() {
                   </th>
                   <th scope="col" className="p-4">
                     Status
+                  </th>
+                  <th scope="col" className="p-4">
+                    Pilot progress
                   </th>
                   <th scope="col" className="p-4">
                     Invite expires
@@ -293,6 +300,36 @@ export default function PilotInvitesPage() {
                       >
                         {invite.display_status}
                       </span>
+                    </td>
+                    <td className="p-4">
+                      {invite.progress ? (
+                        <div className="min-w-36">
+                          <div className="flex items-center justify-between gap-3 text-xs">
+                            <span className="font-semibold text-foreground">
+                              {invite.progress.completed}/
+                              {invite.progress.total} steps
+                            </span>
+                            <span className="text-muted-foreground">
+                              {invite.progress.feedbackCount} feedback
+                            </span>
+                          </div>
+                          <div
+                            className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
+                            role="progressbar"
+                            aria-label={`${invite.email} pilot progress`}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={invite.progress.percent}
+                          >
+                            <div
+                              className="h-full rounded-full bg-emerald-500"
+                              style={{ width: `${invite.progress.percent}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="p-4 text-muted-foreground">
                       {formatDate(invite.expires_at)}

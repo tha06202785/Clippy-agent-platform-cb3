@@ -4,7 +4,7 @@ export type AiMessageStageName =
 export type AiMessageStageTelemetry = {
   stage: AiMessageStageName;
   status: "success" | "fallback";
-  provider?: "vercel-ai-gateway" | "ollama";
+  provider?: "vercel-ai-gateway" | "openai" | "ollama";
   model?: string;
   attempts?: number;
   usedRetry?: boolean;
@@ -13,7 +13,7 @@ export type AiMessageStageTelemetry = {
 
 type StageResult<T> = {
   value: T;
-  provider: "vercel-ai-gateway" | "ollama";
+  provider: "vercel-ai-gateway" | "openai" | "ollama";
   model: string;
   attempts: number;
   usedRetry: boolean;

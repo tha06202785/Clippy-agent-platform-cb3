@@ -52,7 +52,43 @@ type Thread = {
   message_count: number;
   hidden_count?: number;
   latest_message: Message | null;
+  relevance_tags?: string[];
+  relevance_decision?: string | null;
+  relevance_score?: number | null;
 };
+
+const RELEVANCE_TAG_LABELS: Record<string, string> = {
+  "portal-lead": "Portal lead",
+  buyer: "Buyer",
+  rental: "Rental",
+  inspection: "Inspection",
+  offer: "Offer",
+  vendor: "Vendor",
+  appraisal: "Appraisal",
+  "property-management": "Property management",
+  "contract-settlement": "Contract & settlement",
+  "known-property": "Known property",
+  "needs-review": "Needs review",
+  billing: "Billing",
+  security: "Security",
+  newsletter: "Newsletter",
+  personal: "Personal",
+  unrelated: "Unrelated",
+  "agent-confirmed": "Agent confirmed",
+  "agent-ignored": "Agent ignored",
+};
+
+const relevanceTags = (thread: Thread) =>
+  (thread.relevance_tags || []).filter((tag) => RELEVANCE_TAG_LABELS[tag]);
+const FILTER_REASON_TAGS = new Set([
+  "needs-review",
+  "billing",
+  "security",
+  "newsletter",
+  "personal",
+  "unrelated",
+  "agent-ignored",
+]);
 
 const one = <T,>(value: Related<T>): T | null =>
   Array.isArray(value) ? value[0] || null : value;
@@ -73,6 +109,7 @@ export default function InboxPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [search, setSearch] = useState("");
   const [channel, setChannel] = useState("all");
+  const [topic, setTopic] = useState("all");
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState("");
@@ -296,6 +333,13 @@ export default function InboxPage() {
     () => Array.from(new Set(threads.map((item) => item.channel))).sort(),
     [threads],
   );
+  const topics = useMemo(
+    () =>
+      Object.keys(RELEVANCE_TAG_LABELS).filter((tag) =>
+        threads.some((thread) => relevanceTags(thread).includes(tag)),
+      ),
+    [threads],
+  );
   const filtered = useMemo(
     () =>
       threads.filter((thread) => {
@@ -305,10 +349,11 @@ export default function InboxPage() {
           `${lead?.full_name || ""} ${lead?.email || ""} ${lead?.phone || ""} ${listing?.address || ""} ${thread.latest_message?.text || ""}`.toLowerCase();
         return (
           (channel === "all" || thread.channel === channel) &&
+          (topic === "all" || relevanceTags(thread).includes(topic)) &&
           haystack.includes(search.toLowerCase())
         );
       }),
-    [channel, search, threads],
+    [channel, search, threads, topic],
   );
 
   const lead = selected ? one(selected.leads) : null;
@@ -346,6 +391,7 @@ export default function InboxPage() {
                 setSelectedId(null);
                 setMessages([]);
                 setChannel("all");
+                setTopic("all");
                 setLoading(true);
               }}
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-medium hover:bg-muted"
@@ -373,7 +419,10 @@ export default function InboxPage() {
               className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          <div
+            className="mt-3 flex gap-2 overflow-x-auto pb-1"
+            aria-label="Filter conversations by channel"
+          >
             <button
               type="button"
               onClick={() => setChannel("all")}
@@ -394,6 +443,32 @@ export default function InboxPage() {
               </button>
             ))}
           </div>
+          {topics.length > 0 ? (
+            <div
+              className="mt-2 flex gap-2 overflow-x-auto pb-1"
+              aria-label="Filter conversations by real estate tag"
+            >
+              <button
+                type="button"
+                onClick={() => setTopic("all")}
+                aria-pressed={topic === "all"}
+                className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs ${topic === "all" ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-border bg-background text-muted-foreground"}`}
+              >
+                All topics
+              </button>
+              {topics.map((tag) => (
+                <button
+                  type="button"
+                  key={tag}
+                  onClick={() => setTopic(tag)}
+                  aria-pressed={topic === tag}
+                  className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs ${topic === tag ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-border bg-background text-muted-foreground"}`}
+                >
+                  {RELEVANCE_TAG_LABELS[tag]}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="flex-1 overflow-y-auto">
           {loading ? (
@@ -410,6 +485,7 @@ export default function InboxPage() {
             filtered.map((thread) => {
               const person = one(thread.leads);
               const property = one(thread.listings);
+              const tags = relevanceTags(thread).slice(0, 2);
               return (
                 <button
                   type="button"
@@ -439,6 +515,18 @@ export default function InboxPage() {
                       <p className="truncate text-xs text-muted-foreground">
                         {property?.address || channelLabel(thread.channel)}
                       </p>
+                      {tags.length > 0 ? (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${FILTER_REASON_TAGS.has(tag) ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}
+                            >
+                              {RELEVANCE_TAG_LABELS[tag]}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       <div className="mt-1 flex items-center gap-2">
                         <p
                           className={`flex-1 truncate text-xs ${thread.unread_count ? "font-medium text-foreground" : "text-muted-foreground"}`}

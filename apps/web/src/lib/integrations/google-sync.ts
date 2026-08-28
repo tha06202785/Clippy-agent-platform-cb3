@@ -19,6 +19,8 @@ import {
   storeCommunicationExample,
 } from "@/lib/adaptive-learning";
 import {
+  classifyGmailRelevance,
+  GMAIL_RELEVANCE_VERSION,
   isLikelyRealEstateCalendarItem,
   isLikelyRealEstateLead,
 } from "@/lib/integrations/gmail-relevance";
@@ -29,6 +31,7 @@ import {
 } from "@/lib/conversations/message-visibility";
 
 export {
+  classifyGmailRelevance,
   isLikelyRealEstateCalendarItem,
   isLikelyRealEstateLead,
 } from "@/lib/integrations/gmail-relevance";
@@ -72,7 +75,6 @@ export async function mapWithConcurrency<T, R>(
   );
   return results;
 }
-
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type GoogleCredentials = {
@@ -104,6 +106,7 @@ type GmailMessage = {
   threadId?: string;
   internalDate?: string;
   snippet?: string;
+  labelIds?: string[];
   payload?: GmailPart & { headers?: GmailHeader[] };
 };
 
@@ -229,6 +232,11 @@ export function gmailMessageToKnowledge(
   const from = gmailHeader(message, "From");
   const to = gmailHeader(message, "To");
   const date = gmailHeader(message, "Date");
+  const replyTo = gmailHeader(message, "Reply-To");
+  const listUnsubscribe = gmailHeader(message, "List-Unsubscribe");
+  const listId = gmailHeader(message, "List-Id");
+  const precedence = gmailHeader(message, "Precedence");
+  const autoSubmitted = gmailHeader(message, "Auto-Submitted");
   const content = [
     `Email subject: ${subject}`,
     from ? `From: ${from}` : "",
@@ -255,6 +263,12 @@ export function gmailMessageToKnowledge(
       email_date: date || null,
       email_address: extractEmailAddress(from),
       sender_name: extractSenderName(from),
+      label_ids: message.labelIds || [],
+      reply_to: replyTo || null,
+      list_unsubscribe: listUnsubscribe || null,
+      list_id: listId || null,
+      precedence: precedence || null,
+      auto_submitted: autoSubmitted || null,
       body,
     },
   };
@@ -622,6 +636,11 @@ function storedMessageToGmailItem(message: {
       from,
       body,
       thread_id: raw.gmail_thread_id || raw.external_thread_id || null,
+      label_ids: raw.label_ids || [],
+      list_unsubscribe: raw.list_unsubscribe || null,
+      list_id: raw.list_id || null,
+      precedence: raw.precedence || null,
+      auto_submitted: raw.auto_submitted || null,
     },
   };
 }
@@ -631,100 +650,161 @@ async function filterGmailItemsForImport(
   orgId: string,
   items: GoogleKnowledgeItem[],
 ): Promise<GoogleKnowledgeItem[]> {
-  const directlyRelevant = new Set(
-    items.filter(isLikelyRealEstateLead).map((item) => String(item.externalId)),
-  );
-  const unresolvedThreadIds = Array.from(
+  if (!items.length) return [];
+
+  const senderEmails = Array.from(
     new Set(
       items
-        .filter((item) => !directlyRelevant.has(item.externalId))
+        .map((item) => String(item.metadata.email_address || "").toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+  const knownLeadEmails = new Set<string>();
+  if (senderEmails.length) {
+    const { data, error } = await admin
+      .from("leads")
+      .select("email")
+      .eq("org_id", orgId)
+      .in("email", senderEmails)
+      .limit(500);
+    if (error) {
+      throw new Error(`Gmail relevance lead lookup failed: ${error.code}`);
+    }
+    for (const lead of data || []) {
+      if (lead.email) knownLeadEmails.add(String(lead.email).toLowerCase());
+    }
+  }
+
+  const { data: listings, error: listingError } = await admin
+    .from("listings")
+    .select("address")
+    .eq("org_id", orgId)
+    .limit(500);
+  if (listingError) {
+    throw new Error(
+      `Gmail relevance listing lookup failed: ${listingError.code}`,
+    );
+  }
+  const listingAddresses = new Set(
+    (listings || [])
+      .map((listing) => normaliseAddress(String(listing.address || "")))
+      .filter(Boolean),
+  );
+
+  const itemMatchesKnownListing = (item: GoogleKnowledgeItem) => {
+    const address = extractPropertyAddress(
+      `${item.title}\n${String(item.metadata.body || item.content || "")}`,
+    );
+    return Boolean(
+      address && listingAddresses.has(normaliseAddress(String(address))),
+    );
+  };
+
+  const threadIds = Array.from(
+    new Set(
+      items
         .map((item) => String(item.metadata.thread_id || ""))
         .filter(Boolean),
     ),
   );
-  if (!unresolvedThreadIds.length) {
-    return items
-      .filter((item) => directlyRelevant.has(item.externalId))
-      .map((item) => ({
-        ...item,
-        metadata: {
-          ...item.metadata,
-          clippy_business_message: true,
-          relevance: "content_confirmed",
-          relevance_version: 3,
-        },
-      }));
+  let conversations: Array<{
+    id: string;
+    external_thread_id: string | null;
+    listing_id: string | null;
+  }> = [];
+  if (threadIds.length) {
+    const { data, error } = await admin
+      .from("conversations")
+      .select("id,external_thread_id,listing_id")
+      .eq("org_id", orgId)
+      .eq("channel", "email")
+      .in("external_thread_id", threadIds);
+    if (error) {
+      throw new Error(`Gmail relevance thread lookup failed: ${error.code}`);
+    }
+    conversations = data || [];
   }
 
-  const { data: conversations, error: conversationError } = await admin
-    .from("conversations")
-    .select("id,external_thread_id")
-    .eq("org_id", orgId)
-    .eq("channel", "email")
-    .in("external_thread_id", unresolvedThreadIds);
-  if (conversationError) {
-    throw new Error(
-      `Gmail relevance thread lookup failed: ${conversationError.code}`,
-    );
+  const conversationIds = conversations.map((conversation) => conversation.id);
+  let storedMessages: Array<{
+    id: string;
+    conversation_id: string;
+    direction_in_out: string;
+    text: string | null;
+    created_at: string;
+    raw_json: unknown;
+  }> = [];
+  if (conversationIds.length) {
+    const { data, error } = await admin
+      .from("messages")
+      .select("id,conversation_id,direction_in_out,text,created_at,raw_json")
+      .eq("org_id", orgId)
+      .in("conversation_id", conversationIds)
+      .order("created_at", { ascending: false })
+      .limit(1_000);
+    if (error) {
+      throw new Error(`Gmail relevance history failed: ${error.code}`);
+    }
+    storedMessages = data || [];
   }
-  const conversationIds = (conversations || []).map(
-    (conversation) => conversation.id,
+
+  const conversationById = new Map(
+    conversations.map((conversation) => [conversation.id, conversation]),
   );
-  if (!conversationIds.length) {
-    return items
-      .filter((item) => directlyRelevant.has(item.externalId))
-      .map((item) => ({
-        ...item,
-        metadata: {
-          ...item.metadata,
-          clippy_business_message: true,
-          relevance: "content_confirmed",
-          relevance_version: 3,
-        },
-      }));
-  }
-
-  const { data: storedMessages, error: messageError } = await admin
-    .from("messages")
-    .select("id,conversation_id,text,created_at,raw_json")
-    .eq("org_id", orgId)
-    .in("conversation_id", conversationIds)
-    .order("created_at", { ascending: false })
-    .limit(1_000);
-  if (messageError) {
-    throw new Error(`Gmail relevance history failed: ${messageError.code}`);
-  }
-
-  const confirmedConversationIds = new Set<string>();
-  for (const message of storedMessages || []) {
+  const trustedConversationIds = new Set<string>();
+  for (const message of storedMessages) {
+    if (message.direction_in_out === "out") {
+      trustedConversationIds.add(message.conversation_id);
+      continue;
+    }
     if (!isMessageVisible(message)) continue;
     const candidate = storedMessageToGmailItem(message);
-    if (candidate && isLikelyRealEstateLead(candidate)) {
-      confirmedConversationIds.add(message.conversation_id);
+    if (!candidate) continue;
+    const raw = messageRaw(message.raw_json);
+    const manualDecision =
+      raw.relevance_override === "relevant" ||
+      raw.relevance_override === "irrelevant"
+        ? raw.relevance_override
+        : null;
+    const assessment = classifyGmailRelevance(candidate, {
+      manualDecision,
+      knownListing: Boolean(
+        conversationById.get(message.conversation_id)?.listing_id,
+      ),
+    });
+    if (assessment.decision === "relevant") {
+      trustedConversationIds.add(message.conversation_id);
     }
   }
   const confirmedThreadIds = new Set(
-    (conversations || [])
-      .filter((conversation) => confirmedConversationIds.has(conversation.id))
+    conversations
+      .filter((conversation) => trustedConversationIds.has(conversation.id))
       .map((conversation) => String(conversation.external_thread_id || ""))
       .filter(Boolean),
   );
 
   return items.flatMap((item) => {
-    const reason = directlyRelevant.has(item.externalId)
-      ? "content_confirmed"
-      : confirmedThreadIds.has(String(item.metadata.thread_id || ""))
-        ? "thread_confirmed"
-        : null;
-    if (!reason) return [];
+    const email = String(item.metadata.email_address || "").toLowerCase();
+    const assessment = classifyGmailRelevance(item, {
+      trustedThread: confirmedThreadIds.has(
+        String(item.metadata.thread_id || ""),
+      ),
+      knownLead: knownLeadEmails.has(email),
+      knownListing: itemMatchesKnownListing(item),
+    });
+    if (assessment.decision !== "relevant") return [];
     return [
       {
         ...item,
         metadata: {
           ...item.metadata,
           clippy_business_message: true,
-          relevance: reason,
-          relevance_version: 3,
+          relevance: assessment.decision,
+          relevance_score: assessment.score,
+          relevance_confidence: assessment.confidence,
+          relevance_tags: assessment.tags,
+          relevance_reasons: assessment.reasons,
+          relevance_version: GMAIL_RELEVANCE_VERSION,
         },
       },
     ];
@@ -912,46 +992,90 @@ async function quarantineIrrelevantStoredGmail(
     byConversation.set(message.conversation_id, history);
   }
 
-  const quarantine: Array<{
+  const classifications: Array<{
     id: string;
     raw_json: unknown;
+    read_at: string | null;
+    assessment: ReturnType<typeof classifyGmailRelevance>;
+    quarantine: boolean;
   }> = [];
   const quarantinedConversationIds = new Set<string>();
   const irrelevantConversationIds = new Set<string>();
   for (const conversation of conversations || []) {
     const history = byConversation.get(conversation.id) || [];
-    if (!history.length || conversation.listing_id) continue;
-    if (history.some((message) => message.direction_in_out === "out")) continue;
-    const hasRelevantMessage = history.some((message) => {
-      if (!isMessageVisible(message)) return false;
-      const candidate = storedMessageToGmailItem(message);
-      return Boolean(candidate && isLikelyRealEstateLead(candidate));
-    });
-    if (hasRelevantMessage) continue;
-    irrelevantConversationIds.add(conversation.id);
+    if (!history.length) continue;
+    const trustedThread = history.some(
+      (message) => message.direction_in_out === "out",
+    );
+    const assessments = new Map<
+      string,
+      ReturnType<typeof classifyGmailRelevance>
+    >();
     for (const message of history) {
-      if (message.direction_in_out !== "in" || !isMessageVisible(message)) {
-        continue;
-      }
-      quarantinedConversationIds.add(conversation.id);
-      quarantine.push({ id: message.id, raw_json: message.raw_json });
+      if (message.direction_in_out !== "in") continue;
+      const candidate = storedMessageToGmailItem(message);
+      if (!candidate) continue;
+      const raw = messageRaw(message.raw_json);
+      const manualDecision =
+        raw.relevance_override === "relevant" ||
+        raw.relevance_override === "irrelevant"
+          ? raw.relevance_override
+          : null;
+      assessments.set(
+        message.id,
+        classifyGmailRelevance(candidate, {
+          manualDecision,
+          trustedThread,
+          knownListing: Boolean(conversation.listing_id),
+        }),
+      );
+    }
+    const hasRelevantMessage = Array.from(assessments.values()).some(
+      (item) => item.decision === "relevant",
+    );
+    const quarantineConversation =
+      !trustedThread && !conversation.listing_id && !hasRelevantMessage;
+    if (quarantineConversation) irrelevantConversationIds.add(conversation.id);
+    for (const message of history) {
+      const messageAssessment = assessments.get(message.id);
+      if (!messageAssessment) continue;
+      const shouldQuarantine =
+        quarantineConversation && isMessageVisible(message);
+      if (shouldQuarantine) quarantinedConversationIds.add(conversation.id);
+      classifications.push({
+        id: message.id,
+        raw_json: message.raw_json,
+        read_at: message.read_at,
+        assessment: messageAssessment,
+        quarantine: shouldQuarantine,
+      });
     }
   }
 
   const now = new Date().toISOString();
-  await mapWithConcurrency(quarantine, 4, async (message) => {
+  await mapWithConcurrency(classifications, 4, async (message) => {
+    const classificationRaw = {
+      ...messageRaw(message.raw_json),
+      relevance: message.assessment.decision,
+      relevance_score: message.assessment.score,
+      relevance_confidence: message.assessment.confidence,
+      relevance_tags: message.assessment.tags,
+      relevance_reasons: message.assessment.reasons,
+      relevance_version: GMAIL_RELEVANCE_VERSION,
+    };
     const { error } = await admin
       .from("messages")
       .update({
-        read_at: now,
-        raw_json: {
-          ...hideMessageRaw(message.raw_json, {
-            at: now,
-            reason: "automatic_relevance_filter",
-          }),
-          relevance: "irrelevant",
-          relevance_version: 3,
-        },
+        read_at: message.quarantine ? message.read_at || now : message.read_at,
+        raw_json: message.quarantine
+          ? hideMessageRaw(classificationRaw, {
+              at: now,
+              reason:
+                message.assessment.decision === "review"
+                  ? "automatic_relevance_review"
+                  : "automatic_relevance_filter",
+            })
+          : classificationRaw,
       })
       .eq("id", message.id)
       .eq("org_id", orgId);
@@ -1062,7 +1186,8 @@ async function quarantineIrrelevantStoredGmail(
   );
 
   return {
-    hiddenMessages: quarantine.length,
+    hiddenMessages: classifications.filter((message) => message.quarantine)
+      .length,
     archivedKnowledge: irrelevantDocumentIds.length,
     excludedLearning: irrelevantExampleIds.length,
     removedLeads,
@@ -1135,7 +1260,7 @@ async function syncGmailSentLearning(
   const { data: conversations, error: conversationError } = threadIds.length
     ? await admin
         .from("conversations")
-        .select("id,lead_id,external_thread_id")
+        .select("id,lead_id,listing_id,external_thread_id")
         .eq("org_id", orgId)
         .in("external_thread_id", threadIds)
     : { data: [], error: null };
@@ -1161,16 +1286,24 @@ async function syncGmailSentLearning(
     const conversation = message.threadId
       ? conversationByThread.get(message.threadId)
       : null;
-    const relevantStandaloneMessage = isLikelyRealEstateLead({
-      source: "email",
-      title: subject,
-      content: `${subject}\n${body}`,
-      metadata: {
-        email_address: extractEmailAddress(to),
-        body,
+    const relevance = classifyGmailRelevance(
+      {
+        source: "email",
+        title: subject,
+        content: `${subject}\n${body}`,
+        metadata: {
+          email_address: extractEmailAddress(to),
+          body,
+          label_ids: message.labelIds || [],
+        },
       },
-    });
-    if (!conversation && !relevantStandaloneMessage) continue;
+      {
+        trustedThread: Boolean(conversation),
+        knownLead: Boolean(conversation?.lead_id),
+        knownListing: Boolean(conversation?.listing_id),
+      },
+    );
+    if (relevance.decision !== "relevant") continue;
     const stored = await storeCommunicationExample({
       supabase: admin,
       orgId,
@@ -1191,8 +1324,12 @@ async function syncGmailSentLearning(
         gmail_thread_id: message.threadId || null,
         import_window: isBackfill ? "historical_180d" : "incremental",
         recipient_email: extractEmailAddress(to) || null,
-        relevance: conversation ? "confirmed_thread" : "content_confirmed",
-        relevance_version: 3,
+        relevance: relevance.decision,
+        relevance_score: relevance.score,
+        relevance_confidence: relevance.confidence,
+        relevance_tags: relevance.tags,
+        relevance_reasons: relevance.reasons,
+        relevance_version: GMAIL_RELEVANCE_VERSION,
       },
     });
     if (stored) learned += 1;
@@ -1323,8 +1460,17 @@ async function importGmailLeads(
         subject: item.title,
         from: item.metadata.from,
         gmail_thread_id: threadId,
-        relevance: item.metadata.relevance || "confirmed",
-        relevance_version: 3,
+        label_ids: item.metadata.label_ids || [],
+        list_unsubscribe: item.metadata.list_unsubscribe || null,
+        list_id: item.metadata.list_id || null,
+        precedence: item.metadata.precedence || null,
+        auto_submitted: item.metadata.auto_submitted || null,
+        relevance: item.metadata.relevance || "relevant",
+        relevance_score: item.metadata.relevance_score ?? null,
+        relevance_confidence: item.metadata.relevance_confidence ?? null,
+        relevance_tags: item.metadata.relevance_tags || [],
+        relevance_reasons: item.metadata.relevance_reasons || [],
+        relevance_version: GMAIL_RELEVANCE_VERSION,
       },
     });
     if (messageError)
@@ -1441,10 +1587,8 @@ async function filterCalendarItemsForImport(
 
   return items.flatMap((item) => {
     let reason:
-      | "explicit_workflow"
-      | "inspection_booking"
-      | "known_listing"
-      | null = null;
+      "explicit_workflow" | "inspection_booking" | "known_listing" | null =
+      null;
     if (isLikelyRealEstateCalendarItem(item)) {
       reason = "explicit_workflow";
     } else if (bookingEventIds.has(item.externalId)) {
@@ -1522,9 +1666,7 @@ async function archiveIrrelevantStoredCalendarKnowledge(
     .eq("org_id", orgId)
     .in("id", irrelevantDocumentIds);
   if (archiveError) {
-    throw new Error(
-      `Calendar knowledge archive failed: ${archiveError.code}`,
-    );
+    throw new Error(`Calendar knowledge archive failed: ${archiveError.code}`);
   }
   return irrelevantDocumentIds.length;
 }

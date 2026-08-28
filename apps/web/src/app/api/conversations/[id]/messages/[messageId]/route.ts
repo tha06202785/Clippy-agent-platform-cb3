@@ -6,8 +6,10 @@ import {
   editMessageRaw,
   hideMessageRaw,
   isMessageDeleted,
+  messageRaw,
   restoreMessageRaw,
 } from "@/lib/conversations/message-visibility";
+import { GMAIL_RELEVANCE_VERSION } from "@/lib/integrations/gmail-relevance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -54,7 +56,6 @@ async function archiveDerivedKnowledge(
       : Promise.resolve({ error: null }),
   ]);
 }
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; messageId: string }> },
@@ -94,7 +95,7 @@ export async function PATCH(
   const admin = createAdminClient();
   const { data: conversation } = await admin
     .from("conversations")
-    .select("id")
+    .select("id,channel")
     .eq("id", id)
     .eq("org_id", membership.org_id)
     .maybeSingle();
@@ -126,6 +127,8 @@ export async function PATCH(
   let rawJson = message.raw_json;
   let text = String(message.text || "");
   let readAt = message.read_at;
+  const inboundEmail =
+    conversation.channel === "email" && message.direction_in_out === "in";
   if (parsed.data.action === "edit") {
     rawJson = editMessageRaw(message.raw_json, {
       at: now,
@@ -147,6 +150,31 @@ export async function PATCH(
       userId: user.id,
       reason: "user_hidden",
     });
+    if (inboundEmail) {
+      const raw = messageRaw(rawJson);
+      const existingTags = Array.isArray(raw.relevance_tags)
+        ? raw.relevance_tags.filter(
+            (tag): tag is string => typeof tag === "string",
+          )
+        : [];
+      rawJson = {
+        ...raw,
+        relevance: "irrelevant",
+        relevance_override: "irrelevant",
+        relevance_override_at: now,
+        relevance_override_by_user_id: user.id,
+        relevance_score: 0,
+        relevance_confidence: 0.99,
+        relevance_tags: Array.from(
+          new Set([
+            ...existingTags.filter((tag) => tag !== "agent-confirmed"),
+            "agent-ignored",
+          ]),
+        ),
+        relevance_reasons: ["agent_marked_irrelevant"],
+        relevance_version: GMAIL_RELEVANCE_VERSION,
+      };
+    }
     readAt = readAt || now;
     await archiveDerivedKnowledge(
       admin,
@@ -157,12 +185,57 @@ export async function PATCH(
         : null,
     );
   } else if (parsed.data.action === "unhide") {
+    const previousRaw = messageRaw(message.raw_json);
+    const automaticallyFiltered =
+      previousRaw.hidden_reason === "automatic_relevance_filter" ||
+      previousRaw.hidden_reason === "automatic_relevance_review";
     rawJson = restoreMessageRaw(message.raw_json);
+    if (inboundEmail && automaticallyFiltered) {
+      const raw = messageRaw(rawJson);
+      const existingTags = Array.isArray(raw.relevance_tags)
+        ? raw.relevance_tags.filter(
+            (tag): tag is string => typeof tag === "string",
+          )
+        : [];
+      rawJson = {
+        ...raw,
+        relevance: "relevant",
+        relevance_override: "relevant",
+        relevance_override_at: now,
+        relevance_override_by_user_id: user.id,
+        relevance_score: 100,
+        relevance_confidence: 0.99,
+        relevance_tags: Array.from(
+          new Set([
+            ...existingTags.filter(
+              (tag) => tag !== "agent-ignored" && tag !== "needs-review",
+            ),
+            "agent-confirmed",
+          ]),
+        ),
+        relevance_reasons: ["agent_marked_relevant"],
+        relevance_version: GMAIL_RELEVANCE_VERSION,
+      };
+    }
   } else {
     rawJson = deleteMessageRaw(message.raw_json, {
       at: now,
       userId: user.id,
     });
+    if (inboundEmail) {
+      const raw = messageRaw(rawJson);
+      rawJson = {
+        ...raw,
+        relevance: "irrelevant",
+        relevance_override: "irrelevant",
+        relevance_override_at: now,
+        relevance_override_by_user_id: user.id,
+        relevance_score: 0,
+        relevance_confidence: 0.99,
+        relevance_reasons: ["agent_deleted_from_clippy"],
+        relevance_version: GMAIL_RELEVANCE_VERSION,
+      };
+    }
     readAt = readAt || now;
     await archiveDerivedKnowledge(
       admin,

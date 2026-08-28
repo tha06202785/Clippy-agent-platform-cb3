@@ -29,16 +29,40 @@ export type DraftActionState = ProposedDraftAction & {
   error?: string;
   approvedAt?: string;
   sent?: boolean;
+  feedbackCode?: PilotDraftFeedbackCode;
+  feedbackStatus?: "idle" | "saving" | "saved";
+  feedbackMessage?: string;
+  feedbackError?: string;
 };
+
+export type PilotDraftFeedbackCode =
+  | "sounds_like_me"
+  | "too_formal"
+  | "too_casual"
+  | "too_sales_focused"
+  | "incorrect_information";
+
+const pilotFeedbackOptions: Array<{
+  code: PilotDraftFeedbackCode;
+  label: string;
+}> = [
+  { code: "sounds_like_me", label: "Sounds like me" },
+  { code: "too_formal", label: "Too formal" },
+  { code: "too_casual", label: "Too casual" },
+  { code: "too_sales_focused", label: "Too sales-focused" },
+  { code: "incorrect_information", label: "Incorrect information" },
+];
 
 export function DraftApprovalCard({
   action,
   onChange,
   onApprove,
+  onFeedback,
 }: {
   action: DraftActionState;
   onChange: (patch: Partial<DraftActionState>) => void;
   onApprove: () => void;
+  onFeedback?: (feedbackCode: PilotDraftFeedbackCode) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const launchUrl = buildDraftLaunchUrl(action);
@@ -167,6 +191,45 @@ export function DraftApprovalCard({
             className="mt-1 font-normal normal-case leading-6 tracking-normal"
           />
         </label>
+
+        {onFeedback ? (
+          <fieldset className="rounded-xl border border-violet-200 bg-violet-50/80 p-3 dark:border-violet-900/60 dark:bg-violet-950/20">
+            <legend className="px-1 text-[10px] font-semibold uppercase tracking-[0.05em] text-violet-800 dark:text-violet-300">
+              Quick pilot feedback
+            </legend>
+            <p className="mb-2 text-[11px] leading-5 text-violet-700 dark:text-violet-300">
+              How does this draft feel? Your choice is private and never sends
+              the message.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {pilotFeedbackOptions.map((option) => {
+                const selected = action.feedbackCode === option.code;
+                return (
+                  <button
+                    key={option.code}
+                    type="button"
+                    onClick={() => onFeedback(option.code)}
+                    disabled={action.feedbackStatus === "saving"}
+                    aria-pressed={selected}
+                    className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition disabled:opacity-60 ${selected ? "border-violet-600 bg-violet-600 text-white" : "border-violet-200 bg-white text-violet-800 hover:border-violet-400 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"}`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            {action.feedbackMessage ? (
+              <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-300" role="status">
+                {action.feedbackMessage}
+              </p>
+            ) : null}
+            {action.feedbackError ? (
+              <p className="mt-2 text-[11px] text-destructive" role="alert">
+                {action.feedbackError}
+              </p>
+            ) : null}
+          </fieldset>
+        ) : null}
 
         {action.error ? (
           <p

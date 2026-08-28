@@ -13,6 +13,7 @@ import {
   PILOT_TRIAL_DAYS,
   type PilotInviteRecord,
 } from "@/lib/pilot-invites";
+import { loadPilotProgress } from "@/lib/pilot-progress-server";
 
 export const dynamic = "force-dynamic";
 
@@ -51,12 +52,29 @@ export async function GET() {
 
     const invites = await listInvites(context.admin);
     const now = new Date();
-    return NextResponse.json(
-      {
-        invites: invites.map((invite) => ({
+    const enrichedInvites = await Promise.all(
+      invites.map(async (invite) => {
+        const progress =
+          invite.status === "accepted" &&
+          invite.auth_user_id &&
+          invite.org_id &&
+          isPilotInviteActive(invite, now)
+            ? await loadPilotProgress(context.admin, {
+                id: invite.id,
+                auth_user_id: invite.auth_user_id,
+                org_id: invite.org_id,
+              })
+            : null;
+        return {
           ...invite,
           display_status: getPilotInviteDisplayStatus(invite, now),
-        })),
+          progress,
+        };
+      }),
+    );
+    return NextResponse.json(
+      {
+        invites: enrichedInvites,
         activeCount: invites.filter((invite) =>
           isPilotInviteActive(invite, now),
         ).length,

@@ -9,6 +9,7 @@ import {
   type AiMessageStageName,
   type AiMessageStageTelemetry,
 } from "@/lib/ai/message-workflow";
+import { evaluateCopilotReply } from "@/lib/copilot-compliance";
 import { recordAIUsage } from "@/lib/control-centre";
 import {
   readAutomationSecret,
@@ -268,7 +269,7 @@ async function callLlm(
     attemptTimeoutMs: options.attemptTimeoutMs,
     providerBudgetMs: options.providerBudgetMs,
     maxAttempts: options.maxAttempts,
-    maxTokens: 2_000,
+    maxTokens: 650,
     temperature: 0.7,
     responseFormat: { type: "json_object" },
     gatewayTags: ["feature:ai-message", `stage:${options.stage}`, "app:clippy"],
@@ -308,6 +309,19 @@ const COMPLIANCE_AGENT =
   "You are a compliance checker for Australian real estate. Review the proposed reply. Return JSON: { passed: boolean, issues: string[], suggested_fix: string|null }. Check for: financial advice, legal advice, price guarantees, discrimination, privacy violations, pressure tactics, false information.";
 const CRM_AGENT =
   "You are a CRM enrichment specialist. Extract new/changed lead info from the message. Return JSON with ONLY new fields: { full_name, email, phone, notes, buyer_type, priority: low|medium|high|null }";
+
+const FAST_MESSAGE_AGENT = `You are Clippy, an approval-first Australian real-estate copilot. Analyse the enquiry and prepare one short, factual draft using only verified context. Never claim an action was completed, invent property details, guarantee price or outcome, discriminate, pressure, or give legal or financial advice. For rentals, offer only verified inspection times and never gate an inspection behind personal qualification. Honour opt-outs. Return one JSON object only:
+{
+  "intent": "buying|selling|rental|investment|question|complaint|inspection|negotiation|spam|other",
+  "intent_confidence": 0.0,
+  "is_rental": false,
+  "qualification": {},
+  "lead_stage": "unknown|new|warm|hot|inspection_booked|offer|negotiation|contract|won|lost|nurture",
+  "stage_reason": "short reason",
+  "reply": "short Australian-English draft",
+  "tone": "professional|warm|casual",
+  "call_to_action": "short next step"
+}`;
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -459,7 +473,7 @@ export async function POST(req: NextRequest) {
             "AbortError",
           ),
         ),
-      40_000,
+      10_000,
     );
     const stageTelemetry: AiMessageStageTelemetry[] = [];
     const runStage = async <T>(
@@ -504,57 +518,55 @@ export async function POST(req: NextRequest) {
     let responseResult: any;
     let compliance: any;
     try {
-      [intent, qualification, stageResult] = await Promise.all([
-        runStage(
-          "intent",
-          INTENT_AGENT,
-          body.message,
-          { intent: "other", confidence: 0.25, isRental: false },
-          { attemptTimeoutMs: 4_000, providerBudgetMs: 8_000, maxAttempts: 1 },
-        ),
-        runStage(
-          "qualification",
-          QUALIFICATION_AGENT,
-          body.message,
-          {},
-          { attemptTimeoutMs: 4_000, providerBudgetMs: 8_000, maxAttempts: 1 },
-        ),
-        runStage(
-          "stage",
-          STAGE_AGENT,
-          body.message,
-          {
-            stage: context.lead?.stage || "unknown",
-            reason: "Stage classification unavailable",
-            confidence: 0,
-          },
-          { attemptTimeoutMs: 4_000, providerBudgetMs: 8_000, maxAttempts: 1 },
-        ),
-      ]);
-
-      const isRental = intent.isRental === true || intent.intent === "rental";
-      const responseAgent = isRental ? RENTAL_AGENT : RESPONSE_AGENT;
-      responseResult = await runStage(
+      const fastResult = await runStage(
         "response",
-        responseAgent,
+        FAST_MESSAGE_AGENT,
         body.message,
         {
+          intent: "other",
+          intent_confidence: 0.25,
+          is_rental: false,
+          qualification: {},
+          lead_stage: context.lead?.stage || "unknown",
+          stage_reason: "AI classification unavailable",
           reply:
             "Thanks for your message. I have noted it and will review the details before responding.",
+          tone: "professional",
+          call_to_action: "Review and reply",
         },
-        { attemptTimeoutMs: 6_000, providerBudgetMs: 16_000, maxAttempts: 2 },
+        { attemptTimeoutMs: 5_500, providerBudgetMs: 9_500, maxAttempts: 1 },
       );
-      compliance = await runStage(
-        "compliance",
-        COMPLIANCE_AGENT,
+      intent = {
+        intent: fastResult.intent || "other",
+        confidence: Number(fastResult.intent_confidence) || 0.25,
+        isRental:
+          fastResult.is_rental === true || fastResult.intent === "rental",
+      };
+      qualification =
+        fastResult.qualification && typeof fastResult.qualification === "object"
+          ? fastResult.qualification
+          : {};
+      stageResult = {
+        stage: fastResult.lead_stage || context.lead?.stage || "unknown",
+        reason: fastResult.stage_reason || "AI classification",
+        confidence: Number(fastResult.intent_confidence) || 0.25,
+      };
+      responseResult = {
+        reply: fastResult.reply,
+        tone: fastResult.tone || "professional",
+        call_to_action: fastResult.call_to_action || "Review and reply",
+      };
+      const deterministicCompliance = evaluateCopilotReply(
         responseResult.reply || "",
-        {
-          passed: false,
-          issues: ["Compliance check unavailable"],
-          suggested_fix: null,
-        },
-        { attemptTimeoutMs: 4_000, providerBudgetMs: 8_000, maxAttempts: 1 },
       );
+      compliance = {
+        passed: deterministicCompliance.passed,
+        issues: deterministicCompliance.checks,
+        suggested_fix: deterministicCompliance.safeReply,
+      };
+      if (!deterministicCompliance.passed && deterministicCompliance.safeReply) {
+        responseResult.reply = deterministicCompliance.safeReply;
+      }
     } finally {
       clearTimeout(workflowTimer);
     }

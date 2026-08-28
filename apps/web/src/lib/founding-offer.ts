@@ -11,6 +11,9 @@ export function getSignupCompletionPath(search: string): string {
 }
 
 export function getOnboardingCompletionPath(search: string): string {
+  if (new URLSearchParams(search).get("pilot") === "1") {
+    return "/pilot/setup";
+  }
   return getRequestedFoundingPlan(search)
     ? "/admin/billing?subscribe=starter"
     : "/dashboard";

@@ -13,7 +13,7 @@ type ChatCompletion = {
   model?: string;
 };
 
-type CopilotProvider = "vercel-ai-gateway" | "ollama";
+type CopilotProvider = "vercel-ai-gateway" | "openai" | "ollama";
 
 type CopilotCompletion = {
   data: ChatCompletion;
@@ -266,7 +266,10 @@ export async function requestCopilotCompletion({
 
     if (gatewayToken && !deadline.signal.aborted) {
       attemptedProviders.push("vercel-ai-gateway");
-      const model = cleanEnv(process.env.COPILOT_MODEL, "openai/gpt-5.5");
+      const model = cleanEnv(
+        process.env.COPILOT_MODEL,
+        "openai/gpt-5.4-mini-fast",
+      );
       try {
         const result = await postCompletion({
           url: "https://ai-gateway.vercel.sh/v1/chat/completions",
@@ -286,8 +289,8 @@ export async function requestCopilotCompletion({
               gateway: {
                 user: userId,
                 models: [
-                  "anthropic/claude-sonnet-4.6",
-                  "google/gemini-3.1-pro-preview",
+                  "openai/gpt-5.4-mini",
+                  "openai/gpt-5.4-nano",
                 ],
                 tags: gatewayTags,
               },
@@ -303,6 +306,43 @@ export async function requestCopilotCompletion({
         };
       } catch (error) {
         failures.push(`vercel-ai-gateway:${safeProviderError(error)}`);
+      }
+    }
+
+    const openAiToken = cleanEnv(process.env.OPENAI_API_KEY);
+    if (openAiToken && !deadline.signal.aborted) {
+      attemptedProviders.push("openai");
+      const configuredModel = cleanEnv(
+        process.env.COPILOT_OPENAI_MODEL,
+        "gpt-5.4-mini",
+      );
+      const model = configuredModel.replace(/^openai\//, "");
+      try {
+        const result = await postCompletion({
+          url: "https://api.openai.com/v1/chat/completions",
+          token: openAiToken,
+          provider: "openai",
+          signal: deadline.signal,
+          attemptTimeoutMs,
+          maxAttempts,
+          body: {
+            model,
+            messages,
+            max_tokens: maxTokens,
+            temperature,
+            ...(responseFormat ? { response_format: responseFormat } : {}),
+            user: userId,
+          },
+        });
+        return {
+          data: result.data,
+          model: cleanEnv(result.data.model, model),
+          provider: "openai",
+          attempts: result.attempts,
+          usedRetry: result.attempts > 1,
+        };
+      } catch (error) {
+        failures.push(`openai:${safeProviderError(error)}`);
       }
     }
 

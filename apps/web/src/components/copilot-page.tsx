@@ -37,6 +37,7 @@ import {
   InspectionSlotApprovalCard,
   type DraftActionState,
   type InspectionSlotActionState,
+  type PilotDraftFeedbackCode,
 } from "@/components/copilot/action-cards";
 
 const quickActions = [
@@ -145,10 +146,12 @@ export function CopilotPage({
   contextItems,
   initialContext,
   initialPrompt = "",
+  pilotFeedbackEnabled = false,
 }: {
   contextItems: CopilotContextItem[];
   initialContext: CopilotContextSelection;
   initialPrompt?: string;
+  pilotFeedbackEnabled?: boolean;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -254,6 +257,49 @@ export function CopilotPage({
           error instanceof Error
             ? error.message
             : "The draft could not be approved.",
+      });
+    }
+  };
+
+  const submitDraftFeedback = async (
+    messageId: string,
+    action: DraftActionState,
+    feedbackCode: PilotDraftFeedbackCode,
+  ) => {
+    updateDraftAction(messageId, {
+      feedbackCode,
+      feedbackStatus: "saving",
+      feedbackMessage: undefined,
+      feedbackError: undefined,
+    });
+    try {
+      const response = await fetch("/api/pilot/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draft_id: action.id,
+          feedback_code: feedbackCode,
+          channel: action.channel,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || "Your feedback could not be saved.");
+      }
+      updateDraftAction(messageId, {
+        feedbackCode,
+        feedbackStatus: "saved",
+        feedbackMessage: result.message || "Feedback saved — thank you.",
+        feedbackError: undefined,
+      });
+    } catch (error) {
+      updateDraftAction(messageId, {
+        feedbackStatus: "idle",
+        feedbackMessage: undefined,
+        feedbackError:
+          error instanceof Error
+            ? error.message
+            : "Your feedback could not be saved.",
       });
     }
   };
@@ -616,6 +662,16 @@ export function CopilotPage({
                   onChange={(patch) => updateDraftAction(message.id, patch)}
                   onApprove={() =>
                     void approveDraft(message.id, message.draftAction!)
+                  }
+                  onFeedback={
+                    pilotFeedbackEnabled
+                      ? (feedbackCode) =>
+                          void submitDraftFeedback(
+                            message.id,
+                            message.draftAction!,
+                            feedbackCode,
+                          )
+                      : undefined
                   }
                 />
               )}

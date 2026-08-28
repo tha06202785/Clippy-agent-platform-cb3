@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calendarEventToKnowledge,
+  classifyGmailRelevance,
   extractGmailText,
   gmailMessageToKnowledge,
   extractLeadName,
@@ -179,6 +180,180 @@ describe("Google knowledge sync", () => {
     });
 
     expect(item && isLikelyRealEstateLead(item)).toBe(false);
+  });
+
+  it("rejects the live debt-collection false positive despite its address and follow-up wording", () => {
+    const item = gmailMessageToKnowledge({
+      id: "askoa-payment-plan",
+      threadId: "askoa-payment-plan",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          {
+            name: "Subject",
+            value: "Payment Plans Available (Ref: ASKOA0678)",
+          },
+          {
+            name: "From",
+            value: "Erinn Clark <erinn.clark@ecollect.com.au>",
+          },
+        ],
+        body: {
+          data: encode(
+            "The current balance owing is $257.67. We have not received a response. How to pay by mail at 70 Pasir Panjang Road.",
+          ),
+        },
+      },
+    });
+
+    expect(item).not.toBeNull();
+    expect(classifyGmailRelevance(item!)).toMatchObject({
+      decision: "irrelevant",
+      tags: expect.arrayContaining(["billing"]),
+      reasons: ["billing_or_commerce_without_property_context"],
+    });
+  });
+
+  it("holds an address-only property update for review instead of creating a client", () => {
+    const item = gmailMessageToKnowledge({
+      id: "ambiguous-property-update",
+      threadId: "ambiguous-property-update",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "Property update" },
+          { name: "From", value: "person@example.com" },
+        ],
+        body: { data: encode("Update regarding 10 Collins Street") },
+      },
+    });
+
+    expect(classifyGmailRelevance(item!)).toMatchObject({
+      decision: "review",
+      tags: expect.arrayContaining(["needs-review"]),
+    });
+    expect(isLikelyRealEstateLead(item!)).toBe(false);
+  });
+
+  it("keeps short replies inside a previously confirmed property thread", () => {
+    const item = gmailMessageToKnowledge({
+      id: "short-reply",
+      threadId: "confirmed-thread",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "Re: Saturday" },
+          { name: "From", value: "buyer@example.com" },
+        ],
+        body: { data: encode("Yes, 11:30 works. Thank you.") },
+      },
+    });
+
+    expect(
+      classifyGmailRelevance(item!, { trustedThread: true }),
+    ).toMatchObject({
+      decision: "relevant",
+      tags: expect.arrayContaining(["confirmed-thread"]),
+    });
+  });
+
+  it("accepts operational email anchored to a known listing", () => {
+    const item = gmailMessageToKnowledge({
+      id: "known-listing-photos",
+      threadId: "known-listing-photos",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "Photos – 25 Collins Street" },
+          { name: "From", value: "photographer@example.com" },
+        ],
+        body: { data: encode("Please approve the attached images.") },
+      },
+    });
+
+    expect(classifyGmailRelevance(item!, { knownListing: true })).toMatchObject(
+      {
+        decision: "relevant",
+        tags: expect.arrayContaining(["known-property"]),
+      },
+    );
+  });
+
+  it("lets an explicit agent correction override thread continuity", () => {
+    const item = gmailMessageToKnowledge({
+      id: "agent-ignored",
+      threadId: "confirmed-thread",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "Re: Saturday" },
+          { name: "From", value: "buyer@example.com" },
+        ],
+        body: { data: encode("This is unrelated to the property.") },
+      },
+    });
+
+    expect(
+      classifyGmailRelevance(item!, {
+        manualDecision: "irrelevant",
+        trustedThread: true,
+      }),
+    ).toMatchObject({
+      decision: "irrelevant",
+      tags: expect.arrayContaining(["agent-ignored"]),
+    });
+  });
+
+  it("accepts a genuine property web-form enquiry from an automated agency sender", () => {
+    const item = gmailMessageToKnowledge({
+      id: "agency-web-form",
+      threadId: "agency-web-form",
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "New buyer enquiry" },
+          { name: "From", value: "no-reply@agency.example" },
+        ],
+        body: {
+          data: encode(
+            "I am interested in 25 Collins Street and would like to inspect.",
+          ),
+        },
+      },
+    });
+
+    expect(classifyGmailRelevance(item!)).toMatchObject({
+      decision: "relevant",
+      tags: expect.arrayContaining(["buyer", "inspection", "automated"]),
+    });
+  });
+
+  it("uses Gmail category and bulk headers as negative evidence", () => {
+    const item = gmailMessageToKnowledge({
+      id: "social-promotion",
+      threadId: "social-promotion",
+      labelIds: ["INBOX", "CATEGORY_SOCIAL"],
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "A contact posted about property" },
+          { name: "From", value: "updates@social.example" },
+          { name: "List-Unsubscribe", value: "<mailto:leave@example.com>" },
+          { name: "Precedence", value: "bulk" },
+        ],
+        body: { data: encode("Read the latest property post") },
+      },
+    });
+
+    expect(item?.metadata).toMatchObject({
+      label_ids: ["INBOX", "CATEGORY_SOCIAL"],
+      list_unsubscribe: "<mailto:leave@example.com>",
+      precedence: "bulk",
+    });
+    expect(classifyGmailRelevance(item!)).toMatchObject({
+      decision: "irrelevant",
+      tags: expect.arrayContaining(["newsletter"]),
+    });
   });
 
   it("rejects the controlled Netflix subscription receipt", () => {

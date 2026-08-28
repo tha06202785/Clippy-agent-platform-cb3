@@ -286,6 +286,7 @@ export default async function LaunchCentrePage() {
   const readiness = buildLaunchReadiness({
     profileComplete: Boolean(progress?.profile_completed),
     crmSelected: Boolean(crmResult.data),
+    crmImportRequired: crmResult.data?.status !== "not_required",
     importComplete: Boolean(progress?.import_completed),
     knowledgeCount: count(knowledgeResult),
     connectedChannels: healthyChannels.length,

@@ -5,6 +5,7 @@ import {
   isMessageDeleted,
   isMessageHidden,
   isMessageVisible,
+  messageRaw,
 } from "@/lib/conversations/message-visibility";
 
 export const dynamic = "force-dynamic";
@@ -92,16 +93,46 @@ export async function GET(req: NextRequest) {
     );
     const summaries = new Map<
       string,
-      { latest_message: unknown; unread_count: number; message_count: number }
+      {
+        latest_message: unknown;
+        unread_count: number;
+        message_count: number;
+        relevance_tags: string[];
+        relevance_decision: string | null;
+        relevance_score: number | null;
+      }
     >();
     for (const message of messagesForView) {
       const summary = summaries.get(message.conversation_id) || {
         latest_message: null,
         unread_count: 0,
         message_count: 0,
+        relevance_tags: [],
+        relevance_decision: null,
+        relevance_score: null,
       };
       if (!summary.latest_message) summary.latest_message = message;
       summary.message_count += 1;
+      const raw = messageRaw(message.raw_json);
+      const messageTags = Array.isArray(raw.relevance_tags)
+        ? raw.relevance_tags.filter(
+            (tag): tag is string => typeof tag === "string",
+          )
+        : [];
+      for (const tag of messageTags) {
+        if (!summary.relevance_tags.includes(tag)) {
+          summary.relevance_tags.push(tag);
+        }
+      }
+      if (
+        message.direction_in_out === "in" &&
+        summary.relevance_decision === null
+      ) {
+        summary.relevance_decision =
+          typeof raw.relevance === "string" ? raw.relevance : null;
+        summary.relevance_score =
+          typeof raw.relevance_score === "number" ? raw.relevance_score : null;
+      }
       if (message.direction_in_out === "in" && !message.read_at) {
         summary.unread_count += 1;
       }
@@ -115,6 +146,9 @@ export async function GET(req: NextRequest) {
           latest_message: null,
           unread_count: 0,
           message_count: 0,
+          relevance_tags: [],
+          relevance_decision: null,
+          relevance_score: null,
         }),
         hidden_count: hiddenMessageCounts.get(conversation.id) || 0,
       }))
@@ -128,7 +162,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();

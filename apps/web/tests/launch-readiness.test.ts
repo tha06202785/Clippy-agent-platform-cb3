@@ -7,6 +7,7 @@ import {
 const empty = {
   profileComplete: false,
   crmSelected: false,
+  crmImportRequired: true,
   importComplete: false,
   knowledgeCount: 0,
   connectedChannels: 0,
@@ -54,6 +55,7 @@ describe("pilot launch readiness", () => {
     const result = buildLaunchReadiness({
       profileComplete: true,
       crmSelected: true,
+      crmImportRequired: true,
       importComplete: true,
       knowledgeCount: 1,
       connectedChannels: 1,
@@ -67,6 +69,18 @@ describe("pilot launch readiness", () => {
 
     expect(result.completed).toBe(8);
     expect(result.score).toBe(100);
+  });
+
+  it("accepts Clippy as the CRM without requiring an external import", () => {
+    const result = buildLaunchReadiness({
+      ...empty,
+      crmSelected: true,
+      crmImportRequired: false,
+    });
+
+    const crm = result.steps.find((step) => step.key === "crm");
+    expect(crm?.complete).toBe(true);
+    expect(crm?.description).toContain("no external import is required");
   });
 
   it("does not accept configured reminders while Calendar sync is unhealthy", () => {

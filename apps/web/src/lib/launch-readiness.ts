@@ -1,6 +1,7 @@
 export type LaunchReadinessInput = {
   profileComplete: boolean;
   crmSelected: boolean;
+  crmImportRequired: boolean;
   importComplete: boolean;
   knowledgeCount: number;
   connectedChannels: number;
@@ -54,11 +55,20 @@ export function buildLaunchReadiness(
     },
     {
       key: "crm",
-      title: "CRM selection and import",
-      description: "A CRM is selected and the first duplicate-safe import is complete.",
-      href: "/import",
-      action: input.crmSelected ? "Import CRM data" : "Select a CRM",
-      complete: input.crmSelected && input.importComplete,
+      title: input.crmImportRequired ? "CRM selection and import" : "CRM selection",
+      description: !input.crmSelected
+        ? "Choose an external CRM or use Clippy as your CRM."
+        : input.crmImportRequired
+          ? "A CRM is selected and the first duplicate-safe import is complete."
+          : "Clippy is selected as the CRM; no external import is required.",
+      href: input.crmSelected && input.crmImportRequired ? "/import" : "/onboarding",
+      action:
+        input.crmSelected && input.crmImportRequired
+          ? "Import CRM data"
+          : "Select a CRM",
+      complete:
+        input.crmSelected &&
+        (!input.crmImportRequired || input.importComplete),
     },
     {
       key: "knowledge",
