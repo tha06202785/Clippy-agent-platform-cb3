@@ -51,7 +51,29 @@ export async function resolveOrCreateLead({
 
   const { data: existingIdentity, error: identityError } = await findIdentity();
   if (identityError) throw identityError;
-  if (existingIdentity?.lead_id) return existingIdentity.lead_id;
+  if (existingIdentity?.lead_id) {
+    if (name) {
+      const { data: existingLead, error } = await supabase
+        .from("leads")
+        .select("full_name")
+        .eq("id", existingIdentity.lead_id)
+        .eq("org_id", orgId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!existingLead?.full_name?.trim()) {
+        const update = await supabase
+          .from("leads")
+          .update({
+            full_name: name.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingIdentity.lead_id)
+          .eq("org_id", orgId);
+        if (update.error) throw update.error;
+      }
+    }
+    return existingIdentity.lead_id;
+  }
 
   let existingLeadId: string | undefined;
   if (channel === "email" || channel === "whatsapp") {
@@ -63,22 +85,28 @@ export async function resolveOrCreateLead({
       .not(leadColumn, "is", null)
       .limit(1000);
     if (error) throw error;
-    existingLeadId = candidates?.find((lead: any) =>
-      normaliseLeadIdentity(channel, String(lead[leadColumn] || "")) === normalised
+    existingLeadId = candidates?.find(
+      (lead: any) =>
+        normaliseLeadIdentity(channel, String(lead[leadColumn] || "")) ===
+        normalised,
     )?.id;
   }
 
   let leadId = existingLeadId;
   let createdLeadId: string | undefined;
   if (!leadId) {
-    const { data: lead, error } = await supabase.from("leads").insert({
-      org_id: orgId,
-      full_name: name,
-      email: channel === "email" ? normalised : null,
-      phone: channel === "whatsapp" ? normalised : null,
-      source: channel,
-      stage: "unknown",
-    }).select("id").single();
+    const { data: lead, error } = await supabase
+      .from("leads")
+      .insert({
+        org_id: orgId,
+        full_name: name,
+        email: channel === "email" ? normalised : null,
+        phone: channel === "whatsapp" ? normalised : null,
+        source: channel,
+        stage: "unknown",
+      })
+      .select("id")
+      .single();
     if (error || !lead) throw error || new Error("Lead creation failed");
     leadId = lead.id;
     createdLeadId = lead.id;
@@ -95,7 +123,11 @@ export async function resolveOrCreateLead({
   if (insertError.code === "23505") {
     const { data: winner, error } = await findIdentity();
     if (createdLeadId && winner?.lead_id && winner.lead_id !== createdLeadId) {
-      await supabase.from("leads").delete().eq("id", createdLeadId).eq("org_id", orgId);
+      await supabase
+        .from("leads")
+        .delete()
+        .eq("id", createdLeadId)
+        .eq("org_id", orgId);
     }
     if (!error && winner?.lead_id) return winner.lead_id;
   }

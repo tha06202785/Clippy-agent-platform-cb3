@@ -27,6 +27,7 @@ export async function deliverApprovedMessage({
   content,
   subject,
   threadId,
+  facebookPageId,
   subjectMode = "reply",
 }: {
   admin: AdminClient;
@@ -36,6 +37,7 @@ export async function deliverApprovedMessage({
   content: string;
   subject?: string | null;
   threadId?: string | null;
+  facebookPageId?: string | null;
   subjectMode?: "reply" | "forward" | "plain";
 }) {
   const provider =
@@ -114,9 +116,10 @@ export async function deliverApprovedMessage({
 
   if (channel === "facebook") {
     const pageId =
-      typeof settings.facebook_page_id === "string"
+      facebookPageId ||
+      (typeof settings.facebook_page_id === "string"
         ? settings.facebook_page_id
-        : undefined;
+        : undefined);
     const page =
       credentials.pages?.find((item) => item.id === pageId) ||
       credentials.pages?.[0];

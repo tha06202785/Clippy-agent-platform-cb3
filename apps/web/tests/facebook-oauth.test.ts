@@ -94,7 +94,7 @@ describe("Facebook OAuth URLs", () => {
       "messages",
       "messaging_postbacks",
       "message_deliveries",
-      "messaging_reads",
+      "message_reads",
     ]);
     expect(url.searchParams.get("access_token")).toBe("secret-page-token");
   });

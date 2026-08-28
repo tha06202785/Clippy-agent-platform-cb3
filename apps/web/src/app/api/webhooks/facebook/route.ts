@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { persistInboundMessage } from "@/lib/conversations/persist-inbound";
-import { updateDeliveryStatus, markConversationRead } from "@/lib/conversations/update-delivery-status";
+import {
+  updateDeliveryStatus,
+  markConversationRead,
+} from "@/lib/conversations/update-delivery-status";
 import { resolveOrCreateLead } from "@/lib/leads/resolve-or-create";
+import { decryptIntegrationCredentials } from "@/lib/integration-credentials";
+import { buildMetaObjectUrl } from "@/lib/facebook-oauth";
+import {
+  handleFacebookEnquiryAutomation,
+  verifyFacebookWebhookSignature,
+} from "@/lib/facebook-enquiry-automation";
 
 export const dynamic = "force-dynamic";
 
@@ -21,20 +30,23 @@ export async function GET(req: NextRequest) {
 }
 
 // Resolve org by Facebook Page PSID
+type FacebookCredentials = {
+  access_token?: string;
+  pages?: Array<{ id?: string; access_token?: string }>;
+};
+
 async function resolveOrgByFacebookPageId(
   supabase: any,
-  pageId: string
-): Promise<string | null> {
+  pageId: string,
+): Promise<{ orgId: string; pageAccessToken: string | null } | null> {
   const { data: integrations } = await supabase
     .from("integrations")
-    .select("org_id, settings_json")
+    .select("org_id,settings_json,credentials_encrypted")
     .eq("provider", "facebook")
     .eq("status", "connected");
   const integration = (integrations || []).find((candidate: any) => {
     const settings = candidate.settings_json || {};
-    const configuredPages = Array.isArray(settings.pages)
-      ? settings.pages
-      : [];
+    const configuredPages = Array.isArray(settings.pages) ? settings.pages : [];
     return (
       (settings.facebook_page_id || settings.page_id || "") === pageId ||
       configuredPages.some(
@@ -46,12 +58,52 @@ async function resolveOrgByFacebookPageId(
       )
     );
   });
-  return integration?.org_id || null;
+  if (!integration?.org_id) return null;
+  const credentials = integration.credentials_encrypted
+    ? decryptIntegrationCredentials<FacebookCredentials>(
+        integration.credentials_encrypted,
+      )
+    : {};
+  const page = credentials.pages?.find((candidate) => candidate.id === pageId);
+  return {
+    orgId: integration.org_id,
+    pageAccessToken: page?.access_token || credentials.access_token || null,
+  };
+}
+
+async function fetchFacebookSenderName(
+  senderId: string,
+  pageAccessToken: string | null,
+) {
+  if (!pageAccessToken) return null;
+  try {
+    const response = await fetch(
+      buildMetaObjectUrl(senderId, "name", pageAccessToken),
+      { signal: AbortSignal.timeout(3000) },
+    );
+    if (!response.ok) return null;
+    const payload = await response.json();
+    return typeof payload?.name === "string" ? payload.name.trim() : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    const appSecret = process.env.FACEBOOK_APP_SECRET || "";
+    if (
+      !verifyFacebookWebhookSignature({
+        rawBody,
+        signature: req.headers.get("x-hub-signature-256"),
+        appSecret,
+      })
+    ) {
+      console.warn("Facebook webhook: invalid signature");
+      return NextResponse.json({ success: false }, { status: 401 });
+    }
+    const body = JSON.parse(rawBody);
     const supabase = createAdminClient();
 
     const entries = body.entry || [];
@@ -65,11 +117,11 @@ export async function POST(req: NextRequest) {
         entry.id || // this is the page/scoped FB page ID
         "";
 
-      const resolvedOrgId = pageId
+      const integration = pageId
         ? await resolveOrgByFacebookPageId(supabase, pageId)
         : null;
 
-      const orgId = resolvedOrgId;
+      const orgId = integration?.orgId || null;
       if (!orgId) {
         console.warn("Facebook webhook: page is not linked to an org");
         continue;
@@ -85,7 +137,10 @@ export async function POST(req: NextRequest) {
         if (event.delivery?.mids) {
           for (const externalMessageId of event.delivery.mids) {
             await updateDeliveryStatus({
-              supabase, orgId, externalMessageId, status: "delivered",
+              supabase,
+              orgId,
+              externalMessageId,
+              status: "delivered",
               timestamp: event.delivery.watermark,
             });
           }
@@ -93,12 +148,17 @@ export async function POST(req: NextRequest) {
         }
         if (event.read?.watermark) {
           await markConversationRead({
-            supabase, orgId, channel: "facebook",
+            supabase,
+            orgId,
+            channel: "facebook",
             externalThreadId: pageScopedSenderId,
             watermark: event.read.watermark,
           });
           continue;
         }
+        // Never ingest or answer the Page's own outbound echo. This prevents
+        // an automated reply from creating a self-reply loop.
+        if (event.message?.is_echo === true || senderId === pageId) continue;
         if (!message) continue;
 
         await supabase.from("webhook_events").insert({
@@ -110,16 +170,41 @@ export async function POST(req: NextRequest) {
           processed: false,
         });
 
+        const senderName = await fetchFacebookSenderName(
+          pageScopedSenderId,
+          integration?.pageAccessToken || null,
+        );
         const leadId = await resolveOrCreateLead({
-          supabase, orgId, channel: "facebook", identity: pageScopedSenderId,
+          supabase,
+          orgId,
+          channel: "facebook",
+          identity: pageScopedSenderId,
+          name: senderName,
         });
 
         if (leadId) {
-          await persistInboundMessage({
-            supabase, orgId, leadId, channel: "facebook",
+          const persisted = await persistInboundMessage({
+            supabase,
+            orgId,
+            leadId,
+            channel: "facebook",
             externalThreadId: pageScopedSenderId,
-            externalMessageId: msgId, text: message, rawPayload: event,
+            externalMessageId: msgId,
+            text: message,
+            rawPayload: event,
           });
+          if (!persisted.duplicate) {
+            await handleFacebookEnquiryAutomation({
+              admin: supabase,
+              orgId,
+              leadId,
+              conversationId: persisted.conversationId,
+              recipient: pageScopedSenderId,
+              pageId,
+              inboundText: message,
+              externalMessageId: msgId,
+            });
+          }
         }
       }
     }
