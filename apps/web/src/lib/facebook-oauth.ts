@@ -89,7 +89,7 @@ export function buildFacebookPageSubscriptionUrl(
   );
   url.searchParams.set(
     "subscribed_fields",
-    "messages,messaging_postbacks,message_deliveries,messaging_reads",
+    "messages,messaging_postbacks,message_deliveries,message_reads",
   );
   url.searchParams.set("access_token", pageAccessToken);
   return url;
