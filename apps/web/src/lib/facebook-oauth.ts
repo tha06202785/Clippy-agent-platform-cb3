@@ -7,8 +7,6 @@ export const FACEBOOK_OAUTH_SCOPES = [
   "pages_show_list",
   "pages_messaging",
   "pages_manage_metadata",
-  "instagram_basic",
-  "instagram_manage_messages",
 ] as const;
 
 export type MetaPageConnection = {

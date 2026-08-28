@@ -41,6 +41,9 @@ describe("Facebook OAuth URLs", () => {
     expect(authorizationUrl.searchParams.get("scope")?.split(",")).toEqual(
       FACEBOOK_OAUTH_SCOPES,
     );
+    expect(authorizationUrl.searchParams.get("scope")).not.toContain(
+      "instagram_",
+    );
   });
 
   it("requests linked Instagram account data without exposing page tokens", () => {
