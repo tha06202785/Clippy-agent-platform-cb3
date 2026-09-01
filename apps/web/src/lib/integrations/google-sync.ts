@@ -29,6 +29,7 @@ import {
   isMessageVisible,
   messageRaw,
 } from "@/lib/conversations/message-visibility";
+import { getIntegrationAccount } from "@/lib/integrations/integration-accounts";
 
 export {
   classifyGmailRelevance,
@@ -85,7 +86,7 @@ export type GoogleCredentials = {
   token_type?: string;
 };
 
-type GoogleKnowledgeItem = {
+export type GoogleKnowledgeItem = {
   externalId: string;
   revision: string;
   source: "email" | "calendar";
@@ -473,6 +474,7 @@ export async function refreshGoogleCredentials(
   admin: AdminClient,
   orgId: string,
   credentials: GoogleCredentials,
+  integrationAccountId?: string | null,
 ): Promise<GoogleCredentials> {
   if (!credentials.refresh_token) {
     if (!credentials.access_token) {
@@ -503,6 +505,25 @@ export async function refreshGoogleCredentials(
     refresh_token: refreshed.refresh_token || credentials.refresh_token,
   };
   const credentialsEncrypted = encryptIntegrationCredentials(merged);
+  if (integrationAccountId) {
+    const { data: account, error: accountError } = await admin
+      .from("integration_accounts")
+      .update({
+        credentials_encrypted: credentialsEncrypted,
+        updated_at: new Date().toISOString(),
+        last_error: null,
+      })
+      .eq("id", integrationAccountId)
+      .eq("org_id", orgId)
+      .select("is_primary")
+      .single();
+    if (accountError) {
+      throw new Error(
+        `Unable to store refreshed Google account token: ${accountError.code}`,
+      );
+    }
+    if (!account?.is_primary) return merged;
+  }
   const { error } = await admin
     .from("integrations")
     .update({
@@ -645,7 +666,7 @@ function storedMessageToGmailItem(message: {
   };
 }
 
-async function filterGmailItemsForImport(
+export async function filterGmailItemsForImport(
   admin: AdminClient,
   orgId: string,
   items: GoogleKnowledgeItem[],
@@ -1361,20 +1382,27 @@ async function syncGmailSentLearning(
   };
 }
 
-async function importGmailLeads(
+export async function importGmailLeads(
   admin: AdminClient,
   orgId: string,
   items: GoogleKnowledgeItem[],
+  integrationAccountId?: string | null,
 ) {
   let imported = 0;
   let unchanged = 0;
   for (const item of items) {
     if (item.metadata.clippy_business_message !== true) continue;
-    const { data: existingMessage } = await admin
+    let existingMessageQuery = admin
       .from("messages")
       .select("id")
       .eq("org_id", orgId)
-      .contains("raw_json", { external_message_id: item.externalId })
+      .contains("raw_json", { external_message_id: item.externalId });
+    if (integrationAccountId) {
+      existingMessageQuery = existingMessageQuery.contains("raw_json", {
+        integration_account_id: integrationAccountId,
+      });
+    }
+    const { data: existingMessage } = await existingMessageQuery
       .limit(1)
       .maybeSingle();
     if (existingMessage) {
@@ -1416,16 +1444,22 @@ async function importGmailLeads(
       admin,
       orgId,
       leadId,
-      threadId,
+      threadId: integrationAccountId
+        ? `${integrationAccountId}:${threadId}`
+        : threadId,
       subject: item.title,
       body,
     });
-    let { data: conversation } = await admin
+    let conversationQuery = admin
       .from("conversations")
       .select("id")
       .eq("org_id", orgId)
       .eq("channel", "email")
-      .eq("external_thread_id", threadId)
+      .eq("external_thread_id", threadId);
+    conversationQuery = integrationAccountId
+      ? conversationQuery.eq("integration_account_id", integrationAccountId)
+      : conversationQuery.is("integration_account_id", null);
+    let { data: conversation } = await conversationQuery
       .limit(1)
       .maybeSingle();
     if (!conversation) {
@@ -1436,6 +1470,7 @@ async function importGmailLeads(
           lead_id: lead.id,
           channel: "email",
           external_thread_id: threadId,
+          integration_account_id: integrationAccountId || null,
           enquiry_id: enquiryId,
           listing_id: listingId,
           last_message_at: new Date().toISOString(),
@@ -1457,6 +1492,8 @@ async function importGmailLeads(
       raw_json: {
         channel: "email",
         external_message_id: item.externalId,
+        integration_account_id: integrationAccountId || null,
+        integration_provider: item.metadata.integration_provider || "google",
         subject: item.title,
         from: item.metadata.from,
         gmail_thread_id: threadId,
@@ -1547,7 +1584,7 @@ async function fetchCalendarItems(
     .filter((item): item is GoogleKnowledgeItem => Boolean(item));
 }
 
-async function filterCalendarItemsForImport(
+export async function filterCalendarItemsForImport(
   admin: AdminClient,
   orgId: string,
   items: GoogleKnowledgeItem[],
@@ -1671,12 +1708,13 @@ async function archiveIrrelevantStoredCalendarKnowledge(
   return irrelevantDocumentIds.length;
 }
 
-async function indexGoogleItems(
+export async function indexGoogleItems(
   admin: AdminClient,
   orgId: string,
   userId: string,
   source: "email" | "calendar",
   items: GoogleKnowledgeItem[],
+  integrationAccountId?: string | null,
 ) {
   if (!items.length) {
     const { count } = await admin
@@ -1748,6 +1786,7 @@ async function indexGoogleItems(
           title: item.title,
           content: item.content,
           source_metadata: item.metadata,
+          integration_account_id: integrationAccountId || null,
           embedding_model: KNOWLEDGE_EMBEDDING_MODEL,
           status: "processing",
           updated_at: new Date().toISOString(),
@@ -1867,57 +1906,136 @@ async function updateHealth(
 export async function syncGoogleKnowledge(
   orgId: string,
   userId: string,
+  integrationAccountId?: string | null,
 ): Promise<GoogleSyncResult> {
   const admin = createAdminClient();
   const startedAt = Date.now();
-  const { data: integration, error } = await admin
-    .from("integrations")
-    .select("credentials_encrypted,last_sync_at")
-    .eq("org_id", orgId)
-    .eq("provider", "gmail")
-    .eq("status", "connected")
-    .maybeSingle();
-  if (error || !integration?.credentials_encrypted) {
-    throw new Error("Connected Gmail credentials were not found");
+  const account = integrationAccountId
+    ? await getIntegrationAccount({
+        admin,
+        orgId,
+        accountId: integrationAccountId,
+        resourceType: "mail",
+        capability: "sync",
+      })
+    : null;
+  if (account && account.provider !== "google") {
+    throw new Error("The selected account is not a Google account");
+  }
+  let integration: {
+    credentials_encrypted: string;
+    last_sync_at?: string | null;
+  } | null = account
+    ? {
+        credentials_encrypted: account.credentials_encrypted,
+        last_sync_at: account.last_sync_at,
+      }
+    : null;
+  if (!integration) {
+    const { data, error } = await admin
+      .from("integrations")
+      .select("credentials_encrypted,last_sync_at")
+      .eq("org_id", orgId)
+      .eq("provider", "gmail")
+      .eq("status", "connected")
+      .maybeSingle();
+    if (error || !data?.credentials_encrypted) {
+      throw new Error("Connected Gmail credentials were not found");
+    }
+    integration = data;
   }
 
   const stored = decryptIntegrationCredentials<GoogleCredentials>(
     integration.credentials_encrypted,
   );
-  const credentials = await refreshGoogleCredentials(admin, orgId, stored);
+  const credentials = await refreshGoogleCredentials(
+    admin,
+    orgId,
+    stored,
+    account?.id,
+  );
   if (!credentials.access_token)
     throw new Error("Google access token is missing");
 
-  const [gmailCleanup, archivedCalendarKnowledge] = await Promise.all([
-    quarantineIrrelevantStoredGmail(admin, orgId),
-    archiveIrrelevantStoredCalendarKnowledge(admin, orgId),
-  ]);
+  const [gmailCleanup, archivedCalendarKnowledge] = account?.is_primary === false
+    ? [
+        { hiddenMessages: 0, archivedKnowledge: 0, excludedLearning: 0, removedLeads: 0 },
+        0,
+      ]
+    : await Promise.all([
+        quarantineIrrelevantStoredGmail(admin, orgId),
+        archiveIrrelevantStoredCalendarKnowledge(admin, orgId),
+      ]);
   const cleanup = { ...gmailCleanup, archivedCalendarKnowledge };
   const [fetchedGmailItems, fetchedCalendarItems] = await Promise.all([
     fetchGmailItems(credentials.access_token, integration.last_sync_at),
     fetchCalendarItems(credentials.access_token),
   ]);
-  const [gmailItems, calendarItems] = await Promise.all([
+  const [gmailItems, unscopedCalendarItems] = await Promise.all([
     filterGmailItemsForImport(admin, orgId, fetchedGmailItems),
     filterCalendarItemsForImport(admin, orgId, fetchedCalendarItems),
   ]);
+  const calendarItems =
+    account?.is_primary === false
+      ? unscopedCalendarItems.map((item) => ({
+          ...item,
+          externalId: `${account.id}:${item.externalId}`,
+          metadata: {
+            ...item.metadata,
+            google_resource_id: item.externalId,
+            integration_provider: "google",
+          },
+        }))
+      : unscopedCalendarItems;
   // Keep Gmail inbox and Sent scans sequential so their bounded worker pools
   // cannot combine into a per-user request spike.
-  const learning = await syncGmailSentLearning(
-    admin,
-    orgId,
-    userId,
-    credentials.access_token,
-  );
+  const learning = account?.is_primary === false
+    ? { scanned: 0, learned: 0, backfillComplete: true }
+    : await syncGmailSentLearning(
+        admin,
+        orgId,
+        userId,
+        credentials.access_token,
+      );
   const [gmail, calendar] = await Promise.all([
-    importGmailLeads(admin, orgId, gmailItems),
-    indexGoogleItems(admin, orgId, userId, "calendar", calendarItems),
+    importGmailLeads(admin, orgId, gmailItems, account?.id),
+    indexGoogleItems(
+      admin,
+      orgId,
+      userId,
+      "calendar",
+      calendarItems,
+      account?.id,
+    ),
   ]);
   await resanitiseStoredCommunicationExamples(admin, orgId, userId);
   const messageHistory = await learnFromStoredMessages(admin, orgId, userId);
   await Promise.all([
     updateHealth(admin, orgId, "gmail", gmail, startedAt),
     updateHealth(admin, orgId, "google-calendar", calendar, startedAt),
+    ...(account
+      ? [
+          admin
+            .from("integration_accounts")
+            .update({
+              last_sync_at: new Date().toISOString(),
+              last_error: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", account.id)
+            .eq("org_id", orgId),
+          admin
+            .from("integration_resources")
+            .update({
+              status: "connected",
+              last_sync_at: new Date().toISOString(),
+              last_error: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("integration_account_id", account.id)
+            .eq("org_id", orgId),
+        ]
+      : []),
   ]);
   if (gmail.indexed > 0) {
     await recordClippyActivity(admin, {

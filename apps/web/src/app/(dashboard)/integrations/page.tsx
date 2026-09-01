@@ -49,6 +49,26 @@ type IntegrationStatus = {
   permissions?: { granted: number; required: number; missing?: string[] };
 };
 
+type ConnectedAccount = {
+  id: string;
+  provider: "google" | "microsoft";
+  email?: string | null;
+  display_name?: string | null;
+  status: string;
+  is_primary: boolean;
+  last_sync_at?: string | null;
+  resources: Array<{
+    id: string;
+    resource_type: "mail" | "calendar";
+    status: string;
+    sync_enabled: boolean;
+    send_enabled: boolean;
+    learning_enabled: boolean;
+    last_sync_at?: string | null;
+    items_indexed?: number;
+  }>;
+};
+
 type Integration = {
   provider: string;
   name: string;
@@ -77,6 +97,18 @@ const CONFIG = {
     icon: Calendar,
     connectUrl: "/api/integrations/google",
   },
+  "outlook-mail": {
+    name: "Outlook Mail",
+    description: "Read and send Microsoft 365 email",
+    icon: Mail,
+    connectUrl: "/api/integrations/microsoft",
+  },
+  "microsoft-calendar": {
+    name: "Outlook Calendar",
+    description: "Book inspections and Microsoft 365 meetings",
+    icon: Calendar,
+    connectUrl: "/api/integrations/microsoft",
+  },
   facebook: {
     name: "Facebook",
     description: "Capture Messenger and Lead Ads enquiries",
@@ -104,6 +136,8 @@ const OAUTH_ERRORS: Record<string, string> = {
     "Clippy could not access your Meta Business portfolio. Confirm WhatsApp and business permissions, then try again.",
   whatsapp_phone_not_found:
     "No WhatsApp Business phone number was found in the selected Meta portfolio.",
+  whatsapp_not_configured:
+    "WhatsApp setup is incomplete. Add the Meta app credentials and Embedded Signup configuration ID before connecting.",
   token_exchange_failed:
     "The provider could not complete the secure connection. Please try connecting again.",
   google_invalid_client:
@@ -118,6 +152,16 @@ const OAUTH_ERRORS: Record<string, string> = {
     "Google OAuth is not configured in the production environment.",
   invalid_state:
     "The connection session expired. Please start the connection again.",
+  google_profile_failed:
+    "Google connected, but Clippy could not identify the selected account. Please try again.",
+  microsoft_not_configured:
+    "Microsoft 365 OAuth is not configured in the production environment.",
+  microsoft_token_failed:
+    "Microsoft could not complete the secure connection. Check the Entra redirect URI and try again.",
+  microsoft_profile_failed:
+    "Microsoft connected, but Clippy could not identify the selected account.",
+  microsoft_failed:
+    "The Microsoft 365 connection could not be saved. Please try again.",
 };
 
 function normaliseStatus(value?: string): Status {
@@ -141,6 +185,7 @@ function relativeTime(value?: string) {
 
 export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +209,7 @@ export default function IntegrationsPage() {
         : Array.isArray(payload?.integrations)
           ? payload.integrations
           : [];
+      setAccounts(Array.isArray(payload?.accounts) ? payload.accounts : []);
       const mapped = Object.entries(CONFIG).map(([provider, config]) => {
         const existing = statuses.find((item) => item.provider === provider);
         const storedStatus = normaliseStatus(existing?.status);
@@ -207,6 +253,7 @@ export default function IntegrationsPage() {
           itemsIndexed: 0,
         })),
       );
+      setAccounts([]);
     } finally {
       setLoading(false);
     }
@@ -285,22 +332,34 @@ export default function IntegrationsPage() {
     }
   };
 
-  const syncGoogle = async () => {
-    setBusy("google-sync");
+  const syncGoogle = async (account?: ConnectedAccount) => {
+    const busyKey = account ? `sync-${account.id}` : "google-sync";
+    setBusy(busyKey);
     setError(null);
     try {
       const response = await fetch("/api/integrations/sync", {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          account
+            ? {
+                provider: account.provider,
+                integration_account_id: account.id,
+              }
+            : {},
+        ),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(result.error || "Google data sync failed");
+        throw new Error(result.error || "Mailbox and calendar sync failed");
       }
       await load();
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "Google data sync failed",
+        reason instanceof Error
+          ? reason.message
+          : "Mailbox and calendar sync failed",
       );
       await load();
     } finally {
@@ -503,6 +562,90 @@ export default function IntegrationsPage() {
           <p className="mt-3 text-lg font-bold">{relativeTime(latestSync)}</p>
           <p className="text-xs text-neutral-500">Latest sync</p>
         </div>
+      </section>
+
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-semibold text-neutral-900">
+              Mailboxes and calendars
+            </h2>
+            <p className="text-sm text-neutral-500">
+              Connect each agent account separately. Clippy keeps messages,
+              approvals and sends attached to the originating account.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => connect("gmail")}
+              className="rounded-lg border px-3 py-2 text-sm font-semibold"
+            >
+              Add Google account
+            </button>
+            <button
+              type="button"
+              onClick={() => connect("outlook-mail")}
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Add Microsoft 365
+            </button>
+          </div>
+        </div>
+        {accounts.length ? (
+          <div className="mt-4 divide-y rounded-xl border">
+            {accounts.map((account) => (
+              <div
+                key={account.id}
+                className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-medium text-neutral-900">
+                      {account.email || account.display_name || "Connected account"}
+                    </p>
+                    {account.is_primary && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                        Primary
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-neutral-500">
+                    {account.provider === "microsoft"
+                      ? "Microsoft 365"
+                      : "Google Workspace"}{" "}
+                    · {account.resources.map((item) => item.resource_type).join(" + ")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-emerald-700">
+                    {account.status === "connected"
+                      ? "Connected"
+                      : account.status}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={busy === `sync-${account.id}`}
+                    onClick={() => void syncGoogle(account)}
+                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
+                  >
+                    {busy === `sync-${account.id}` ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    Sync
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-xl bg-neutral-50 p-4 text-sm text-neutral-600">
+            Existing primary Google connections will appear here after the
+            multi-account migration is applied.
+          </p>
+        )}
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">

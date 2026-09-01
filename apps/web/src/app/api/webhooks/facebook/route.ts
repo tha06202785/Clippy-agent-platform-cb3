@@ -161,14 +161,19 @@ export async function POST(req: NextRequest) {
         if (event.message?.is_echo === true || senderId === pageId) continue;
         if (!message) continue;
 
-        await supabase.from("webhook_events").insert({
-          org_id: orgId,
-          channel: "facebook",
-          event_type: "messaging",
-          raw_payload: body,
-          headers: Object.fromEntries(req.headers.entries()),
-          processed: false,
-        });
+        const { data: webhookEvent, error: webhookEventError } = await supabase
+          .from("webhook_events")
+          .insert({
+            org_id: orgId,
+            channel: "facebook",
+            event_type: "messaging",
+            raw_payload: body,
+            headers: Object.fromEntries(req.headers.entries()),
+            processed: false,
+          })
+          .select("id")
+          .single();
+        if (webhookEventError) throw webhookEventError;
 
         const senderName = await fetchFacebookSenderName(
           pageScopedSenderId,
@@ -205,6 +210,48 @@ export async function POST(req: NextRequest) {
               externalMessageId: msgId,
             });
           }
+
+          const processedAt = new Date().toISOString();
+          const { count: inboundCount, error: countError } = await supabase
+            .from("messages")
+            .select("id", { count: "exact", head: true })
+            .eq("org_id", orgId)
+            .eq("direction_in_out", "in")
+            .contains("raw_json", { channel: "facebook" });
+          if (countError) throw countError;
+
+          const { error: healthError } = await supabase
+            .from("integration_health")
+            .upsert(
+              {
+                org_id: orgId,
+                provider: "facebook",
+                status: "healthy",
+                last_sync_at: processedAt,
+                items_indexed: inboundCount || 0,
+                errors_count: 0,
+                last_error: null,
+                activity_summary: {
+                  inboundMessages: inboundCount || 0,
+                  lastWebhookAt: processedAt,
+                },
+                updated_at: processedAt,
+              },
+              { onConflict: "org_id,provider" },
+            );
+          if (healthError) throw healthError;
+
+          const { error: processedError } = await supabase
+            .from("webhook_events")
+            .update({
+              processed: true,
+              processing_result: persisted.duplicate
+                ? "duplicate_ignored"
+                : "message_persisted",
+              error_message: null,
+            })
+            .eq("id", webhookEvent.id);
+          if (processedError) throw processedError;
         }
       }
     }

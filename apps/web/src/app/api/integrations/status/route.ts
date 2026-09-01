@@ -31,7 +31,11 @@ export async function GET(_req: NextRequest) {
     }
 
     const admin = createAdminClient();
-    const [{ data: integrations, error: integrationsError }, { data: health }] =
+    const [
+      { data: integrations, error: integrationsError },
+      { data: health },
+      { data: accounts, error: accountsError },
+    ] =
       await Promise.all([
         admin
           .from("integrations")
@@ -45,6 +49,14 @@ export async function GET(_req: NextRequest) {
             "provider,status,last_sync_at,items_indexed,activity_summary,last_error",
           )
           .eq("org_id", auth.orgId),
+        admin
+          .from("integration_accounts")
+          .select(
+            "id,provider,email,display_name,status,access_scope,is_primary,connected_at,last_sync_at,last_error,integration_resources(id,resource_type,display_name,status,sync_enabled,send_enabled,learning_enabled,last_sync_at,items_indexed,last_error)",
+          )
+          .eq("org_id", auth.orgId)
+          .neq("status", "disconnected")
+          .order("created_at", { ascending: true }),
       ]);
 
     if (integrationsError) {
@@ -56,6 +68,9 @@ export async function GET(_req: NextRequest) {
         { error: "Unable to load integrations" },
         { status: 500 },
       );
+    }
+    if (accountsError && accountsError.code !== "42P01") {
+      console.error("Failed to load integration accounts", accountsError.code);
     }
 
     const merged = (integrations || []).map((integration) => {
@@ -101,7 +116,24 @@ export async function GET(_req: NextRequest) {
       };
     });
 
-    return NextResponse.json(merged);
+    return NextResponse.json({
+      integrations: merged,
+      accounts: accountsError
+        ? []
+        : (accounts || []).map((account) => ({
+            id: account.id,
+            provider: account.provider,
+            email: account.email,
+            display_name: account.display_name,
+            status: account.status,
+            access_scope: account.access_scope,
+            is_primary: account.is_primary,
+            connected_at: account.connected_at,
+            last_sync_at: account.last_sync_at,
+            last_error: account.last_error,
+            resources: account.integration_resources || [],
+          })),
+    });
   } catch (error) {
     console.error("Integration status load failed", error);
     return NextResponse.json(

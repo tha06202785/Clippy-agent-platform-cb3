@@ -98,7 +98,7 @@ export async function PATCH(
       ? (
           await admin
             .from("conversations")
-            .select("external_thread_id")
+            .select("external_thread_id,integration_account_id")
             .eq("id", approval.conversation_id)
             .eq("org_id", membership.org_id)
             .maybeSingle()
@@ -116,6 +116,7 @@ export async function PATCH(
         approval.channel === "email"
           ? conversation?.external_thread_id || null
           : null,
+      integrationAccountId: conversation?.integration_account_id || null,
     });
     if (approval.conversation_id) {
       const { data: sentMessage } = await admin
