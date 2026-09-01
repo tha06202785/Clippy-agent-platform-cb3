@@ -44,6 +44,15 @@ export async function GET(_req: NextRequest) {
     if (!account?.stripeCustomerId) {
       return NextResponse.json({ invoices: [] });
     }
+    if (account.billingIdentityStatus !== "verified") {
+      return NextResponse.json(
+        {
+          error:
+            "Billing identity must be verified before invoices are available.",
+        },
+        { status: 409 },
+      );
+    }
 
     const stripe = getStripeClient();
     if (!stripe) {
@@ -65,7 +74,8 @@ export async function GET(_req: NextRequest) {
       amount_paid: invoice.amount_paid,
       currency: invoice.currency,
       status: invoice.status,
-      description: invoice.description || invoice.lines.data[0]?.description || null,
+      description:
+        invoice.description || invoice.lines.data[0]?.description || null,
     }));
 
     return NextResponse.json({ invoices });

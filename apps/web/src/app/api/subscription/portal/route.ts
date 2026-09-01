@@ -27,6 +27,15 @@ export async function POST(_req: NextRequest) {
       { status: 403 },
     );
   }
+  if (context.isPlatformAdmin) {
+    return NextResponse.json(
+      {
+        error:
+          "Platform administrators cannot open a customer's Stripe billing portal.",
+      },
+      { status: 403 },
+    );
+  }
 
   const ip = await getClientIp();
   const { allowed } = checkRateLimit(
@@ -54,6 +63,15 @@ export async function POST(_req: NextRequest) {
       return NextResponse.json(
         { error: "No billing account found. Please subscribe first." },
         { status: 400 },
+      );
+    }
+    if (account.billingIdentityStatus !== "verified") {
+      return NextResponse.json(
+        {
+          error:
+            "Billing identity must be verified before opening the Stripe portal.",
+        },
+        { status: 409 },
       );
     }
 

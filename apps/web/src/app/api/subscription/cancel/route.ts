@@ -26,6 +26,12 @@ export async function POST(_req: NextRequest) {
       { status: 403 },
     );
   }
+  if (context.isPlatformAdmin) {
+    return NextResponse.json(
+      { error: "Platform administrators cannot cancel customer billing." },
+      { status: 403 },
+    );
+  }
 
   const ip = await getClientIp();
   const { allowed, remaining, resetAt } = checkRateLimit(
@@ -69,12 +75,31 @@ export async function POST(_req: NextRequest) {
         { status: 400 },
       );
     }
+    if (account.billingIdentityStatus !== "verified") {
+      return NextResponse.json(
+        {
+          error:
+            "Billing identity must be verified before changing the subscription.",
+        },
+        { status: 409 },
+      );
+    }
 
     // Preserve access through the paid period. Stripe's subscription webhook is
     // the authority for the eventual status transition.
     await stripe.subscriptions.update(account.stripeSubscriptionId, {
       cancel_at_period_end: true,
     });
+
+    await getBillingDataClient(context.supabase)
+      .from("billing_audit_events")
+      .insert({
+        org_id: context.membership.org_id,
+        actor_user_id: context.user.id,
+        event_type: "cancellation_scheduled",
+        outcome: "success",
+        details: {},
+      });
 
     return NextResponse.json({
       success: true,
