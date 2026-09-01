@@ -158,6 +158,59 @@ export const briefings = pgTable("briefings", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
+// Server-only OAuth accounts. One organisation can connect many Google or
+// Microsoft identities without overwriting another agent's credentials.
+export const integration_accounts = pgTable("integration_accounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
+  connected_by_user_id: uuid("connected_by_user_id"),
+  provider: text("provider").notNull(),
+  external_account_id: text("external_account_id").notNull(),
+  email: text("email"),
+  display_name: text("display_name"),
+  status: text("status").default("connected").notNull(),
+  access_scope: text("access_scope").default("personal").notNull(),
+  is_primary: boolean("is_primary").default(false).notNull(),
+  credentials_encrypted: text("credentials_encrypted").notNull(),
+  scopes: text("scopes").array().default([]).notNull(),
+  settings_json: jsonb("settings_json").default({}).notNull(),
+  connected_at: timestamp("connected_at").defaultNow().notNull(),
+  last_sync_at: timestamp("last_sync_at"),
+  last_error: text("last_error"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const integration_resources = pgTable("integration_resources", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  org_id: uuid("org_id")
+    .references(() => orgs.id)
+    .notNull(),
+  integration_account_id: uuid("integration_account_id")
+    .references(() => integration_accounts.id)
+    .notNull(),
+  resource_type: text("resource_type").notNull(),
+  external_resource_id: text("external_resource_id")
+    .default("primary")
+    .notNull(),
+  display_name: text("display_name"),
+  status: text("status").default("connected").notNull(),
+  sync_enabled: boolean("sync_enabled").default(true).notNull(),
+  send_enabled: boolean("send_enabled").default(true).notNull(),
+  learning_enabled: boolean("learning_enabled").default(false).notNull(),
+  sync_cursor: jsonb("sync_cursor").default({}).notNull(),
+  settings_json: jsonb("settings_json").default({}).notNull(),
+  last_sync_at: timestamp("last_sync_at"),
+  next_sync_at: timestamp("next_sync_at"),
+  items_indexed: integer("items_indexed").default(0).notNull(),
+  errors_count: integer("errors_count").default(0).notNull(),
+  last_error: text("last_error"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const integrations = pgTable("integrations", {
   id: uuid("id").defaultRandom().primaryKey(),
   org_id: uuid("org_id")
@@ -229,6 +282,9 @@ export const conversations = pgTable("conversations", {
   listing_id: uuid("listing_id").references(() => listings.id),
   channel: text("channel").notNull(),
   external_thread_id: text("external_thread_id"),
+  integration_account_id: uuid("integration_account_id").references(
+    () => integration_accounts.id,
+  ),
   status: text("status").default("active"),
   lead_stage: text("lead_stage").default("unknown"),
   automation_mode: text("automation_mode").default("autonomous"),
@@ -565,6 +621,9 @@ export const inspection_bookings = pgTable("inspection_bookings", {
     .references(() => leads.id)
     .notNull(),
   conversation_id: uuid("conversation_id").references(() => conversations.id),
+  calendar_integration_account_id: uuid(
+    "calendar_integration_account_id",
+  ).references(() => integration_accounts.id),
   booking_status: text("booking_status").default("reserved"),
   attendance_status: text("attendance_status").default("unknown"),
   attendee_count: integer("attendee_count").default(1),

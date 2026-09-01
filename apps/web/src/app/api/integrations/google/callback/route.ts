@@ -6,6 +6,10 @@ import {
 } from "@/lib/google-oauth-config";
 import { encryptIntegrationCredentials } from "@/lib/integration-credentials";
 import {
+  normaliseOAuthScopes,
+  upsertIntegrationAccount,
+} from "@/lib/integrations/integration-accounts";
+import {
   GOOGLE_OAUTH_STATE_COOKIE,
   matchesOAuthState,
 } from "@/lib/oauth-state";
@@ -13,6 +17,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+type GoogleProfile = {
+  sub?: string;
+  email?: string;
+  name?: string;
+};
 
 function redirectAndClearState(url: URL) {
   const response = NextResponse.redirect(url);
@@ -110,13 +120,53 @@ export async function GET(req: NextRequest) {
     }
 
     const tokens = await tokenResponse.json();
+    if (!tokens.access_token) {
+      return redirectAndClearState(
+        new URL("/integrations?error=token_exchange_failed", origin),
+      );
+    }
+    const profileResponse = await fetch(
+      "https://openidconnect.googleapis.com/v1/userinfo",
+      { headers: { Authorization: `Bearer ${tokens.access_token}` } },
+    );
+    if (!profileResponse.ok) {
+      console.error("Google profile lookup failed", profileResponse.status);
+      return redirectAndClearState(
+        new URL("/integrations?error=google_profile_failed", origin),
+      );
+    }
+    const profile = (await profileResponse.json()) as GoogleProfile;
+    if (!profile.sub) {
+      return redirectAndClearState(
+        new URL("/integrations?error=google_profile_failed", origin),
+      );
+    }
     const admin = createAdminClient();
     const credentialsEncrypted = encryptIntegrationCredentials(tokens);
+    const account = await upsertIntegrationAccount({
+      admin,
+      orgId: membership.org_id,
+      userId: user.id,
+      provider: "google",
+      externalAccountId: profile.sub,
+      email: profile.email || null,
+      displayName: profile.name || null,
+      credentialsEncrypted,
+      scopes: normaliseOAuthScopes(tokens.scope),
+      resources: [
+        { type: "mail", displayName: "Gmail" },
+        { type: "calendar", displayName: "Google Calendar" },
+      ],
+    });
     const connection = {
       org_id: membership.org_id,
       status: "connected",
       credentials_encrypted: credentialsEncrypted,
       settings_json: {
+        integration_account_id: account.id,
+        external_account_id: profile.sub,
+        email: profile.email || null,
+        display_name: profile.name || null,
         scope: tokens.scope || null,
         token_type: tokens.token_type || null,
       },
@@ -124,24 +174,20 @@ export async function GET(req: NextRequest) {
       updated_at: new Date().toISOString(),
       last_error: null,
     };
-    const { error: saveError } = await admin.from("integrations").upsert(
-      [
-        {
-          ...connection,
-          provider: "gmail",
-        },
-        {
-          ...connection,
-          provider: "google-calendar",
-        },
-      ],
-      { onConflict: "org_id,provider" },
-    );
-    if (saveError) {
-      console.error("Failed to save Google integration", saveError.code);
-      return redirectAndClearState(
-        new URL("/integrations?error=save_failed", origin),
+    if (account.is_primary) {
+      const { error: saveError } = await admin.from("integrations").upsert(
+        [
+          { ...connection, provider: "gmail" },
+          { ...connection, provider: "google-calendar" },
+        ],
+        { onConflict: "org_id,provider" },
       );
+      if (saveError) {
+        console.error("Failed to save Google integration", saveError.code);
+        return redirectAndClearState(
+          new URL("/integrations?error=save_failed", origin),
+        );
+      }
     }
 
     const { error: healthResetError } = await admin

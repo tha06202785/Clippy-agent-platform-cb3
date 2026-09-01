@@ -9,6 +9,7 @@ import {
   readAutomationSecret,
   secureSecretMatch,
 } from "@/lib/automation-security";
+import { syncMicrosoftKnowledge } from "@/lib/integrations/microsoft-sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -39,14 +40,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: integrations, error } = await admin
-    .from("integrations")
-    .select("org_id")
-    .eq("provider", "gmail")
+  const { data: accounts, error: accountError } = await admin
+    .from("integration_accounts")
+    .select(
+      "id,org_id,provider,connected_by_user_id,integration_resources!inner(resource_type,status,sync_enabled)",
+    )
     .eq("status", "connected")
-    .limit(10);
-  if (error) {
-    console.error("Google sync cron integration lookup failed", error.code);
+    .eq("integration_resources.resource_type", "mail")
+    .eq("integration_resources.status", "connected")
+    .eq("integration_resources.sync_enabled", true)
+    .limit(20);
+  let integrations: Array<{
+    id?: string | null;
+    org_id: string;
+    provider: "google" | "microsoft";
+    connected_by_user_id?: string | null;
+  }> = (accounts || []) as Array<{
+    id: string;
+    org_id: string;
+    provider: "google" | "microsoft";
+    connected_by_user_id?: string | null;
+  }>;
+  if (accountError?.code === "42P01") {
+    const { data: legacy, error: legacyError } = await admin
+      .from("integrations")
+      .select("org_id")
+      .eq("provider", "gmail")
+      .eq("status", "connected")
+      .limit(10);
+    if (legacyError) {
+      console.error("Google sync cron integration lookup failed", legacyError.code);
+      return NextResponse.json(
+        { error: "Unable to load connected organisations" },
+        { status: 500 },
+      );
+    }
+    integrations = (legacy || []).map((item) => ({
+      org_id: item.org_id,
+      provider: "google" as const,
+    }));
+  } else if (accountError) {
+    console.error("Account sync cron lookup failed", accountError.code);
     return NextResponse.json(
       { error: "Unable to load connected organisations" },
       { status: 500 },
@@ -54,7 +88,8 @@ export async function GET(req: NextRequest) {
   }
 
   const results = [];
-  for (const { org_id: orgId } of integrations || []) {
+  for (const account of integrations) {
+    const orgId = account.org_id;
     const { data: learner } = await admin
       .from("communication_learning_settings")
       .select("user_id")
@@ -72,20 +107,33 @@ export async function GET(req: NextRequest) {
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();
-    const member = learner || fallbackMember;
+    const member = account.connected_by_user_id
+      ? { user_id: account.connected_by_user_id }
+      : learner || fallbackMember;
     if (!member?.user_id) {
       results.push({ org_id: orgId, success: false, error: "No org member" });
       continue;
     }
 
     try {
-      const result = await syncGoogleKnowledge(orgId, member.user_id);
-      results.push({ org_id: orgId, success: true, ...result });
+      const result =
+        account.provider === "microsoft" && account.id
+          ? await syncMicrosoftKnowledge(orgId, member.user_id, account.id)
+          : await syncGoogleKnowledge(orgId, member.user_id, account.id);
+      results.push({
+        org_id: orgId,
+        integration_account_id: account.id || null,
+        provider: account.provider,
+        success: true,
+        ...result,
+      });
     } catch (syncError) {
       console.error("Scheduled Google sync failed", orgId, syncError);
       await recordGoogleSyncFailure(orgId, syncError);
       results.push({
         org_id: orgId,
+        integration_account_id: account.id || null,
+        provider: account.provider,
         success: false,
         error:
           syncError instanceof Error ? syncError.message : "Google sync failed",

@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
     const {
@@ -33,14 +33,12 @@ export async function GET(_req: NextRequest) {
     }
 
     const clientId = process.env.WHATSAPP_APP_ID || process.env.FACEBOOK_APP_ID;
-    if (!clientId) {
-      return NextResponse.json(
-        {
-          error: "WhatsApp OAuth not configured",
-          humanMessage:
-            "WhatsApp integration is not configured. Please contact support.",
-        },
-        { status: 500 },
+    const clientSecret =
+      process.env.WHATSAPP_APP_SECRET || process.env.FACEBOOK_APP_SECRET;
+    const configId = process.env.WHATSAPP_CONFIG_ID?.trim();
+    if (!clientId || !clientSecret || !configId) {
+      return NextResponse.redirect(
+        new URL("/integrations?error=whatsapp_not_configured", req.url),
       );
     }
 
@@ -50,7 +48,7 @@ export async function GET(_req: NextRequest) {
       appId: clientId,
       state,
       redirectUri,
-      configId: process.env.WHATSAPP_CONFIG_ID,
+      configId,
     });
 
     const response = NextResponse.redirect(authUrl.toString());

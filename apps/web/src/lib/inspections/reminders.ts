@@ -107,7 +107,7 @@ export async function processInspectionReminders(admin: AdminClient) {
           communication.conversation_id
             ? admin
                 .from("conversations")
-                .select("external_thread_id")
+                .select("external_thread_id,integration_account_id")
                 .eq("id", communication.conversation_id)
                 .maybeSingle()
             : Promise.resolve({ data: null }),
@@ -205,6 +205,7 @@ export async function processInspectionReminders(admin: AdminClient) {
         content,
         subject,
         threadId: conversation?.external_thread_id || null,
+        integrationAccountId: conversation?.integration_account_id || null,
       });
       if (communication.conversation_id) {
         await admin.from("messages").insert({

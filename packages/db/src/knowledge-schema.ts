@@ -45,6 +45,7 @@ export const knowledge_documents = pgTable("knowledge_documents", {
   layer: text("layer").notNull(),
   user_id: uuid("user_id"),
   client_id: uuid("client_id"),
+  integration_account_id: uuid("integration_account_id"),
   
   title: text("title").notNull(),
   content: text("content").notNull(),

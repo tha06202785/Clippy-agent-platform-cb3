@@ -9,6 +9,8 @@ import {
   refreshGoogleCredentials,
   type GoogleCredentials,
 } from "@/lib/integrations/google-sync";
+import { getIntegrationAccount } from "@/lib/integrations/integration-accounts";
+import { refreshMicrosoftCredentials } from "@/lib/integrations/microsoft-graph";
 
 type AdminClient = any;
 
@@ -63,7 +65,7 @@ export async function completeInspectionBooking({
   const { data: booking, error } = await admin
     .from("inspection_bookings")
     .select(
-      "id,org_id,slot_id,listing_id,lead_id,conversation_id,client_calendar_token,google_calendar_event_id,google_calendar_html_link,inspection_time_slots(starts_at,ends_at,address),listings(address),leads(full_name,email),conversations(external_thread_id)",
+      "id,org_id,slot_id,listing_id,lead_id,conversation_id,client_calendar_token,google_calendar_event_id,google_calendar_html_link,calendar_integration_account_id,inspection_time_slots(starts_at,ends_at,address),listings(address),leads(full_name,email),conversations(external_thread_id,integration_account_id)",
     )
     .eq("id", bookingId)
     .eq("org_id", orgId)
@@ -82,6 +84,7 @@ export async function completeInspectionBooking({
   } | null;
   const conversation = one(booking.conversations) as {
     external_thread_id?: string | null;
+    integration_account_id?: string | null;
   } | null;
   if (!slot) throw new Error("Inspection slot was not found");
 
@@ -123,56 +126,119 @@ export async function completeInspectionBooking({
   let calendarStatus = booking.google_calendar_event_id ? "synced" : "failed";
   let calendarEventId: string | null = booking.google_calendar_event_id;
   let calendarHtmlLink: string | null = booking.google_calendar_html_link;
+  let calendarIntegrationAccountId: string | null =
+    booking.calendar_integration_account_id ||
+    conversation?.integration_account_id ||
+    null;
   let calendarError: string | null = null;
   try {
     if (calendarEventId) throw new Error("__calendar_already_synced__");
-    const { data: integration } = await admin
-      .from("integrations")
-      .select("credentials_encrypted")
-      .eq("org_id", orgId)
-      .eq("provider", "google-calendar")
-      .eq("status", "connected")
-      .maybeSingle();
-    if (!integration?.credentials_encrypted) {
-      throw new Error("Google Calendar is not connected");
+    let account = null;
+    try {
+      account = await getIntegrationAccount({
+        admin,
+        orgId,
+        accountId: calendarIntegrationAccountId,
+        resourceType: "calendar",
+        capability: "send",
+      });
+    } catch (accountError) {
+      if ((accountError as { code?: string })?.code !== "42P01") {
+        throw accountError;
+      }
     }
-    const stored = decryptIntegrationCredentials<GoogleCredentials>(
-      integration.credentials_encrypted,
-    );
-    const credentials = await refreshGoogleCredentials(admin, orgId, stored);
-    if (!credentials.access_token)
-      throw new Error("Google Calendar access has expired");
-    const url = new URL(`${calendarApi}/calendars/primary/events`);
-    url.searchParams.set("sendUpdates", "none");
-    const response = await fetch(url, {
+    calendarIntegrationAccountId = account?.id || null;
+    let accessToken = "";
+    let eventUrl: URL;
+    if (account?.provider === "microsoft") {
+      const credentials = await refreshMicrosoftCredentials(admin, account);
+      accessToken = credentials.access_token || "";
+      eventUrl = new URL("https://graph.microsoft.com/v1.0/me/events");
+    } else {
+      let encrypted = account?.credentials_encrypted;
+      if (!encrypted) {
+        const { data: integration } = await admin
+          .from("integrations")
+          .select("credentials_encrypted")
+          .eq("org_id", orgId)
+          .eq("provider", "google-calendar")
+          .eq("status", "connected")
+          .maybeSingle();
+        encrypted = integration?.credentials_encrypted;
+      }
+      if (!encrypted) throw new Error("A connected calendar was not found");
+      const stored = decryptIntegrationCredentials<GoogleCredentials>(encrypted);
+      const credentials = await refreshGoogleCredentials(
+        admin,
+        orgId,
+        stored,
+        account?.id,
+      );
+      accessToken = credentials.access_token || "";
+      eventUrl = new URL(`${calendarApi}/calendars/primary/events`);
+      eventUrl.searchParams.set("sendUpdates", "none");
+    }
+    if (!accessToken) throw new Error("Calendar access has expired");
+    const description = [
+      lead?.full_name ? `Client: ${lead.full_name}` : "",
+      lead?.email ? `Email: ${lead.email}` : "",
+      `Clippy booking: ${booking.id}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const isMicrosoft = account?.provider === "microsoft";
+    const response = await fetch(eventUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${credentials.access_token}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        summary: `Property inspection – ${address}`,
-        description: [
-          lead?.full_name ? `Client: ${lead.full_name}` : "",
-          lead?.email ? `Email: ${lead.email}` : "",
-          `Clippy booking: ${booking.id}`,
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        location: address,
-        start: { dateTime: slot.starts_at, timeZone: "Australia/Melbourne" },
-        end: { dateTime: slot.ends_at, timeZone: "Australia/Melbourne" },
-        reminders: {
-          useDefault: false,
-          overrides: [
-            { method: "popup", minutes: 24 * 60 },
-            { method: "popup", minutes: 120 },
-          ],
-        },
-        extendedProperties: {
-          private: { clippy_booking_id: booking.id },
-        },
-      }),
+      body: JSON.stringify(
+        isMicrosoft
+          ? {
+              subject: `Property inspection – ${address}`,
+              body: { contentType: "Text", content: description },
+              location: { displayName: address },
+              start: {
+                dateTime: new Date(slot.starts_at)
+                  .toISOString()
+                  .replace(/Z$/, ""),
+                timeZone: "UTC",
+              },
+              end: {
+                dateTime: new Date(slot.ends_at)
+                  .toISOString()
+                  .replace(/Z$/, ""),
+                timeZone: "UTC",
+              },
+              isReminderOn: true,
+              reminderMinutesBeforeStart: 120,
+              transactionId: booking.id,
+            }
+          : {
+              summary: `Property inspection – ${address}`,
+              description,
+              location: address,
+              start: {
+                dateTime: slot.starts_at,
+                timeZone: "Australia/Melbourne",
+              },
+              end: {
+                dateTime: slot.ends_at,
+                timeZone: "Australia/Melbourne",
+              },
+              reminders: {
+                useDefault: false,
+                overrides: [
+                  { method: "popup", minutes: 24 * 60 },
+                  { method: "popup", minutes: 120 },
+                ],
+              },
+              extendedProperties: {
+                private: { clippy_booking_id: booking.id },
+              },
+            },
+      ),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.id) {
@@ -182,7 +248,11 @@ export async function completeInspectionBooking({
     }
     calendarStatus = "synced";
     calendarEventId = String(payload.id);
-    calendarHtmlLink = payload.htmlLink ? String(payload.htmlLink) : null;
+    calendarHtmlLink = payload.htmlLink
+      ? String(payload.htmlLink)
+      : payload.webLink
+        ? String(payload.webLink)
+        : null;
   } catch (syncError) {
     if (
       syncError instanceof Error &&
@@ -203,6 +273,7 @@ export async function completeInspectionBooking({
       enquiry_id: enquiryId || null,
       google_calendar_event_id: calendarEventId,
       google_calendar_html_link: calendarHtmlLink,
+      calendar_integration_account_id: calendarIntegrationAccountId,
       calendar_sync_status: calendarStatus,
       calendar_sync_error: calendarError,
       updated_at: new Date().toISOString(),
@@ -274,6 +345,7 @@ export async function completeInspectionBooking({
           content,
           subject: `Inspection confirmed – ${address}`,
           threadId: conversation?.external_thread_id || null,
+          integrationAccountId: conversation?.integration_account_id || null,
         });
         if (booking.conversation_id) {
           await admin.from("messages").insert({
@@ -319,7 +391,7 @@ export async function completeInspectionBooking({
     category: "inspection",
     title: "Inspection booking completed",
     description: calendarStatus === "synced"
-      ? "A client inspection was booked and added to Google Calendar."
+      ? "A client inspection was booked and added to the connected calendar."
       : "A client inspection was booked; Calendar sync still needs attention.",
     impactSummary: "Client booking and reminder workflow created",
     metadata: {

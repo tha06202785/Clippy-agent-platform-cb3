@@ -54,10 +54,11 @@ export async function POST(req: NextRequest) {
   let leadId = parsed.data.lead_id;
   let conversationRecipient: string | null = null;
   let conversationChannel: string | null = null;
+  let integrationAccountId: string | null = null;
   if (parsed.data.conversation_id) {
     const { data: conversation } = await supabase
       .from("conversations")
-      .select("id,lead_id,channel,external_thread_id")
+      .select("id,lead_id,channel,external_thread_id,integration_account_id")
       .eq("id", parsed.data.conversation_id)
       .eq("org_id", membership.org_id)
       .maybeSingle();
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
     leadId = conversation.lead_id;
     conversationRecipient = conversation.external_thread_id;
     conversationChannel = conversation.channel;
+    integrationAccountId = conversation.integration_account_id;
   }
 
   let recipient: {
@@ -286,6 +288,7 @@ export async function POST(req: NextRequest) {
         subject: emailSubject,
         threadId:
           parsed.data.channel === "email" ? conversationRecipient : null,
+        integrationAccountId,
       });
       const sentAt = new Date().toISOString();
       const { data: sentMessage, error: messageError } = await admin

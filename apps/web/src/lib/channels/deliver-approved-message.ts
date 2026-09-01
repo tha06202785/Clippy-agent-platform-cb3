@@ -4,6 +4,11 @@ import {
   refreshGoogleCredentials,
   type GoogleCredentials,
 } from "@/lib/integrations/google-sync";
+import { getIntegrationAccount } from "@/lib/integrations/integration-accounts";
+import {
+  refreshMicrosoftCredentials,
+  sendMicrosoftMail,
+} from "@/lib/integrations/microsoft-graph";
 
 type AdminClient = any;
 type DeliveryChannel = "email" | "facebook" | "whatsapp";
@@ -28,6 +33,7 @@ export async function deliverApprovedMessage({
   subject,
   threadId,
   facebookPageId,
+  integrationAccountId,
   subjectMode = "reply",
 }: {
   admin: AdminClient;
@@ -38,6 +44,7 @@ export async function deliverApprovedMessage({
   subject?: string | null;
   threadId?: string | null;
   facebookPageId?: string | null;
+  integrationAccountId?: string | null;
   subjectMode?: "reply" | "forward" | "plain";
 }) {
   const provider =
@@ -46,29 +53,24 @@ export async function deliverApprovedMessage({
       : channel === "facebook"
         ? "facebook"
         : "whatsapp";
-  const { data: integration, error } = await admin
-    .from("integrations")
-    .select("status,credentials_encrypted,settings_json")
-    .eq("org_id", orgId)
-    .eq("provider", provider)
-    .eq("status", "connected")
-    .maybeSingle();
-  if (error) throw error;
-  if (!integration?.credentials_encrypted) {
-    throw new Error(`${provider} is not connected`);
-  }
-
-  const credentials = decryptIntegrationCredentials<StoredCredentials>(
-    integration.credentials_encrypted,
-  );
-  const settings = objectValue(integration.settings_json);
-
   if (channel === "email") {
-    const stored = decryptIntegrationCredentials<GoogleCredentials>(
-      integration.credentials_encrypted,
-    );
-    const credentials = await refreshGoogleCredentials(admin, orgId, stored);
-    if (!credentials.access_token) throw new Error("Gmail access has expired");
+    let account = null;
+    try {
+      account = await getIntegrationAccount({
+        admin,
+        orgId,
+        accountId: integrationAccountId,
+        resourceType: "mail",
+        capability: "send",
+      });
+    } catch (accountError) {
+      // The additive migration can be deployed independently of this code.
+      // Fall through to the legacy primary Gmail connection if its table does
+      // not exist yet; surface all other account lookup errors.
+      if ((accountError as { code?: string })?.code !== "42P01") {
+        throw accountError;
+      }
+    }
     const safeRecipient = recipient.replace(/[\r\n]/g, "").trim();
     const safeSubject = (subject || "Message from your real estate agent")
       .replace(/[\r\n]/g, " ")
@@ -80,7 +82,45 @@ export async function deliverApprovedMessage({
         : subjectMode === "reply"
           ? "Re: "
           : "";
-    const encodedSubject = `=?UTF-8?B?${Buffer.from(`${subjectPrefix}${safeSubject}`, "utf8").toString("base64")}?=`;
+    const finalSubject = `${subjectPrefix}${safeSubject}`;
+
+    if (account?.provider === "microsoft") {
+      const microsoft = await refreshMicrosoftCredentials(admin, account);
+      if (!microsoft.access_token) {
+        throw new Error("Microsoft 365 access has expired");
+      }
+      return sendMicrosoftMail({
+        accessToken: microsoft.access_token,
+        recipient: safeRecipient,
+        subject: finalSubject,
+        content,
+      });
+    }
+
+    let encrypted = account?.credentials_encrypted;
+    if (!encrypted) {
+      const { data: legacy, error } = await admin
+        .from("integrations")
+        .select("credentials_encrypted")
+        .eq("org_id", orgId)
+        .eq("provider", "gmail")
+        .eq("status", "connected")
+        .maybeSingle();
+      if (error) throw error;
+      encrypted = legacy?.credentials_encrypted;
+    }
+    if (!encrypted) throw new Error("No connected mail account was found");
+    const stored = decryptIntegrationCredentials<GoogleCredentials>(
+      encrypted,
+    );
+    const credentials = await refreshGoogleCredentials(
+      admin,
+      orgId,
+      stored,
+      account?.id,
+    );
+    if (!credentials.access_token) throw new Error("Gmail access has expired");
+    const encodedSubject = `=?UTF-8?B?${Buffer.from(finalSubject, "utf8").toString("base64")}?=`;
     const encodedBody = Buffer.from(content, "utf8").toString("base64");
     const mime = [
       `To: ${safeRecipient}`,
@@ -113,6 +153,23 @@ export async function deliverApprovedMessage({
       threadId: String(payload.threadId || threadId || ""),
     };
   }
+
+  const { data: integration, error } = await admin
+    .from("integrations")
+    .select("status,credentials_encrypted,settings_json")
+    .eq("org_id", orgId)
+    .eq("provider", provider)
+    .eq("status", "connected")
+    .maybeSingle();
+  if (error) throw error;
+  if (!integration?.credentials_encrypted) {
+    throw new Error(`${provider} is not connected`);
+  }
+
+  const credentials = decryptIntegrationCredentials<StoredCredentials>(
+    integration.credentials_encrypted,
+  );
+  const settings = objectValue(integration.settings_json);
 
   if (channel === "facebook") {
     const pageId =

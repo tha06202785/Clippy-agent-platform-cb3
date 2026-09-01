@@ -58,7 +58,7 @@ export async function POST(
   const admin = createAdminClient();
   const { data: conversation } = await admin
     .from("conversations")
-    .select("id,channel")
+    .select("id,channel,integration_account_id")
     .eq("id", id)
     .eq("org_id", membership.org_id)
     .maybeSingle();
@@ -116,6 +116,7 @@ export async function POST(
     content: forwardedBody,
     subject: parsed.data.subject,
     subjectMode: "forward",
+    integrationAccountId: conversation.integration_account_id,
   });
   const now = new Date().toISOString();
   const priorForwards = Array.isArray(raw.forwarded_events)
