@@ -30,27 +30,37 @@ export async function checkEntitlement(
   orgId: string,
   featureKey: FeatureKey,
 ): Promise<EntitlementDecision> {
+  const billingData =
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? createAdminClient()
+      : supabase;
   const now = new Date();
   const monthStart = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
   ).toISOString();
 
-  const { data: subscription } = await supabase
+  const { data: subscription } = await billingData
     .from("org_subscriptions")
-    .select("status, trial_ends_at, plans!inner(key), plan_id")
+    .select(
+      "status, trial_ends_at, stripe_subscription_id, billing_identity_status, plans!inner(key), plan_id",
+    )
     .eq("org_id", orgId)
     .maybeSingle();
 
   const planKey = (subscription as any)?.plans?.key || DEFAULT_PLAN;
   const subscriptionStatus = (subscription as any)?.status;
   const trialEndsAt = (subscription as any)?.trial_ends_at;
+  const stripeSubscriptionId = (subscription as any)?.stripe_subscription_id;
+  const billingIdentityStatus = (subscription as any)?.billing_identity_status;
   const trialActive =
     subscriptionStatus === "trialing" &&
     (!trialEndsAt || new Date(trialEndsAt).getTime() > now.getTime());
   const active =
     !subscriptionStatus ||
     trialActive ||
-    ["active", "past_due"].includes(subscriptionStatus);
+    (["active", "past_due"].includes(subscriptionStatus) &&
+      (!stripeSubscriptionId || billingIdentityStatus === "verified"));
 
   if (!active) {
     return {
@@ -64,7 +74,7 @@ export async function checkEntitlement(
     };
   }
 
-  const { data: plan } = await supabase
+  const { data: plan } = await billingData
     .from("plans")
     .select("id")
     .eq("key", planKey)
@@ -73,20 +83,20 @@ export async function checkEntitlement(
   const [{ data: planFeature }, { data: override }, { count: used }] =
     await Promise.all([
       plan?.id
-        ? supabase
+        ? billingData
             .from("plan_features")
             .select("enabled, monthly_limit")
             .eq("plan_id", plan.id)
             .eq("feature_key", featureKey)
             .maybeSingle()
         : Promise.resolve({ data: null } as any),
-      supabase
+      billingData
         .from("org_entitlement_overrides")
         .select("enabled, monthly_limit, expires_at")
         .eq("org_id", orgId)
         .eq("feature_key", featureKey)
         .maybeSingle(),
-      supabase
+      billingData
         .from("ai_usage_events")
         .select("id", { count: "exact", head: true })
         .eq("org_id", orgId)

@@ -17,6 +17,10 @@ interface Subscription {
   status: string;
   current_period_end: string | null;
   cancel_at_period_end: boolean;
+  billing_identity_status: string;
+  billing_contact_name: string | null;
+  billing_contact_email: string | null;
+  billing_contact_phone_last4: string | null;
 }
 
 interface Invoice {
@@ -193,6 +197,15 @@ export default function BillingPage() {
               {nextPayment}
             </p>
           )}
+          {subscription?.billing_contact_email ? (
+            <p className="text-sm text-muted-foreground mt-1">
+              Billing contact: {subscription.billing_contact_name || "Agent"} (
+              {subscription.billing_contact_email})
+              {subscription.billing_contact_phone_last4
+                ? ` • phone ending ${subscription.billing_contact_phone_last4}`
+                : ""}
+            </p>
+          ) : null}
           {isPastDue && (
             <p className="text-sm text-red-600 mt-1">
               Payment failed — update to restore access
@@ -242,6 +255,19 @@ export default function BillingPage() {
               Next payment {nextPayment}
             </p>
           )}
+          {subscription?.billing_identity_status === "requires_review" ? (
+            <p className="text-sm text-red-600 mt-1">
+              Billing identity needs support review
+            </p>
+          ) : subscription?.billing_identity_status === "pending" ? (
+            <p className="text-sm text-amber-600 mt-1">
+              Waiting for Stripe verification
+            </p>
+          ) : subscription?.billing_identity_status === "verified" ? (
+            <p className="text-sm text-emerald-600 mt-1">
+              Agent billing contact verified
+            </p>
+          ) : null}
         </div>
       </div>
 

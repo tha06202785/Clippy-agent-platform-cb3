@@ -39,7 +39,90 @@ export type BillingAccount = {
   stripeSubscriptionId: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
+  billingContactUserId: string | null;
+  billingContactEmail: string | null;
+  billingContactName: string | null;
+  billingContactPhoneLast4: string | null;
+  billingIdentityStatus:
+    "unverified" | "pending" | "verified" | "requires_review";
+  billingIdentityVerifiedAt: string | null;
 };
+
+export type BillingContact = {
+  userId: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+};
+
+export function normaliseBillingEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const email = value.trim().toLowerCase();
+  return email.length >= 3 && email.length <= 320 && email.includes("@")
+    ? email
+    : null;
+}
+
+export function getBillingContactFromUser(user: {
+  id: string;
+  email?: string | null;
+  phone?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): BillingContact | null {
+  const email = normaliseBillingEmail(user.email);
+  if (!user.id || !email) return null;
+
+  const rawName =
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    user.user_metadata?.display_name;
+  const name =
+    typeof rawName === "string" && rawName.trim()
+      ? rawName.trim().slice(0, 200)
+      : null;
+  const phone =
+    typeof user.phone === "string" && user.phone.trim()
+      ? user.phone.trim()
+      : null;
+
+  return { userId: user.id, email, name, phone };
+}
+
+export function getPhoneLast4(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 4 ? digits.slice(-4) : null;
+}
+
+export function maskBillingEmail(value: unknown): string | null {
+  const email = normaliseBillingEmail(value);
+  if (!email) return null;
+  const [local, domain] = email.split("@");
+  const visible = local.slice(0, Math.min(2, local.length));
+  return `${visible}${local.length > 2 ? "***" : "*"}@${domain}`;
+}
+
+export function stripeCustomerMatchesBillingContact(
+  customer: Stripe.Customer | Stripe.DeletedCustomer,
+  input: { orgId: string; contact: BillingContact },
+): customer is Stripe.Customer {
+  if (customer.deleted) return false;
+  return (
+    normaliseBillingEmail(customer.email) === input.contact.email &&
+    customer.metadata?.org_id === input.orgId &&
+    customer.metadata?.billing_contact_user_id === input.contact.userId
+  );
+}
+
+export function checkoutEmailMatchesBillingContact(
+  checkoutEmail: unknown,
+  billingEmail: string | null,
+): boolean {
+  return (
+    normaliseBillingEmail(checkoutEmail) !== null &&
+    normaliseBillingEmail(checkoutEmail) === normaliseBillingEmail(billingEmail)
+  );
+}
 
 export function isPaidPlan(value: unknown): value is PaidPlanId {
   return (
@@ -154,7 +237,7 @@ export async function getBillingAccount(
   const { data: subscription, error: subscriptionError } = await supabase
     .from("org_subscriptions")
     .select(
-      "status, stripe_customer_id, stripe_subscription_id, current_period_end, cancel_at_period_end, plans(key)",
+      "status, stripe_customer_id, stripe_subscription_id, current_period_end, cancel_at_period_end, billing_contact_user_id, billing_contact_email, billing_contact_name, billing_contact_phone_last4, billing_identity_status, billing_identity_verified_at, plans(key)",
     )
     .eq("org_id", orgId)
     .maybeSingle();
@@ -172,6 +255,15 @@ export async function getBillingAccount(
       stripeSubscriptionId: subscription.stripe_subscription_id || null,
       currentPeriodEnd: subscription.current_period_end || null,
       cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
+      billingContactUserId: subscription.billing_contact_user_id || null,
+      billingContactEmail: subscription.billing_contact_email || null,
+      billingContactName: subscription.billing_contact_name || null,
+      billingContactPhoneLast4:
+        subscription.billing_contact_phone_last4 || null,
+      billingIdentityStatus:
+        subscription.billing_identity_status || "unverified",
+      billingIdentityVerifiedAt:
+        subscription.billing_identity_verified_at || null,
     };
   }
 
@@ -197,6 +289,12 @@ export async function getBillingAccount(
     stripeSubscriptionId: legacyOrg.stripe_subscription_id || null,
     currentPeriodEnd: unixSecondsToIso(legacyOrg.current_period_end),
     cancelAtPeriodEnd: Boolean(legacyOrg.cancel_at_period_end),
+    billingContactUserId: null,
+    billingContactEmail: null,
+    billingContactName: null,
+    billingContactPhoneLast4: null,
+    billingIdentityStatus: "unverified",
+    billingIdentityVerifiedAt: null,
   };
 }
 
@@ -211,11 +309,15 @@ export function getVerifiedCheckoutIdentity(input: CheckoutIdentityInput) {
   const orgId = input.clientReferenceId;
   const metadataOrgId = input.metadata?.org_id;
   const plan = input.metadata?.plan;
+  const userId = input.metadata?.user_id;
+  const billingContactUserId = input.metadata?.billing_contact_user_id;
 
   if (
     !orgId ||
     orgId !== metadataOrgId ||
     !isPaidPlan(plan) ||
+    !userId ||
+    userId !== billingContactUserId ||
     !input.customerId ||
     !input.subscriptionId
   ) {
@@ -225,7 +327,7 @@ export function getVerifiedCheckoutIdentity(input: CheckoutIdentityInput) {
   return {
     orgId,
     plan,
-    userId: input.metadata?.user_id || null,
+    userId,
     customerId: input.customerId,
     subscriptionId: input.subscriptionId,
   };
