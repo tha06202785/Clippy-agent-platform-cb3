@@ -4,8 +4,7 @@
  * 26 tools integrated for real estate agent workflows
  */
 
-const COMPOSIO_API_KEY = 'ak_RwjHpOyFxEbRCxYG3uHA';
-const COMPOSIO_BASE = 'https://backend.composio.dev/api/v3';
+const COMPOSIO_BASE = process.env.COMPOSIO_API_BASE_URL || 'https://backend.composio.dev/api/v3.1';
 
 const TOOLKITSlug = {
   // Real estate core tools
@@ -15,7 +14,7 @@ const TOOLKITSlug = {
   CONTACTS: 'GOOGLECONTACTS',
   // Communication
   SLACK: 'SLACK',
-  WHATSAPP: 'WHATSAPP_META',
+  WHATSAPP: 'WHATSAPP',
   TELEGRAM: 'TELEGRAM',
   DISCORD: 'DISCORD',
   // Documents & CRM
@@ -53,13 +52,14 @@ const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 class ComposioCheck {
   constructor() {
-    this.apiKey = COMPOSIO_API_KEY;
+    this.apiKey = process.env.COMPOSIO_API_KEY || '';
     this.baseUrl = COMPOSIO_BASE;
     this.toolCount = TOOL_COUNT;
     this.toolkits = Object.values(TOOLKITSlug);
   }
 
   _getAuthHeader() {
+    if (!this.apiKey) throw new Error('COMPOSIO_API_KEY is required');
     return { 'x-api-key': this.apiKey };
   }
 
@@ -91,17 +91,13 @@ class ComposioCheck {
     }
   }
 
-  _getAuthHeader() {
-    return { 'x-api-key': this.apiKey };
-  }
-
   async getToolkitsStatus() {
     const results = [];
     const statusMap = {};
 
     for (const toolkit of this.toolkits) {
       try {
-        const response = await fetch(`${this.baseUrl}/connected_accounts?toolkit=${toolkit.toLowerCase()}`, {
+        const response = await fetch(`${this.baseUrl}/connected_accounts?toolkit_slugs=${encodeURIComponent(toolkit)}`, {
           headers: {
             ...this._getAuthHeader(),
             'Content-Type': 'application/json'
@@ -143,17 +139,20 @@ class ComposioCheck {
     };
   }
 
-  async executeTool(toolName, params = {}) {
+  async executeTool(toolName, params = {}, connection = {}) {
     try {
-      const response = await fetch(`${this.baseUrl}/tools/execute`, {
+      const response = await fetch(`${this.baseUrl}/tools/execute/${encodeURIComponent(toolName)}`, {
         method: 'POST',
         headers: {
           ...this._getAuthHeader(),
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          tool: toolName,
-          params
+          arguments: params,
+          ...(connection.connectedAccountId
+            ? { connected_account_id: connection.connectedAccountId }
+            : {}),
+          ...(connection.userId ? { user_id: connection.userId } : {})
         })
       });
 
@@ -193,4 +192,4 @@ class ComposioCheck {
   }
 }
 
-module.exports = { ComposioCheck, COMPOSIO_API_KEY, TOOLKITSlug, TOOL_COUNT };
+module.exports = { ComposioCheck, TOOLKITSlug, TOOL_COUNT };

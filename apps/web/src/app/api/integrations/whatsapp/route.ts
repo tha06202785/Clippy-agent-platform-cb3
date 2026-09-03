@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { WHATSAPP_OAUTH_STATE_COOKIE } from "@/lib/oauth-state";
+import { isComposioToolkitConfigured } from "@/lib/composio";
 import {
   buildWhatsAppAuthorizationUrl,
   getWhatsAppOAuthRedirectUri,
@@ -29,6 +30,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         { error: "No organization found" },
         { status: 400 },
+      );
+    }
+
+    const requestedMode = req.nextUrl.searchParams.get("mode");
+    const useComposio =
+      requestedMode === "composio" ||
+      (requestedMode !== "direct" && isComposioToolkitConfigured("whatsapp"));
+    if (useComposio) {
+      if (!isComposioToolkitConfigured("whatsapp")) {
+        return NextResponse.redirect(
+          new URL("/integrations?error=composio_not_configured", req.url),
+        );
+      }
+      return NextResponse.redirect(
+        new URL("/api/integrations/composio/whatsapp", req.url),
       );
     }
 

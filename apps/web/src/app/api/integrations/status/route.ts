@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getGooglePermissionSummary } from "@/lib/integration-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { isComposioToolkitConfigured } from "@/lib/composio";
 
 export const dynamic = "force-dynamic";
 
@@ -35,29 +36,28 @@ export async function GET(_req: NextRequest) {
       { data: integrations, error: integrationsError },
       { data: health },
       { data: accounts, error: accountsError },
-    ] =
-      await Promise.all([
-        admin
-          .from("integrations")
-          .select(
-            "id,provider,status,settings_json,connected_at,created_at,updated_at",
-          )
-          .eq("org_id", auth.orgId),
-        admin
-          .from("integration_health")
-          .select(
-            "provider,status,last_sync_at,items_indexed,activity_summary,last_error",
-          )
-          .eq("org_id", auth.orgId),
-        admin
-          .from("integration_accounts")
-          .select(
-            "id,provider,email,display_name,status,access_scope,is_primary,connected_at,last_sync_at,last_error,integration_resources(id,resource_type,display_name,status,sync_enabled,send_enabled,learning_enabled,last_sync_at,items_indexed,last_error)",
-          )
-          .eq("org_id", auth.orgId)
-          .neq("status", "disconnected")
-          .order("created_at", { ascending: true }),
-      ]);
+    ] = await Promise.all([
+      admin
+        .from("integrations")
+        .select(
+          "id,provider,status,settings_json,connected_at,created_at,updated_at",
+        )
+        .eq("org_id", auth.orgId),
+      admin
+        .from("integration_health")
+        .select(
+          "provider,status,last_sync_at,items_indexed,activity_summary,last_error",
+        )
+        .eq("org_id", auth.orgId),
+      admin
+        .from("integration_accounts")
+        .select(
+          "id,provider,email,display_name,status,access_scope,is_primary,connected_at,last_sync_at,last_error,integration_resources(id,resource_type,display_name,status,sync_enabled,send_enabled,learning_enabled,last_sync_at,items_indexed,last_error)",
+        )
+        .eq("org_id", auth.orgId)
+        .neq("status", "disconnected")
+        .order("created_at", { ascending: true }),
+    ]);
 
     if (integrationsError) {
       console.error(
@@ -112,6 +112,11 @@ export async function GET(_req: NextRequest) {
             ? "Google access has expired. Reconnect Google to resume Gmail and Calendar syncing."
             : `${integration.provider} must be reconnected securely.`
           : undefined,
+        connection_mode:
+          "connection_mode" in settings &&
+          typeof settings.connection_mode === "string"
+            ? settings.connection_mode
+            : "direct",
         permissions,
       };
     });
@@ -133,6 +138,14 @@ export async function GET(_req: NextRequest) {
             last_error: account.last_error,
             resources: account.integration_resources || [],
           })),
+      connectionOptions: {
+        whatsapp: {
+          preferred: isComposioToolkitConfigured("whatsapp")
+            ? "composio"
+            : "direct",
+          composioAvailable: isComposioToolkitConfigured("whatsapp"),
+        },
+      },
     });
   } catch (error) {
     console.error("Integration status load failed", error);

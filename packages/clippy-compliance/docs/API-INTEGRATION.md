@@ -399,9 +399,9 @@ Clippy Compliance System integrates **26 Composio tools** to enable AI agents to
 
 ### Composio API Key
 ```
-ak_ESPLVp7EsREPLVkRNCEW
+your_composio_api_key
 ```
-Base URL: `https://api.composio.com/v1`
+Base URL: `https://backend.composio.dev/api/v3.1`
 
 ### Toolkits Enabled (26 Tools)
 

@@ -4,6 +4,11 @@ import { buildMetaObjectUrl } from "@/lib/facebook-oauth";
 import { getGooglePermissionSummary } from "@/lib/integration-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getComposioConnectedAccount,
+  getComposioUserId,
+  verifyComposioConnectedAccount,
+} from "@/lib/composio";
 
 export const dynamic = "force-dynamic";
 
@@ -134,7 +139,7 @@ export async function GET(
         testResult = await testInstagramConnection(integration);
         break;
       case "whatsapp":
-        testResult = await testWhatsAppConnection(supabase, integration, orgId);
+        testResult = await testWhatsAppConnection(integration, orgId, user.id);
         break;
       default:
         testResult = {
@@ -284,10 +289,7 @@ async function testGoogleConnection(
       }
     }
 
-    const permissions = getGooglePermissionSummary(
-      "gmail",
-      integration.scope,
-    )!;
+    const permissions = getGooglePermissionSummary("gmail", integration.scope)!;
     if (permissions.missing.length > 0) {
       return {
         success: false,
@@ -433,11 +435,45 @@ async function testFacebookConnection(
 }
 
 async function testWhatsAppConnection(
-  supabase: any,
   integration: any,
   orgId: string,
+  userId: string,
 ) {
   try {
+    if (integration.metadata?.connection_mode === "composio") {
+      const connectedAccountId =
+        integration.connected_account_id ||
+        integration.metadata?.connected_account_id;
+      if (typeof connectedAccountId !== "string") {
+        return {
+          success: false,
+          provider: "whatsapp",
+          status: "not_connected",
+          message: "Composio account reference is missing",
+          action: "reconnect",
+          humanMessage: "Reconnect WhatsApp securely through Composio.",
+        };
+      }
+      const account = await getComposioConnectedAccount(connectedAccountId);
+      const verified = verifyComposioConnectedAccount({
+        account,
+        toolkit: "whatsapp",
+        expectedUserId: getComposioUserId(orgId, userId),
+      });
+      return {
+        success: verified,
+        provider: "whatsapp",
+        status: verified ? "healthy" : "error",
+        message: verified
+          ? "WhatsApp Business connected through Composio"
+          : "Composio connection is inactive or does not match this user",
+        humanMessage: verified
+          ? "WhatsApp Business is securely connected through Composio."
+          : "Reconnect WhatsApp securely through Composio.",
+        itemsIndexed: integration.items_indexed || 0,
+      };
+    }
+
     const phoneNumberId =
       integration.metadata?.whatsapp_phone_number_id ||
       integration.metadata?.phone_number_id;

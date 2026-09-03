@@ -47,6 +47,14 @@ type IntegrationStatus = {
   canAutoRefresh?: boolean;
   requires_reconnect?: boolean;
   permissions?: { granted: number; required: number; missing?: string[] };
+  connection_mode?: "direct" | "composio";
+};
+
+type ConnectionOptions = {
+  whatsapp?: {
+    preferred: "direct" | "composio";
+    composioAvailable: boolean;
+  };
 };
 
 type ConnectedAccount = {
@@ -82,6 +90,7 @@ type Integration = {
   canAutoRefresh?: boolean;
   requiresReconnect?: boolean;
   permissions?: { granted: number; required: number; missing?: string[] };
+  connectionMode?: "direct" | "composio";
 };
 
 const CONFIG = {
@@ -130,6 +139,18 @@ const CONFIG = {
 } as const;
 
 const OAUTH_ERRORS: Record<string, string> = {
+  composio_not_configured:
+    "Composio is not configured yet. Add the server API key and WhatsApp auth configuration.",
+  composio_unavailable:
+    "Composio could not start the connection. Please try again shortly.",
+  composio_access_denied:
+    "WhatsApp access was not completed. Please try connecting again.",
+  composio_account_mismatch:
+    "The WhatsApp connection could not be verified for this Clippy account.",
+  composio_invalid_toolkit:
+    "The selected Composio integration is not supported by Clippy.",
+  composio_failed:
+    "The Composio connection could not be completed. Please try again.",
   instagram_account_not_found:
     "No Instagram professional account was found. Link an Instagram Business or Creator account to your Facebook Page, then try again.",
   whatsapp_account_discovery_failed:
@@ -186,6 +207,9 @@ function relativeTime(value?: string) {
 export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
+  const [connectionOptions, setConnectionOptions] = useState<ConnectionOptions>(
+    {},
+  );
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -210,6 +234,12 @@ export default function IntegrationsPage() {
           ? payload.integrations
           : [];
       setAccounts(Array.isArray(payload?.accounts) ? payload.accounts : []);
+      setConnectionOptions(
+        payload?.connectionOptions &&
+          typeof payload.connectionOptions === "object"
+          ? payload.connectionOptions
+          : {},
+      );
       const mapped = Object.entries(CONFIG).map(([provider, config]) => {
         const existing = statuses.find((item) => item.provider === provider);
         const storedStatus = normaliseStatus(existing?.status);
@@ -234,6 +264,7 @@ export default function IntegrationsPage() {
           canAutoRefresh: existing?.canAutoRefresh,
           requiresReconnect: existing?.requires_reconnect,
           permissions: existing?.permissions,
+          connectionMode: existing?.connection_mode,
         } satisfies Integration;
       });
       setIntegrations(mapped);
@@ -254,6 +285,7 @@ export default function IntegrationsPage() {
         })),
       );
       setAccounts([]);
+      setConnectionOptions({});
     } finally {
       setLoading(false);
     }
@@ -602,7 +634,9 @@ export default function IntegrationsPage() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate font-medium text-neutral-900">
-                      {account.email || account.display_name || "Connected account"}
+                      {account.email ||
+                        account.display_name ||
+                        "Connected account"}
                     </p>
                     {account.is_primary && (
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
@@ -614,7 +648,10 @@ export default function IntegrationsPage() {
                     {account.provider === "microsoft"
                       ? "Microsoft 365"
                       : "Google Workspace"}{" "}
-                    · {account.resources.map((item) => item.resource_type).join(" + ")}
+                    ·{" "}
+                    {account.resources
+                      .map((item) => item.resource_type)
+                      .join(" + ")}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -683,6 +720,18 @@ export default function IntegrationsPage() {
                     <p className="text-sm text-neutral-500">
                       {integration.description}
                     </p>
+                    {integration.connectionMode === "composio" && (
+                      <p className="mt-1 text-xs font-medium text-violet-700">
+                        Secure connection via Composio
+                      </p>
+                    )}
+                    {integration.provider === "whatsapp" &&
+                      !integration.connected &&
+                      connectionOptions.whatsapp?.composioAvailable && (
+                        <p className="mt-1 text-xs font-medium text-violet-700">
+                          Fast WhatsApp Business setup via Composio
+                        </p>
+                      )}
                   </div>
                 </div>
                 <span
@@ -754,7 +803,12 @@ export default function IntegrationsPage() {
                   }
                   className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                 >
-                  {integration.connected ? "Reconnect" : "Connect"}
+                  {integration.connected
+                    ? "Reconnect"
+                    : integration.provider === "whatsapp" &&
+                        connectionOptions.whatsapp?.preferred === "composio"
+                      ? "Connect WhatsApp Business"
+                      : "Connect"}
                 </button>
               </div>
             </article>
