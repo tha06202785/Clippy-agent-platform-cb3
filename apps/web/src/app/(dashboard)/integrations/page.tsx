@@ -11,6 +11,7 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  ContactRound,
   Globe,
   Instagram,
   Loader2,
@@ -51,6 +52,11 @@ type IntegrationStatus = {
 };
 
 type ConnectionOptions = {
+  followUpBoss?: {
+    composioAvailable: boolean;
+    canManage: boolean;
+    writeEnabled: boolean;
+  };
   whatsapp?: {
     preferred: "direct" | "composio";
     composioAvailable: boolean;
@@ -136,17 +142,25 @@ const CONFIG = {
     icon: MessageCircle,
     connectUrl: "/api/integrations/whatsapp",
   },
+  "follow-up-boss": {
+    name: "Follow Up Boss",
+    description: "Connect your real estate CRM safely",
+    icon: ContactRound,
+    connectUrl: "/api/integrations/composio/follow_up_boss",
+  },
 } as const;
 
 const OAUTH_ERRORS: Record<string, string> = {
+  crm_admin_required:
+    "Only an agency owner or admin can connect or replace the agency CRM.",
   composio_not_configured:
-    "Composio is not configured yet. Add the server API key and WhatsApp auth configuration.",
+    "This Composio connection is not configured yet. Add its server-side auth configuration first.",
   composio_unavailable:
     "Composio could not start the connection. Please try again shortly.",
   composio_access_denied:
-    "WhatsApp access was not completed. Please try connecting again.",
+    "Provider access was not completed. Please try connecting again.",
   composio_account_mismatch:
-    "The WhatsApp connection could not be verified for this Clippy account.",
+    "The provider connection could not be verified for this Clippy account.",
   composio_invalid_toolkit:
     "The selected Composio integration is not supported by Clippy.",
   composio_failed:
@@ -703,6 +717,10 @@ export default function IntegrationsPage() {
                 : integration.status === "warning"
                   ? "border-amber-200 bg-amber-50 text-amber-700"
                   : "border-neutral-200 bg-neutral-50 text-neutral-600";
+          const crmConnectionBlocked =
+            integration.provider === "follow-up-boss" &&
+            (!connectionOptions.followUpBoss?.composioAvailable ||
+              !connectionOptions.followUpBoss?.canManage);
           return (
             <article
               key={integration.provider}
@@ -730,6 +748,21 @@ export default function IntegrationsPage() {
                       connectionOptions.whatsapp?.composioAvailable && (
                         <p className="mt-1 text-xs font-medium text-violet-700">
                           Fast WhatsApp Business setup via Composio
+                        </p>
+                      )}
+                    {integration.provider === "follow-up-boss" &&
+                      !integration.connected && (
+                        <p className="mt-1 text-xs font-medium text-violet-700">
+                          {connectionOptions.followUpBoss?.composioAvailable
+                            ? "Secure CRM setup via Composio · connection only"
+                            : "Requires a Follow Up Boss auth configuration"}
+                        </p>
+                      )}
+                    {integration.provider === "follow-up-boss" &&
+                      integration.connected &&
+                      !connectionOptions.followUpBoss?.writeEnabled && (
+                        <p className="mt-1 text-xs font-medium text-amber-700">
+                          CRM writes remain off until mapping is approved
                         </p>
                       )}
                   </div>
@@ -798,17 +831,22 @@ export default function IntegrationsPage() {
                 ) : null}
                 <button
                   type="button"
+                  disabled={crmConnectionBlocked}
                   onClick={() =>
                     connect(integration.provider as keyof typeof CONFIG)
                   }
-                  className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                  className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
                 >
-                  {integration.connected
-                    ? "Reconnect"
-                    : integration.provider === "whatsapp" &&
-                        connectionOptions.whatsapp?.preferred === "composio"
-                      ? "Connect WhatsApp Business"
-                      : "Connect"}
+                  {crmConnectionBlocked
+                    ? !connectionOptions.followUpBoss?.canManage
+                      ? "Owner/admin only"
+                      : "Setup required"
+                    : integration.connected
+                      ? "Reconnect"
+                      : integration.provider === "whatsapp" &&
+                          connectionOptions.whatsapp?.preferred === "composio"
+                        ? "Connect WhatsApp Business"
+                        : "Connect"}
                 </button>
               </div>
             </article>

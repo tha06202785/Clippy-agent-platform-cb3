@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
+  canManageComposioToolkit,
   ComposioConfigurationError,
   ComposioRequestError,
   createComposioConnectLink,
@@ -13,7 +14,10 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_TOOLKITS = new Set<ClippyComposioToolkit>(["whatsapp"]);
+const ALLOWED_TOOLKITS = new Set<ClippyComposioToolkit>([
+  "follow_up_boss",
+  "whatsapp",
+]);
 
 export async function GET(
   req: NextRequest,
@@ -41,13 +45,18 @@ export async function GET(
 
     const { data: membership } = await supabase
       .from("user_org_roles")
-      .select("org_id")
+      .select("org_id,role")
       .eq("user_id", user.id)
       .limit(1)
       .maybeSingle();
     if (!membership?.org_id) {
       return NextResponse.redirect(
         new URL("/integrations?error=no_org", req.url),
+      );
+    }
+    if (!canManageComposioToolkit(toolkit, membership.role)) {
+      return NextResponse.redirect(
+        new URL("/integrations?error=crm_admin_required", req.url),
       );
     }
 

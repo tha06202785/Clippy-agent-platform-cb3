@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getGooglePermissionSummary } from "@/lib/integration-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isComposioToolkitConfigured } from "@/lib/composio";
+import {
+  canManageComposioToolkit,
+  isComposioToolkitConfigured,
+} from "@/lib/composio";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +18,14 @@ async function authenticatedOrg() {
 
   const { data: membership } = await supabase
     .from("user_org_roles")
-    .select("org_id")
+    .select("org_id,role")
     .eq("user_id", user.id)
     .limit(1)
     .maybeSingle();
 
-  return membership?.org_id ? { orgId: membership.org_id } : null;
+  return membership?.org_id
+    ? { orgId: membership.org_id, role: membership.role || "agent" }
+    : null;
 }
 
 // GET /api/integrations/status - returns status metadata, never OAuth credentials.
@@ -139,6 +144,11 @@ export async function GET(_req: NextRequest) {
             resources: account.integration_resources || [],
           })),
       connectionOptions: {
+        followUpBoss: {
+          composioAvailable: isComposioToolkitConfigured("follow_up_boss"),
+          canManage: canManageComposioToolkit("follow_up_boss", auth.role),
+          writeEnabled: false,
+        },
         whatsapp: {
           preferred: isComposioToolkitConfigured("whatsapp")
             ? "composio"

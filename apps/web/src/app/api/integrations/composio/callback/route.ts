@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  canManageComposioToolkit,
   getComposioConnectedAccount,
+  getComposioToolkitDisplayName,
   getComposioToolkitProvider,
   getComposioUserId,
   verifyComposioConnectedAccount,
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest) {
   const toolkit = toolkitValue as ClippyComposioToolkit;
   const expectedState = req.cookies.get(COMPOSIO_OAUTH_STATE_COOKIE)?.value;
 
-  if (toolkit !== "whatsapp") {
+  if (toolkit !== "whatsapp" && toolkit !== "follow_up_boss") {
     return redirectAndClearState(
       new URL("/integrations?error=composio_invalid_toolkit", appOrigin),
     );
@@ -67,13 +69,18 @@ export async function GET(req: NextRequest) {
     }
     const { data: membership } = await supabase
       .from("user_org_roles")
-      .select("org_id")
+      .select("org_id,role")
       .eq("user_id", user.id)
       .limit(1)
       .maybeSingle();
     if (!membership?.org_id) {
       return redirectAndClearState(
         new URL("/integrations?error=no_org", appOrigin),
+      );
+    }
+    if (!canManageComposioToolkit(toolkit, membership.role)) {
+      return redirectAndClearState(
+        new URL("/integrations?error=crm_admin_required", appOrigin),
       );
     }
 
@@ -96,6 +103,7 @@ export async function GET(req: NextRequest) {
     }
 
     const provider = getComposioToolkitProvider(toolkit);
+    const displayName = getComposioToolkitDisplayName(toolkit);
     const now = new Date().toISOString();
     const admin = createAdminClient();
     const { error: saveError } = await admin.from("integrations").upsert(
@@ -110,9 +118,13 @@ export async function GET(req: NextRequest) {
         settings_json: {
           connection_mode: "composio",
           connected_account_id: account.id,
-          toolkit: account.toolkit?.slug || "WHATSAPP",
+          toolkit: account.toolkit?.slug || toolkit.toUpperCase(),
           auth_scheme: account.auth_config?.auth_scheme || null,
           managed_auth: account.auth_config?.is_composio_managed ?? null,
+          access_mode:
+            toolkit === "follow_up_boss" ? "connection_only" : "delivery_proof",
+          import_enabled: false,
+          write_enabled: false,
         },
         connected_at: now,
         updated_at: now,
@@ -140,14 +152,17 @@ export async function GET(req: NextRequest) {
       user_id: user.id,
       action: "integration_connected",
       category: "integration",
-      title: "WhatsApp Business connected",
-      description: "WhatsApp Business was connected securely through Composio",
+      title: `${displayName} connected`,
+      description: `${displayName} was connected securely through Composio`,
       metadata: {
         provider,
         connectionMode: "composio",
         connectedAccountId: account.id,
       },
-      impact_summary: "WhatsApp connection is ready for a delivery proof",
+      impact_summary:
+        toolkit === "follow_up_boss"
+          ? "CRM connection is ready for a read-only mapping proof"
+          : "WhatsApp connection is ready for a delivery proof",
       completed_at: now,
     });
 

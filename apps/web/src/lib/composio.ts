@@ -3,19 +3,29 @@ import { createHash } from "node:crypto";
 const DEFAULT_COMPOSIO_API_BASE = "https://backend.composio.dev/api/v3.1";
 const REQUEST_TIMEOUT_MS = 12_000;
 
-export type ClippyComposioToolkit = "whatsapp";
+export type ClippyComposioToolkit = "follow_up_boss" | "whatsapp";
 
 type ToolkitConfiguration = {
-  authConfigEnv: "COMPOSIO_WHATSAPP_AUTH_CONFIG_ID";
-  provider: "whatsapp";
-  slug: "WHATSAPP";
+  authConfigEnv:
+    | "COMPOSIO_FOLLOW_UP_BOSS_AUTH_CONFIG_ID"
+    | "COMPOSIO_WHATSAPP_AUTH_CONFIG_ID";
+  provider: "follow-up-boss" | "whatsapp";
+  slug: "FOLLOW_UP_BOSS" | "WHATSAPP";
+  displayName: "Follow Up Boss" | "WhatsApp Business";
 };
 
 const TOOLKITS: Record<ClippyComposioToolkit, ToolkitConfiguration> = {
+  follow_up_boss: {
+    authConfigEnv: "COMPOSIO_FOLLOW_UP_BOSS_AUTH_CONFIG_ID",
+    provider: "follow-up-boss",
+    slug: "FOLLOW_UP_BOSS",
+    displayName: "Follow Up Boss",
+  },
   whatsapp: {
     authConfigEnv: "COMPOSIO_WHATSAPP_AUTH_CONFIG_ID",
     provider: "whatsapp",
     slug: "WHATSAPP",
+    displayName: "WhatsApp Business",
   },
 };
 
@@ -186,4 +196,17 @@ export function verifyComposioConnectedAccount({
 
 export function getComposioToolkitProvider(toolkit: ClippyComposioToolkit) {
   return TOOLKITS[toolkit].provider;
+}
+
+export function getComposioToolkitDisplayName(toolkit: ClippyComposioToolkit) {
+  return TOOLKITS[toolkit].displayName;
+}
+
+export function canManageComposioToolkit(
+  toolkit: ClippyComposioToolkit,
+  role?: string | null,
+) {
+  return (
+    toolkit !== "follow_up_boss" || ["owner", "admin"].includes(role || "")
+  );
 }

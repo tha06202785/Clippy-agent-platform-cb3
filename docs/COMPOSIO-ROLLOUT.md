@@ -27,6 +27,7 @@ integration vendor.
 ```text
 COMPOSIO_API_KEY
 COMPOSIO_WHATSAPP_AUTH_CONFIG_ID
+COMPOSIO_FOLLOW_UP_BOSS_AUTH_CONFIG_ID
 INTEGRATION_ENCRYPTION_KEY
 NEXT_PUBLIC_APP_URL=https://useclippy.com
 ```
@@ -52,7 +53,18 @@ The first connected pilot account must pass all of these checks:
 ## Next connectors
 
 After the WhatsApp delivery proof, evaluate Composio for external systems that
-Clippy does not already integrate well: Follow Up Boss, HubSpot, Google Drive,
-Dropbox and e-signature tools. Keep Outlook on the existing direct Microsoft
-Graph implementation unless the production proof demonstrates a clear
-reliability or onboarding advantage.
+Clippy does not already integrate well: HubSpot, Google Drive, Dropbox and
+e-signature tools. Keep Outlook on the existing direct Microsoft Graph
+implementation unless the production proof demonstrates a clear reliability or
+onboarding advantage.
+
+## Follow Up Boss connection foundation
+
+Follow Up Boss is available in the Connections screen through the shared
+Composio callback and account-verification flow. It requires a custom Composio
+auth config because Composio does not provide a managed Follow Up Boss app.
+
+Set `COMPOSIO_FOLLOW_UP_BOSS_AUTH_CONFIG_ID` after creating either an OAuth2 or
+API-key auth config in the Composio project. Clippy stores only the encrypted
+connected-account reference. CRM reads, imports, and writes remain disabled in
+this release so a connection cannot silently alter an agency's CRM.

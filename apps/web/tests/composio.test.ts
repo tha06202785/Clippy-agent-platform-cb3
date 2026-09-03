@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  canManageComposioToolkit,
   ComposioRequestError,
   createComposioConnectLink,
   getComposioConnectedAccount,
@@ -27,6 +28,20 @@ describe("Composio integration", () => {
     expect(isComposioToolkitConfigured("whatsapp")).toBe(false);
     vi.stubEnv("COMPOSIO_WHATSAPP_AUTH_CONFIG_ID", "ac_whatsapp");
     expect(isComposioToolkitConfigured("whatsapp")).toBe(true);
+  });
+
+  it("supports a separately configured Follow Up Boss account", () => {
+    vi.stubEnv("COMPOSIO_API_KEY", "test-api-key");
+    expect(isComposioToolkitConfigured("follow_up_boss")).toBe(false);
+    vi.stubEnv("COMPOSIO_FOLLOW_UP_BOSS_AUTH_CONFIG_ID", "ac_fub");
+    expect(isComposioToolkitConfigured("follow_up_boss")).toBe(true);
+  });
+
+  it("restricts organisation-wide CRM setup to owners and admins", () => {
+    expect(canManageComposioToolkit("follow_up_boss", "owner")).toBe(true);
+    expect(canManageComposioToolkit("follow_up_boss", "admin")).toBe(true);
+    expect(canManageComposioToolkit("follow_up_boss", "agent")).toBe(false);
+    expect(canManageComposioToolkit("whatsapp", "agent")).toBe(true);
   });
 
   it("creates a scoped connect link without exposing the API key", async () => {
@@ -60,6 +75,34 @@ describe("Composio integration", () => {
     expect(request.headers["x-api-key"]).toBe("test-api-key");
     expect(JSON.parse(request.body)).toMatchObject({
       auth_config_id: "ac_whatsapp",
+      user_id: "clippy_user",
+    });
+  });
+
+  it("uses the dedicated Follow Up Boss auth configuration", async () => {
+    vi.stubEnv("COMPOSIO_API_KEY", "test-api-key");
+    vi.stubEnv("COMPOSIO_FOLLOW_UP_BOSS_AUTH_CONFIG_ID", "ac_fub");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          redirect_url: "https://connect.composio.dev/link/link_fub",
+          connected_account_id: "ca_fub",
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createComposioConnectLink({
+      toolkit: "follow_up_boss",
+      userId: "clippy_user",
+      callbackUrl: "https://useclippy.com/api/integrations/composio/callback",
+      alias: "clippy-fub-user",
+    });
+
+    const [, request] = fetchMock.mock.calls[0];
+    expect(JSON.parse(request.body)).toMatchObject({
+      auth_config_id: "ac_fub",
       user_id: "clippy_user",
     });
   });
@@ -112,6 +155,29 @@ describe("Composio integration", () => {
           status: "ACTIVE",
           toolkit: { slug: "WHATSAPP" },
         },
+      }),
+    ).toBe(false);
+  });
+
+  it("validates Follow Up Boss without confusing it with another toolkit", () => {
+    const account = {
+      id: "ca_fub",
+      user_id: "clippy_user",
+      status: "ACTIVE",
+      toolkit: { slug: "FOLLOW_UP_BOSS" },
+    };
+    expect(
+      verifyComposioConnectedAccount({
+        toolkit: "follow_up_boss",
+        expectedUserId: "clippy_user",
+        account,
+      }),
+    ).toBe(true);
+    expect(
+      verifyComposioConnectedAccount({
+        toolkit: "whatsapp",
+        expectedUserId: "clippy_user",
+        account,
       }),
     ).toBe(false);
   });

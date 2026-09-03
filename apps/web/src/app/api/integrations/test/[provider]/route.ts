@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getComposioConnectedAccount,
   getComposioUserId,
+  type ClippyComposioToolkit,
   verifyComposioConnectedAccount,
 } from "@/lib/composio";
 
@@ -140,6 +141,16 @@ export async function GET(
         break;
       case "whatsapp":
         testResult = await testWhatsAppConnection(integration, orgId, user.id);
+        break;
+      case "follow-up-boss":
+        testResult = await testComposioConnection({
+          integration,
+          orgId,
+          userId: user.id,
+          toolkit: "follow_up_boss",
+          provider: "follow-up-boss",
+          displayName: "Follow Up Boss",
+        });
         break;
       default:
         testResult = {
@@ -441,37 +452,14 @@ async function testWhatsAppConnection(
 ) {
   try {
     if (integration.metadata?.connection_mode === "composio") {
-      const connectedAccountId =
-        integration.connected_account_id ||
-        integration.metadata?.connected_account_id;
-      if (typeof connectedAccountId !== "string") {
-        return {
-          success: false,
-          provider: "whatsapp",
-          status: "not_connected",
-          message: "Composio account reference is missing",
-          action: "reconnect",
-          humanMessage: "Reconnect WhatsApp securely through Composio.",
-        };
-      }
-      const account = await getComposioConnectedAccount(connectedAccountId);
-      const verified = verifyComposioConnectedAccount({
-        account,
+      return testComposioConnection({
+        integration,
+        orgId,
+        userId,
         toolkit: "whatsapp",
-        expectedUserId: getComposioUserId(orgId, userId),
-      });
-      return {
-        success: verified,
         provider: "whatsapp",
-        status: verified ? "healthy" : "error",
-        message: verified
-          ? "WhatsApp Business connected through Composio"
-          : "Composio connection is inactive or does not match this user",
-        humanMessage: verified
-          ? "WhatsApp Business is securely connected through Composio."
-          : "Reconnect WhatsApp securely through Composio.",
-        itemsIndexed: integration.items_indexed || 0,
-      };
+        displayName: "WhatsApp Business",
+      });
     }
 
     const phoneNumberId =
@@ -529,6 +517,64 @@ async function testWhatsAppConnection(
       status: "error",
       message: error.message,
       humanMessage: "Unable to verify WhatsApp connection.",
+    };
+  }
+}
+
+async function testComposioConnection({
+  integration,
+  orgId,
+  userId,
+  toolkit,
+  provider,
+  displayName,
+}: {
+  integration: any;
+  orgId: string;
+  userId: string;
+  toolkit: ClippyComposioToolkit;
+  provider: string;
+  displayName: string;
+}) {
+  try {
+    const connectedAccountId =
+      integration.connected_account_id ||
+      integration.metadata?.connected_account_id;
+    if (typeof connectedAccountId !== "string") {
+      return {
+        success: false,
+        provider,
+        status: "not_connected",
+        message: "Composio account reference is missing",
+        action: "reconnect",
+        humanMessage: `Reconnect ${displayName} securely through Composio.`,
+      };
+    }
+    const account = await getComposioConnectedAccount(connectedAccountId);
+    const verified = verifyComposioConnectedAccount({
+      account,
+      toolkit,
+      expectedUserId: getComposioUserId(orgId, userId),
+    });
+    return {
+      success: verified,
+      provider,
+      status: verified ? "healthy" : "error",
+      message: verified
+        ? `${displayName} connected through Composio`
+        : "Composio connection is inactive or does not match this user",
+      humanMessage: verified
+        ? `${displayName} is securely connected through Composio.`
+        : `Reconnect ${displayName} securely through Composio.`,
+      itemsIndexed: integration.items_indexed || 0,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      provider,
+      status: "error",
+      message: error.message,
+      humanMessage: `Unable to verify the ${displayName} connection.`,
     };
   }
 }
