@@ -62,7 +62,7 @@ describe("pilot feedback privacy", () => {
     const migration = readFileSync(
       resolve(
         process.cwd(),
-        "../../supabase/migrations/20260827020000_pilot_feedback.sql",
+        "../../supabase/migrations/20260828091117_pilot_feedback.sql",
       ),
       "utf8",
     );
