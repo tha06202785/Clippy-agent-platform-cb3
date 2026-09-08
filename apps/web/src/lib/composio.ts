@@ -45,6 +45,73 @@ export type ComposioConnectedAccount = {
 
 export class ComposioConfigurationError extends Error {}
 
+// Pin schemas parsed by application code. Verified against the toolkit catalog.
+export const WHATSAPP_TOOLKIT_VERSION = "20260815_00";
+
+type WhatsAppTool = "WHATSAPP_GET_PHONE_NUMBERS" | "WHATSAPP_SEND_MESSAGE";
+
+/** Tool results can contain JSON strings and an additional provider envelope. */
+export function unwrapComposioResult(value: unknown): Record<string, unknown> {
+  let current = value;
+  for (let depth = 0; depth < 5; depth++) {
+    if (typeof current === "string") {
+      try {
+        current = JSON.parse(current);
+      } catch {
+        throw new ComposioRequestError(
+          "WhatsApp returned an unreadable response",
+        );
+      }
+    }
+    if (!current || typeof current !== "object" || Array.isArray(current)) {
+      throw new ComposioRequestError(
+        "WhatsApp returned an unexpected response",
+      );
+    }
+    const result = current as Record<string, unknown>;
+    if (result.successful === false || result.error) {
+      // Provider responses can include request arguments or credentials. Never
+      // forward their raw errors to the browser or application logs.
+      throw new ComposioRequestError(
+        "WhatsApp rejected the request. Check the business account, phone registration and messaging permissions.",
+      );
+    }
+    if ("data" in result && !Array.isArray(result.data)) {
+      current = result.data;
+      continue;
+    }
+    return result;
+  }
+  throw new ComposioRequestError("WhatsApp returned an unexpected response");
+}
+
+export async function executeComposioWhatsAppTool({
+  tool,
+  accountId,
+  userId,
+  arguments: args,
+}: {
+  tool: WhatsAppTool;
+  accountId: string;
+  userId: string;
+  arguments: Record<string, unknown>;
+}) {
+  if (!/^ca_[A-Za-z0-9_-]+$/.test(accountId) || !userId) {
+    throw new ComposioRequestError("Invalid WhatsApp connection reference");
+  }
+  // Do not retry sends: a timed-out request might already have been accepted.
+  const result = await composioFetch<unknown>(`/tools/execute/${tool}`, {
+    method: "POST",
+    body: JSON.stringify({
+      connected_account_id: accountId,
+      user_id: userId,
+      version: WHATSAPP_TOOLKIT_VERSION,
+      arguments: args,
+    }),
+  });
+  return unwrapComposioResult(result);
+}
+
 export class ComposioRequestError extends Error {
   constructor(
     message: string,

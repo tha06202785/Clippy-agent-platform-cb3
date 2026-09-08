@@ -1,5 +1,6 @@
 import { decryptIntegrationCredentials } from "@/lib/integration-credentials";
 import { FACEBOOK_GRAPH_API_VERSION } from "@/lib/facebook-oauth";
+import { sendComposioWhatsAppReply } from "@/lib/composio-whatsapp";
 import {
   refreshGoogleCredentials,
   type GoogleCredentials,
@@ -15,6 +16,7 @@ type DeliveryChannel = "email" | "facebook" | "whatsapp";
 
 type StoredCredentials = {
   access_token?: string;
+  connected_account_id?: string;
   pages?: Array<{ id?: string; access_token?: string }>;
 };
 
@@ -110,9 +112,7 @@ export async function deliverApprovedMessage({
       encrypted = legacy?.credentials_encrypted;
     }
     if (!encrypted) throw new Error("No connected mail account was found");
-    const stored = decryptIntegrationCredentials<GoogleCredentials>(
-      encrypted,
-    );
+    const stored = decryptIntegrationCredentials<GoogleCredentials>(encrypted);
     const credentials = await refreshGoogleCredentials(
       admin,
       orgId,
@@ -170,6 +170,20 @@ export async function deliverApprovedMessage({
     integration.credentials_encrypted,
   );
   const settings = objectValue(integration.settings_json);
+
+  if (channel === "whatsapp" && settings.connection_mode === "composio") {
+    return sendComposioWhatsAppReply({
+      admin,
+      orgId,
+      accountId: credentials.connected_account_id || "",
+      phoneNumberId:
+        typeof settings.whatsapp_phone_number_id === "string"
+          ? settings.whatsapp_phone_number_id
+          : "",
+      recipient,
+      content,
+    });
+  }
 
   if (channel === "facebook") {
     const pageId =

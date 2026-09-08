@@ -22,6 +22,50 @@ integration vendor.
 6. The Connections page shows which route manages the connection and supports
    a live account-health test.
 
+## Approved WhatsApp replies
+
+The reply service executes `WHATSAPP_SEND_MESSAGE` against the encrypted
+connected-account reference and pins toolkit version `20260815_00`. It checks
+that the account belongs to a current agency member and that the selected
+sender is still a verified number on that account. Provider access tokens never
+need to be copied into Clippy. A reply is accepted only when the provider
+returns a message ID; failed or timed-out sends are not automatically retried.
+
+The callback and **Test connection** use `WHATSAPP_GET_PHONE_NUMBERS` to discover
+sender numbers. One verified number is selected automatically. Multiple
+numbers require an explicit selection in Connections. A vanished saved number
+is never silently replaced. Sender selection also creates the phone-to-agency
+mapping used by Clippy's existing Meta webhook.
+
+Connections reports sending readiness separately from receiving proof. OAuth
+alone no longer marks this integration healthy. Health tests preserve indexed
+item counts and update the existing agency/provider record.
+
+## Incoming enquiries and provider limitation
+
+As verified on 8 September 2026, Composio's WhatsApp catalog lists only
+`WHATSAPP_MESSAGE_STATUS_UPDATED_TRIGGER`. Its detailed description explicitly
+states that it cannot poll WhatsApp and returns empty results. Do not provision
+this trigger as an incoming-message integration.
+
+Incoming enquiries and receipts require the Meta webhook at
+`/api/webhooks/whatsapp`, signed by the Meta app whose subscription delivers
+those events. Composio-managed OAuth does not expose that shared app's signing
+secret. Do not weaken signature verification to make its events pass or
+subscribe an unverified callback. A compatible Meta app subscription must be
+configured before incoming enquiries can be proven. A valid incoming message
+sets the receiving proof only after successful persistence. Failed saves
+return HTTP 500 for provider retry; invalid signatures return HTTP 401, and
+ambiguous phone-to-agency mappings are rejected.
+
+Free-form replies still require Meta's active customer-service window.
+Template approval/sending and a real delivery/read-receipt proof remain pilot
+gates; this release does not activate unattended WhatsApp automation.
+
+References: [WhatsApp toolkit](https://docs.composio.dev/toolkits/whatsapp),
+[WhatsApp integration guide](https://docs.composio.dev/kb/guide/toolkits-whatsapp),
+[tool execution API](https://docs.composio.dev/reference/api-reference/tools/postToolsExecuteByToolSlug).
+
 ## Required production variables
 
 ```text

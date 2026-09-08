@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getGooglePermissionSummary } from "@/lib/integration-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getWhatsAppReadiness } from "@/lib/composio-whatsapp";
 import {
   canManageComposioToolkit,
   isComposioToolkitConfigured,
@@ -98,11 +99,22 @@ export async function GET(_req: NextRequest) {
         integration.provider,
         "scope" in settings ? settings.scope : undefined,
       );
+      const whatsappReadiness =
+        integration.provider === "whatsapp" &&
+        settings.connection_mode === "composio" &&
+        integration.status === "connected"
+          ? getWhatsAppReadiness(settings)
+          : null;
 
       return {
         id: integration.id,
         provider: integration.provider,
-        status: healthData?.status || integration.status,
+        status:
+          healthData?.status === "error"
+            ? "error"
+            : whatsappReadiness?.status ||
+              healthData?.status ||
+              integration.status,
         connected_at: integration.connected_at,
         created_at: integration.created_at,
         updated_at: integration.updated_at,
@@ -116,6 +128,22 @@ export async function GET(_req: NextRequest) {
             integration.provider === "google-calendar"
             ? "Google access has expired. Reconnect Google to resume Gmail and Calendar syncing."
             : `${integration.provider} must be reconnected securely.`
+          : whatsappReadiness
+            ? healthData?.status === "error"
+              ? lastError
+              : whatsappReadiness.humanMessage
+            : undefined,
+        whatsapp: whatsappReadiness
+          ? {
+              ...whatsappReadiness,
+              can_send:
+                healthData?.status === "error"
+                  ? false
+                  : whatsappReadiness.can_send,
+              phone_number: settings.whatsapp_display_phone_number || null,
+              selected_phone_id: settings.whatsapp_phone_number_id || null,
+              phones: settings.whatsapp_available_phones || [],
+            }
           : undefined,
         connection_mode:
           "connection_mode" in settings &&

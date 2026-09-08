@@ -13,6 +13,7 @@ function hasValidMetaSignature(rawBody: string, signature: string | null) {
   if (!appSecret || !signature?.startsWith("sha256=")) return false;
 
   const provided = signature.slice("sha256=".length);
+  if (!/^[a-f0-9]{64}$/i.test(provided)) return false;
   const expected = createHmac("sha256", appSecret)
     .update(rawBody, "utf8")
     .digest("hex");
@@ -39,20 +40,23 @@ async function resolveOrgByWhatsAppPhoneNumberId(
   supabase: any,
   phoneNumberId: string,
 ): Promise<string | null> {
-  const { data: integrations } = await supabase
+  const { data: integrations, error } = await supabase
     .from("integrations")
     .select("org_id, settings_json")
     .eq("provider", "whatsapp")
     .eq("status", "connected");
 
-  const integration = (integrations || []).find((candidate: any) => {
+  if (error) throw error;
+  const matches = (integrations || []).filter((candidate: any) => {
     const settings = candidate.settings_json || {};
     return (
       settings.whatsapp_phone_number_id === phoneNumberId ||
       settings.phone_number_id === phoneNumberId
     );
   });
-  return integration?.org_id || null;
+  if (matches.length > 1)
+    throw new Error("WhatsApp phone is linked to multiple agencies");
+  return matches[0]?.org_id || null;
 }
 
 export async function POST(req: NextRequest) {
@@ -63,7 +67,12 @@ export async function POST(req: NextRequest) {
     ) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
-    const body = JSON.parse(rawBody);
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
     const supabase = createAdminClient();
 
     const entries = body.entry || [];
@@ -75,6 +84,7 @@ export async function POST(req: NextRequest) {
         const value = change.value;
         const messages = value.messages || [];
         const statuses = value.statuses || [];
+        if (!messages.length && !statuses.length) continue;
 
         // Resolve org once per change (same phone_number_id for all msgs in a change)
         const phoneNumberId = value.metadata?.phone_number_id || "";
@@ -86,7 +96,7 @@ export async function POST(req: NextRequest) {
           console.warn(
             "WhatsApp webhook: phone number is not linked to an org",
           );
-          continue;
+          throw new Error("WhatsApp phone mapping is not ready");
         }
 
         const orgId = resolvedOrgId;
@@ -107,27 +117,85 @@ export async function POST(req: NextRequest) {
           const from = msg.from; // sender phone in E.164
           const text = msg.text?.body;
           const msgId = msg.id;
-          if (!from || !text) continue;
+          if (!from || !text || !msgId) continue;
 
-          await supabase.from("webhook_events").insert({
-            org_id: orgId,
-            channel: "whatsapp",
-            event_type: "message",
-            raw_payload: body,
-            headers: Object.fromEntries(req.headers.entries()),
-            processed: false,
-          });
+          const { data: event, error: eventError } = await supabase
+            .from("webhook_events")
+            .insert({
+              org_id: orgId,
+              channel: "whatsapp",
+              event_type: "message",
+              raw_payload: body,
+              headers: Object.fromEntries(req.headers.entries()),
+              processed: false,
+            })
+            .select("id")
+            .single();
+          if (eventError || !event)
+            throw eventError || new Error("Could not record WhatsApp event");
 
-          const leadId = await resolveOrCreateLead({
-            supabase, orgId, channel: "whatsapp", identity: from,
-          });
-
-          if (leadId) {
-            await persistInboundMessage({
-              supabase, orgId, leadId, channel: "whatsapp",
-              externalThreadId: from, externalMessageId: msgId,
-              text, rawPayload: msg,
+          try {
+            const leadId = await resolveOrCreateLead({
+              supabase,
+              orgId,
+              channel: "whatsapp",
+              identity: from,
+              name: value.contacts?.find(
+                (contact: any) => contact.wa_id === from,
+              )?.profile?.name,
             });
+            const result = await persistInboundMessage({
+              supabase,
+              orgId,
+              leadId,
+              channel: "whatsapp",
+              externalThreadId: from,
+              externalMessageId: msgId,
+              text,
+              rawPayload: msg,
+            });
+            const { error: processedError } = await supabase
+              .from("webhook_events")
+              .update({
+                processed: true,
+                processing_result: result.duplicate ? "duplicate" : "saved",
+              })
+              .eq("id", event.id)
+              .eq("org_id", orgId);
+            if (processedError) throw processedError;
+            const { data: current, error: settingsError } = await supabase
+              .from("integrations")
+              .select("id,settings_json")
+              .eq("org_id", orgId)
+              .eq("provider", "whatsapp")
+              .maybeSingle();
+            if (settingsError) throw settingsError;
+            if (current) {
+              const { error: verifiedError } = await supabase
+                .from("integrations")
+                .update({
+                  settings_json: {
+                    ...current.settings_json,
+                    whatsapp_inbound_verified_at: new Date().toISOString(),
+                  },
+                })
+                .eq("id", current.id)
+                .eq("org_id", orgId)
+                .contains("settings_json", {
+                  whatsapp_phone_number_id: phoneNumberId,
+                });
+              if (verifiedError) throw verifiedError;
+            }
+          } catch (error) {
+            await supabase
+              .from("webhook_events")
+              .update({
+                error_message:
+                  "WhatsApp message processing failed; provider retry required",
+              })
+              .eq("id", event.id)
+              .eq("org_id", orgId);
+            throw error;
           }
         }
       }
@@ -135,7 +203,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("WhatsApp webhook error:", error);
-    return NextResponse.json({ success: false }, { status: 200 });
+    console.error("WhatsApp webhook processing failed; retry required");
+    return NextResponse.json({ success: false }, { status: 500 });
   }
 }
