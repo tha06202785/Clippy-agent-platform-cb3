@@ -8,6 +8,7 @@ import {
   verifyComposioConnectedAccount,
   type ClippyComposioToolkit,
 } from "@/lib/composio";
+import { checkComposioWhatsApp } from "@/lib/composio-whatsapp";
 import { getAppOrigin } from "@/lib/app-origin";
 import { encryptIntegrationCredentials } from "@/lib/integration-credentials";
 import {
@@ -133,19 +134,50 @@ export async function GET(req: NextRequest) {
     );
     if (saveError) throw saveError;
 
-    await admin.from("integration_health").upsert({
-      org_id: membership.org_id,
-      provider,
-      status: "healthy",
-      last_error: null,
-      last_sync_at: now,
-      items_indexed: 0,
-      activity_summary: {
-        connectionMode: "composio",
-        connectedAt: now,
-        accountStatus: account.status,
+    await admin.from("integration_health").upsert(
+      {
+        org_id: membership.org_id,
+        provider,
+        status: toolkit === "whatsapp" ? "warning" : "healthy",
+        last_error: null,
+        last_sync_at: now,
+        items_indexed: 0,
+        activity_summary: {
+          connectionMode: "composio",
+          connectedAt: now,
+          accountStatus: account.status,
+        },
       },
-    });
+      { onConflict: "org_id,provider" },
+    );
+
+    if (toolkit === "whatsapp") {
+      // Number discovery is read-only at the provider. A setup problem must not
+      // discard a successfully authenticated connection or report it ready.
+      const { data: saved } = await admin
+        .from("integrations")
+        .select("id,settings_json")
+        .eq("org_id", membership.org_id)
+        .eq("provider", "whatsapp")
+        .maybeSingle();
+      if (saved) {
+        try {
+          await checkComposioWhatsApp({
+            admin,
+            orgId: membership.org_id,
+            integration: {
+              id: saved.id,
+              connected_account_id: account.id,
+              metadata: saved.settings_json || {},
+            },
+          });
+        } catch {
+          console.warn(
+            "WhatsApp connected; business phone setup still needs attention",
+          );
+        }
+      }
+    }
 
     await admin.from("clippy_activity_log").insert({
       org_id: membership.org_id,

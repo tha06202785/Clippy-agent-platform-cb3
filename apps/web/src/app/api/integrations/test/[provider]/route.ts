@@ -4,6 +4,7 @@ import { buildMetaObjectUrl } from "@/lib/facebook-oauth";
 import { getGooglePermissionSummary } from "@/lib/integration-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { checkComposioWhatsApp } from "@/lib/composio-whatsapp";
 import {
   getComposioConnectedAccount,
   getComposioUserId,
@@ -163,21 +164,42 @@ export async function GET(
     }
 
     // Update health status
-    await admin.from("integration_health").upsert({
-      org_id: orgId,
-      provider,
-      status: testResult.success ? "healthy" : "error",
-      last_error: testResult.success ? null : testResult.message || null,
-      last_sync_at: new Date().toISOString(),
-      items_indexed: testResult.itemsIndexed || 0,
-      activity_summary: {
-        lastTest: new Date().toISOString(),
-        testResult: testResult.success ? "passed" : "failed",
-        errorMessage: testResult.message || null,
-      },
-    });
+    const checkedAt = new Date().toISOString();
+    const { data: previousHealth } = await admin
+      .from("integration_health")
+      .select("items_indexed,activity_summary")
+      .eq("org_id", orgId)
+      .eq("provider", provider)
+      .maybeSingle();
+    const { error: healthError } = await admin
+      .from("integration_health")
+      .upsert(
+        {
+          org_id: orgId,
+          provider,
+          status: testResult.success
+            ? testResult.status === "warning"
+              ? "warning"
+              : "healthy"
+            : "error",
+          last_error: testResult.success ? null : testResult.message || null,
+          last_sync_at: checkedAt,
+          updated_at: checkedAt,
+          items_indexed:
+            testResult.itemsIndexed ?? previousHealth?.items_indexed ?? 0,
+          activity_summary: {
+            ...previousHealth?.activity_summary,
+            lastTest: checkedAt,
+            testResult: testResult.success ? "passed" : "failed",
+            errorMessage: testResult.message || null,
+          },
+        },
+        { onConflict: "org_id,provider" },
+      );
+    if (healthError)
+      throw new Error("Unable to save the connection test result");
 
-    return NextResponse.json(testResult);
+    return NextResponse.json({ ...testResult, last_sync_at: checkedAt });
   } catch (error: any) {
     return NextResponse.json(
       {
@@ -452,13 +474,10 @@ async function testWhatsAppConnection(
 ) {
   try {
     if (integration.metadata?.connection_mode === "composio") {
-      return testComposioConnection({
+      return await checkComposioWhatsApp({
+        admin: createAdminClient(),
         integration,
         orgId,
-        userId,
-        toolkit: "whatsapp",
-        provider: "whatsapp",
-        displayName: "WhatsApp Business",
       });
     }
 

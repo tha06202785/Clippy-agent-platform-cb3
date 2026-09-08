@@ -49,6 +49,19 @@ type IntegrationStatus = {
   requires_reconnect?: boolean;
   permissions?: { granted: number; required: number; missing?: string[] };
   connection_mode?: "direct" | "composio";
+  whatsapp?: WhatsAppReadiness;
+};
+
+type WhatsAppReadiness = {
+  can_send: boolean;
+  can_receive: boolean;
+  phone_number?: string | null;
+  selected_phone_id?: string | null;
+  phones: Array<{
+    id: string;
+    display_phone_number: string;
+    verified: boolean;
+  }>;
 };
 
 type ConnectionOptions = {
@@ -97,6 +110,7 @@ type Integration = {
   requiresReconnect?: boolean;
   permissions?: { granted: number; required: number; missing?: string[] };
   connectionMode?: "direct" | "composio";
+  whatsapp?: WhatsAppReadiness;
 };
 
 const CONFIG = {
@@ -279,6 +293,7 @@ export default function IntegrationsPage() {
           requiresReconnect: existing?.requires_reconnect,
           permissions: existing?.permissions,
           connectionMode: existing?.connection_mode,
+          whatsapp: existing?.whatsapp,
         } satisfies Integration;
       });
       setIntegrations(mapped);
@@ -346,7 +361,9 @@ export default function IntegrationsPage() {
           item.provider === provider
             ? {
                 ...item,
-                status: result.success ? "healthy" : "error",
+                status: result.success
+                  ? normaliseStatus(result.status || "healthy")
+                  : "error",
                 connected: true,
                 humanMessage: result.humanMessage,
                 lastSync: result.last_sync_at ?? item.lastSync,
@@ -354,6 +371,23 @@ export default function IntegrationsPage() {
                 canAutoRefresh: result.canAutoRefresh ?? item.canAutoRefresh,
                 requiresReconnect: requiresReconnectAfterTest(result),
                 permissions: result.permissions ?? item.permissions,
+                whatsapp:
+                  provider === "whatsapp" && Array.isArray(result.phones)
+                    ? {
+                        can_send: result.can_send,
+                        can_receive: result.can_receive,
+                        phone_number: result.phoneNumber,
+                        selected_phone_id: result.selectedPhoneId,
+                        phones: result.phones,
+                      }
+                    : item.whatsapp
+                      ? {
+                          ...item.whatsapp,
+                          can_send: result.success
+                            ? item.whatsapp.can_send
+                            : false,
+                        }
+                      : undefined,
               }
             : item,
         ),
@@ -369,9 +403,39 @@ export default function IntegrationsPage() {
                 status: "error",
                 connected: true,
                 humanMessage: message,
+                whatsapp: item.whatsapp
+                  ? { ...item.whatsapp, can_send: false }
+                  : undefined,
               }
             : item,
         ),
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const selectWhatsAppPhone = async (phoneNumberId: string) => {
+    if (!phoneNumberId) return;
+    setBusy("whatsapp");
+    setError(null);
+    try {
+      const response = await fetch("/api/integrations/whatsapp/setup", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone_number_id: phoneNumberId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(result.error || "Unable to select the WhatsApp number");
+      await load();
+      setNotice(result.humanMessage);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Unable to select the WhatsApp number",
       );
     } finally {
       setBusy(null);
@@ -780,6 +844,55 @@ export default function IntegrationsPage() {
               </div>
               <div className="mt-4 space-y-2 text-sm text-neutral-600">
                 {integration.email && <p>{integration.email}</p>}
+                {integration.whatsapp && (
+                  <div className="space-y-2">
+                    {integration.whatsapp.phone_number && (
+                      <p>{integration.whatsapp.phone_number}</p>
+                    )}
+                    <p>
+                      Replies:{" "}
+                      {integration.whatsapp.can_send ? "Ready" : "Setup needed"}
+                    </p>
+                    <p>
+                      Incoming enquiries:{" "}
+                      {integration.whatsapp.can_receive
+                        ? "Verified"
+                        : "Not verified yet"}
+                    </p>
+                    {(integration.whatsapp.phones.length > 1 ||
+                      (integration.whatsapp.phones.length > 0 &&
+                        !integration.whatsapp.can_send)) && (
+                      <label className="block">
+                        <span className="mb-1 block font-medium">
+                          Business number
+                        </span>
+                        <select
+                          aria-label="WhatsApp business number"
+                          disabled={busy === "whatsapp"}
+                          value={integration.whatsapp.selected_phone_id || ""}
+                          onChange={(event) =>
+                            void selectWhatsAppPhone(event.target.value)
+                          }
+                          className="w-full rounded-lg border bg-white px-3 py-2"
+                        >
+                          <option value="">Select a verified number</option>
+                          {integration.whatsapp.phones.map((phone) => (
+                            <option
+                              key={phone.id}
+                              value={phone.id}
+                              disabled={!phone.verified}
+                            >
+                              {phone.display_phone_number}
+                              {!phone.verified
+                                ? " — Phone setup incomplete"
+                                : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </div>
+                )}
                 <p>
                   {integration.itemsIndexed.toLocaleString("en-AU")} items
                   indexed · Last sync {relativeTime(integration.lastSync)}
