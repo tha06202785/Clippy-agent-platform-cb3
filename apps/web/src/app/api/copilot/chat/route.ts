@@ -548,8 +548,10 @@ export async function POST(req: NextRequest) {
         { role: "user", content: message },
       ],
       userId: user.id,
-      attemptTimeoutMs: 5_500,
-      providerBudgetMs: 9_500,
+      // Ollama Cloud can queue or cold-start large models such as kimi-k2.6.
+      // Keep enough headroom for the request while staying within maxDuration.
+      attemptTimeoutMs: 25_000,
+      providerBudgetMs: 40_000,
       maxAttempts: 1,
       maxTokens: 650,
     });
