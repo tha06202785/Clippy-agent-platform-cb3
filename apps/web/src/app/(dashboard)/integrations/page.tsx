@@ -240,6 +240,7 @@ export default function IntegrationsPage() {
   );
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [whatsappPhoneId, setWhatsAppPhoneId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [googleDiagnostic, setGoogleDiagnostic] =
@@ -430,6 +431,7 @@ export default function IntegrationsPage() {
       if (!response.ok)
         throw new Error(result.error || "Unable to select the WhatsApp number");
       await load();
+      setWhatsAppPhoneId("");
       setNotice(result.humanMessage);
     } catch (reason) {
       setError(
@@ -893,6 +895,52 @@ export default function IntegrationsPage() {
                         </select>
                       </label>
                     )}
+                    {integration.connectionMode === "composio" &&
+                      !integration.whatsapp.can_send &&
+                      integration.whatsapp.phones.length === 0 && (
+                        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                          <label
+                            htmlFor="whatsapp-phone-number-id"
+                            className="block font-medium text-neutral-800"
+                          >
+                            Meta Phone Number ID
+                          </label>
+                          <p className="mt-1 text-xs text-neutral-500">
+                            Enter the numeric Phone Number ID from WhatsApp
+                            Manager, not the +61 phone number.
+                          </p>
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              id="whatsapp-phone-number-id"
+                              aria-label="Meta WhatsApp Phone Number ID"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              autoComplete="off"
+                              value={whatsappPhoneId}
+                              onChange={(event) =>
+                                setWhatsAppPhoneId(
+                                  event.target.value.replace(/\D/g, ""),
+                                )
+                              }
+                              placeholder="e.g. 123456789012345"
+                              className="min-w-0 flex-1 rounded-lg border bg-white px-3 py-2"
+                            />
+                            <button
+                              type="button"
+                              disabled={
+                                busy === "whatsapp" ||
+                                !/^\d+$/.test(whatsappPhoneId)
+                              }
+                              onClick={() =>
+                                void selectWhatsAppPhone(whatsappPhoneId)
+                              }
+                              className="rounded-lg border bg-white px-3 py-2 font-semibold disabled:opacity-50"
+                            >
+                              Verify
+                            </button>
+                          </div>
+                        </div>
+                      )}
                   </div>
                 )}
                 <p>

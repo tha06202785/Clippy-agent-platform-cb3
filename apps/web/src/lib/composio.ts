@@ -48,7 +48,10 @@ export class ComposioConfigurationError extends Error {}
 // Pin schemas parsed by application code. Verified against the toolkit catalog.
 export const WHATSAPP_TOOLKIT_VERSION = "20260815_00";
 
-type WhatsAppTool = "WHATSAPP_GET_PHONE_NUMBERS" | "WHATSAPP_SEND_MESSAGE";
+type WhatsAppTool =
+  | "WHATSAPP_GET_PHONE_NUMBER"
+  | "WHATSAPP_GET_PHONE_NUMBERS"
+  | "WHATSAPP_SEND_MESSAGE";
 
 /** Tool results can contain JSON strings and an additional provider envelope. */
 export function unwrapComposioResult(value: unknown): Record<string, unknown> {

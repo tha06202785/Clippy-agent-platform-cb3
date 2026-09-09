@@ -44,6 +44,50 @@ export function getWhatsAppReadiness(settings: WhatsAppSettings) {
   };
 }
 
+export function parseWhatsAppPhone(value: unknown): WhatsAppPhone | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const phone = value as Record<string, unknown>;
+  if (typeof phone.id !== "string" || !/^\d+$/.test(phone.id)) return null;
+  const codeVerificationStatus = normaliseProviderStatus(
+    phone.code_verification_status,
+  );
+  const connectionStatus = normaliseProviderStatus(phone.status);
+  const platformType = normaliseProviderStatus(phone.platform_type);
+  const explicitlyNotConnected =
+    connectionStatus !== null && connectionStatus !== "CONNECTED";
+  // Meta's code_verification_status is not the phone's messaging status.
+  // Composio can return NOT_VERIFIED here for a number that WhatsApp Manager
+  // reports as Connected. A registered CLOUD_API number is a usable sender
+  // unless the provider also returns an explicit non-connected status.
+  const messagingCapable =
+    !explicitlyNotConnected &&
+    (connectionStatus === "CONNECTED" ||
+      platformType === "CLOUD_API" ||
+      codeVerificationStatus === "VERIFIED");
+  const webhookConfiguration =
+    phone.webhook_configuration &&
+    typeof phone.webhook_configuration === "object"
+      ? (phone.webhook_configuration as Record<string, unknown>)
+      : null;
+  return {
+    id: phone.id,
+    display_phone_number:
+      typeof phone.display_phone_number === "string"
+        ? phone.display_phone_number
+        : phone.id,
+    verified_name:
+      typeof phone.verified_name === "string" ? phone.verified_name : "",
+    verified: messagingCapable,
+    code_verification_status: codeVerificationStatus,
+    connection_status: connectionStatus,
+    platform_type: platformType,
+    webhook_url:
+      typeof webhookConfiguration?.application === "string"
+        ? webhookConfiguration.application
+        : null,
+  };
+}
+
 export function parseWhatsAppPhones(
   data: Record<string, unknown>,
 ): WhatsAppPhone[] {
@@ -51,49 +95,8 @@ export function parseWhatsAppPhones(
     throw new Error("WhatsApp did not return a list of business phone numbers");
   }
   return data.data.flatMap((value: unknown) => {
-    if (!value || typeof value !== "object") return [];
-    const phone = value as Record<string, unknown>;
-    if (typeof phone.id !== "string" || !/^\d+$/.test(phone.id)) return [];
-    const codeVerificationStatus = normaliseProviderStatus(
-      phone.code_verification_status,
-    );
-    const connectionStatus = normaliseProviderStatus(phone.status);
-    const platformType = normaliseProviderStatus(phone.platform_type);
-    const explicitlyNotConnected =
-      connectionStatus !== null && connectionStatus !== "CONNECTED";
-    // Meta's code_verification_status is not the phone's messaging status.
-    // Composio can return NOT_VERIFIED here for a number that WhatsApp Manager
-    // reports as Connected. A registered CLOUD_API number is a usable sender
-    // unless the provider also returns an explicit non-connected status.
-    const messagingCapable =
-      !explicitlyNotConnected &&
-      (connectionStatus === "CONNECTED" ||
-        platformType === "CLOUD_API" ||
-        codeVerificationStatus === "VERIFIED");
-    const webhookConfiguration =
-      phone.webhook_configuration &&
-      typeof phone.webhook_configuration === "object"
-        ? (phone.webhook_configuration as Record<string, unknown>)
-        : null;
-    return [
-      {
-        id: phone.id,
-        display_phone_number:
-          typeof phone.display_phone_number === "string"
-            ? phone.display_phone_number
-            : phone.id,
-        verified_name:
-          typeof phone.verified_name === "string" ? phone.verified_name : "",
-        verified: messagingCapable,
-        code_verification_status: codeVerificationStatus,
-        connection_status: connectionStatus,
-        platform_type: platformType,
-        webhook_url:
-          typeof webhookConfiguration?.application === "string"
-            ? webhookConfiguration.application
-            : null,
-      },
-    ];
+    const phone = parseWhatsAppPhone(value);
+    return phone ? [phone] : [];
   });
 }
 
@@ -108,6 +111,36 @@ export function chooseWhatsAppPhone(
     );
   }
   return phones.length === 1 && phones[0].verified ? phones[0] : null;
+}
+
+async function getComposioWhatsAppPhone({
+  accountId,
+  userId,
+  phoneNumberId,
+}: {
+  accountId: string;
+  userId: string;
+  phoneNumberId: string;
+}) {
+  const result = await executeComposioWhatsAppTool({
+    tool: "WHATSAPP_GET_PHONE_NUMBER",
+    accountId,
+    userId,
+    arguments: { phone_number_id: phoneNumberId },
+  });
+  const phone = parseWhatsAppPhone(result);
+  return phone?.id === phoneNumberId && phone.verified ? phone : null;
+}
+
+function includeWhatsAppPhone(
+  phones: WhatsAppPhone[],
+  selected: WhatsAppPhone,
+) {
+  const existingIndex = phones.findIndex((phone) => phone.id === selected.id);
+  if (existingIndex === -1) return [...phones, selected];
+  return phones.map((phone, index) =>
+    index === existingIndex ? selected : phone,
+  );
 }
 
 export async function verifyWhatsAppAccountForOrg({
@@ -169,11 +202,27 @@ export async function checkComposioWhatsApp({
     userId: account.user_id,
     arguments: { limit: 100 },
   });
-  const phones = parseWhatsAppPhones(result);
-  const phone = chooseWhatsAppPhone(
-    phones,
-    selectedPhoneId || settings.whatsapp_phone_number_id,
-  );
+  let phones = parseWhatsAppPhones(result);
+  const preferredPhoneId = selectedPhoneId || settings.whatsapp_phone_number_id;
+  let phone = chooseWhatsAppPhone(phones, preferredPhoneId);
+  // Composio's list action depends on the WABA selected during OAuth and can
+  // return no entries for a connected coexistence number. An explicit or
+  // previously validated Meta Phone Number ID can still be checked directly.
+  if (
+    !phone &&
+    typeof preferredPhoneId === "string" &&
+    /^\d+$/.test(preferredPhoneId)
+  ) {
+    const directlyVerified = await getComposioWhatsAppPhone({
+      accountId,
+      userId: account.user_id,
+      phoneNumberId: preferredPhoneId,
+    });
+    if (directlyVerified) {
+      phone = directlyVerified;
+      phones = includeWhatsAppPhone(phones, directlyVerified);
+    }
+  }
   if (selectedPhoneId && !phone) {
     throw new Error(
       "Select a business phone number that is available for Cloud API messaging",
@@ -277,15 +326,14 @@ export async function sendComposioWhatsAppReply({
     orgId,
     accountId,
   });
-  // Recheck the sender belongs to this connection before every send. A stale
-  // settings row or a provider reconnect must not redirect an agency's replies.
-  const phoneResult = await executeComposioWhatsAppTool({
-    tool: "WHATSAPP_GET_PHONE_NUMBERS",
+  // Recheck the exact sender belongs to this connection before every send. A
+  // stale settings row or a provider reconnect must not redirect replies.
+  const phone = await getComposioWhatsAppPhone({
     accountId,
     userId: account.user_id,
-    arguments: { limit: 100 },
+    phoneNumberId,
   });
-  if (!chooseWhatsAppPhone(parseWhatsAppPhones(phoneResult), phoneNumberId)) {
+  if (!phone) {
     throw new Error(
       "This WhatsApp sender is no longer available. Check the connection before sending.",
     );
