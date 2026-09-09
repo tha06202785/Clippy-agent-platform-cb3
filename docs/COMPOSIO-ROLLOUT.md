@@ -27,15 +27,19 @@ integration vendor.
 The reply service executes `WHATSAPP_SEND_MESSAGE` against the encrypted
 connected-account reference and pins toolkit version `20260815_00`. It checks
 that the account belongs to a current agency member and that the selected
-sender is still a verified number on that account. Provider access tokens never
-need to be copied into Clippy. A reply is accepted only when the provider
-returns a message ID; failed or timed-out sends are not automatically retried.
+sender is still available for Cloud API messaging on that account. Meta's
+`code_verification_status` is retained as diagnostic metadata, but it is not
+treated as the phone's messaging status: WhatsApp Manager can report a Cloud
+API number as **Connected** while that separate field is `NOT_VERIFIED`.
+Provider access tokens never need to be copied into Clippy. A reply is accepted
+only when the provider returns a message ID; failed or timed-out sends are not
+automatically retried.
 
 The callback and **Test connection** use `WHATSAPP_GET_PHONE_NUMBERS` to discover
-sender numbers. One verified number is selected automatically. Multiple
-numbers require an explicit selection in Connections. A vanished saved number
-is never silently replaced. Sender selection also creates the phone-to-agency
-mapping used by Clippy's existing Meta webhook.
+sender numbers. One messaging-capable number is selected automatically.
+Multiple Cloud API numbers require an explicit selection in Connections. A
+vanished saved number is never silently replaced. Sender selection also creates
+the phone-to-agency mapping used by Clippy's existing Meta webhook.
 
 Connections reports sending readiness separately from receiving proof. OAuth
 alone no longer marks this integration healthy. Health tests preserve indexed

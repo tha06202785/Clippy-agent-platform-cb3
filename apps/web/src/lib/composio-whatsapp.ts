@@ -12,8 +12,19 @@ export type WhatsAppPhone = {
   id: string;
   display_phone_number: string;
   verified_name: string;
+  /** Legacy response name: true means the number can be used for Cloud API messaging. */
   verified: boolean;
+  code_verification_status: string | null;
+  connection_status: string | null;
+  platform_type: string | null;
+  webhook_url: string | null;
 };
+
+function normaliseProviderStatus(value: unknown) {
+  return typeof value === "string" && value.trim()
+    ? value.trim().toUpperCase()
+    : null;
+}
 
 export function getWhatsAppReadiness(settings: WhatsAppSettings) {
   const canSend =
@@ -26,10 +37,10 @@ export function getWhatsAppReadiness(settings: WhatsAppSettings) {
     can_receive: canReceive,
     status: canSend && canReceive ? "healthy" : "warning",
     humanMessage: !canSend
-      ? "WhatsApp is connected. Check the business phone number to finish sending setup."
+      ? "WhatsApp is connected. Check the business number's Cloud API status to finish reply setup."
       : !canReceive
-        ? "WhatsApp replies are ready. Incoming enquiries still need a verified message connection."
-        : "WhatsApp replies are ready and an incoming enquiry has been verified.",
+        ? "WhatsApp replies are ready to test. Incoming enquiries will be confirmed after Clippy receives the first signed WhatsApp message."
+        : "WhatsApp replies and incoming enquiries are working.",
   };
 }
 
@@ -43,6 +54,27 @@ export function parseWhatsAppPhones(
     if (!value || typeof value !== "object") return [];
     const phone = value as Record<string, unknown>;
     if (typeof phone.id !== "string" || !/^\d+$/.test(phone.id)) return [];
+    const codeVerificationStatus = normaliseProviderStatus(
+      phone.code_verification_status,
+    );
+    const connectionStatus = normaliseProviderStatus(phone.status);
+    const platformType = normaliseProviderStatus(phone.platform_type);
+    const explicitlyNotConnected =
+      connectionStatus !== null && connectionStatus !== "CONNECTED";
+    // Meta's code_verification_status is not the phone's messaging status.
+    // Composio can return NOT_VERIFIED here for a number that WhatsApp Manager
+    // reports as Connected. A registered CLOUD_API number is a usable sender
+    // unless the provider also returns an explicit non-connected status.
+    const messagingCapable =
+      !explicitlyNotConnected &&
+      (connectionStatus === "CONNECTED" ||
+        platformType === "CLOUD_API" ||
+        codeVerificationStatus === "VERIFIED");
+    const webhookConfiguration =
+      phone.webhook_configuration &&
+      typeof phone.webhook_configuration === "object"
+        ? (phone.webhook_configuration as Record<string, unknown>)
+        : null;
     return [
       {
         id: phone.id,
@@ -52,9 +84,14 @@ export function parseWhatsAppPhones(
             : phone.id,
         verified_name:
           typeof phone.verified_name === "string" ? phone.verified_name : "",
-        verified:
-          phone.code_verification_status === "VERIFIED" &&
-          (!phone.status || phone.status === "CONNECTED"),
+        verified: messagingCapable,
+        code_verification_status: codeVerificationStatus,
+        connection_status: connectionStatus,
+        platform_type: platformType,
+        webhook_url:
+          typeof webhookConfiguration?.application === "string"
+            ? webhookConfiguration.application
+            : null,
       },
     ];
   });
@@ -100,7 +137,7 @@ export async function verifyWhatsAppAccountForOrg({
   return account;
 }
 
-/** Read-only provider check; only the verified sender metadata is saved locally. */
+/** Read-only provider check; only sender metadata is saved locally. */
 export async function checkComposioWhatsApp({
   admin,
   orgId,
@@ -139,7 +176,7 @@ export async function checkComposioWhatsApp({
   );
   if (selectedPhoneId && !phone) {
     throw new Error(
-      "Select a verified business phone number from this WhatsApp account",
+      "Select a business phone number that is available for Cloud API messaging",
     );
   }
   const nextSettings = {
@@ -152,6 +189,11 @@ export async function checkComposioWhatsApp({
       phone?.id || settings.whatsapp_phone_number_id || null,
     whatsapp_display_phone_number: phone?.display_phone_number || null,
     whatsapp_sender_verified: Boolean(phone),
+    whatsapp_sender_code_verification_status:
+      phone?.code_verification_status || null,
+    whatsapp_sender_connection_status: phone?.connection_status || null,
+    whatsapp_sender_platform_type: phone?.platform_type || null,
+    whatsapp_provider_webhook_url: phone?.webhook_url || null,
     whatsapp_available_phones: phones,
     whatsapp_checked_at: new Date().toISOString(),
     whatsapp_inbound_verified_at:
@@ -191,8 +233,8 @@ export async function checkComposioWhatsApp({
             )
           ? "The previously selected WhatsApp number is unavailable. Select the business number Clippy should use."
           : phones.length > 1
-            ? "WhatsApp is connected. Select the verified business number Clippy should use."
-            : "WhatsApp is connected, but the business phone number is not verified and registered for messaging yet. Complete the phone setup in Meta, then check again.",
+            ? "WhatsApp is connected. Select the connected business number Clippy should use."
+            : "Meta returned this number, but it is not available for Cloud API messaging. In WhatsApp Manager, confirm its Status is Connected, then check again.",
     phones,
     selectedPhoneId: phone?.id || null,
     phoneNumber: phone?.display_phone_number || null,
@@ -227,7 +269,7 @@ export async function sendComposioWhatsAppReply({
   }
   if (!/^\d+$/.test(phoneNumberId)) {
     throw new Error(
-      "Check the WhatsApp connection to select a verified business phone number",
+      "Check the WhatsApp connection to select a connected business phone number",
     );
   }
   const account = await verifyWhatsAppAccountForOrg({

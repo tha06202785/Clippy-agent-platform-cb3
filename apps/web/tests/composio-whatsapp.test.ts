@@ -18,6 +18,17 @@ const phone = {
   code_verification_status: "VERIFIED",
   status: "CONNECTED",
 };
+const connectedCloudApiPhone = {
+  id: "1271570199376937",
+  display_phone_number: "+61 431 126 141",
+  verified_name: "Ted",
+  code_verification_status: "NOT_VERIFIED",
+  platform_type: "CLOUD_API",
+  quality_rating: "UNKNOWN",
+  webhook_configuration: {
+    application: "https://example.ngrok-free.app/webhook",
+  },
+};
 const account = {
   id: "ca_demo",
   status: "ACTIVE",
@@ -235,7 +246,7 @@ describe("Composio WhatsApp replies", () => {
 });
 
 describe("WhatsApp readiness and sender selection", () => {
-  it("discovers and saves one verified sender, while keeping receiving unverified", async () => {
+  it("discovers and saves one messaging-capable sender, while keeping receiving unconfirmed", async () => {
     const { admin, updates, filters } = database();
     const result = await checkComposioWhatsApp({
       admin,
@@ -259,6 +270,8 @@ describe("WhatsApp readiness and sender selection", () => {
       settings_json: {
         whatsapp_phone_number_id: phone.id,
         whatsapp_sender_verified: true,
+        whatsapp_sender_code_verification_status: "VERIFIED",
+        whatsapp_sender_connection_status: "CONNECTED",
         write_enabled: true,
       },
     });
@@ -266,6 +279,19 @@ describe("WhatsApp readiness and sender selection", () => {
       "settings_json",
       { connected_account_id: "ca_demo" },
     ]);
+  });
+
+  it("accepts the connected Cloud API shape even when code verification is NOT_VERIFIED", () => {
+    const phones = parseWhatsAppPhones({ data: [connectedCloudApiPhone] });
+    expect(phones[0]).toMatchObject({
+      id: connectedCloudApiPhone.id,
+      verified: true,
+      code_verification_status: "NOT_VERIFIED",
+      connection_status: null,
+      platform_type: "CLOUD_API",
+      webhook_url: "https://example.ngrok-free.app/webhook",
+    });
+    expect(chooseWhatsAppPhone(phones)?.id).toBe(connectedCloudApiPhone.id);
   });
 
   it("does not silently select one of several numbers or replace a missing saved number", () => {
@@ -278,7 +304,7 @@ describe("WhatsApp readiness and sender selection", () => {
     expect(
       chooseWhatsAppPhone(
         parseWhatsAppPhones({
-          data: [{ ...phone, code_verification_status: "NOT_VERIFIED" }],
+          data: [{ ...connectedCloudApiPhone, status: "PENDING" }],
         }),
       ),
     ).toBeNull();

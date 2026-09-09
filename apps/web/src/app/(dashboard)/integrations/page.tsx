@@ -851,13 +851,15 @@ export default function IntegrationsPage() {
                     )}
                     <p>
                       Replies:{" "}
-                      {integration.whatsapp.can_send ? "Ready" : "Setup needed"}
+                      {integration.whatsapp.can_send
+                        ? "Ready to test"
+                        : "Number not ready"}
                     </p>
                     <p>
                       Incoming enquiries:{" "}
                       {integration.whatsapp.can_receive
-                        ? "Verified"
-                        : "Not verified yet"}
+                        ? "Confirmed by live message"
+                        : "Waiting for webhook test"}
                     </p>
                     {(integration.whatsapp.phones.length > 1 ||
                       (integration.whatsapp.phones.length > 0 &&
@@ -875,7 +877,7 @@ export default function IntegrationsPage() {
                           }
                           className="w-full rounded-lg border bg-white px-3 py-2"
                         >
-                          <option value="">Select a verified number</option>
+                          <option value="">Select a connected number</option>
                           {integration.whatsapp.phones.map((phone) => (
                             <option
                               key={phone.id}
@@ -884,7 +886,7 @@ export default function IntegrationsPage() {
                             >
                               {phone.display_phone_number}
                               {!phone.verified
-                                ? " — Phone setup incomplete"
+                                ? " — Not available for Cloud API"
                                 : ""}
                             </option>
                           ))}
