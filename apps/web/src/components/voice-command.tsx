@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Loader2, Mic, Square } from "lucide-react";
+import { AlertCircle, Loader2, Mic, Square, X } from "lucide-react";
 import {
   resolveSpeechRecognitionConstructor,
   resolveVoiceRecordingMimeType,
@@ -120,12 +120,13 @@ export function VoiceCommand() {
           code?: string;
         };
         if (!response.ok || !result.transcript?.trim()) {
-          if (
-            result.code === "transcription_unavailable" &&
-            recognitionRef.current
-          ) {
-            // A following tap can still try the browser's speech service.
+          if (recognitionRef.current) {
+            // Do not trap mobile users in a failing server fallback. A
+            // following tap can immediately retry the device speech service.
             preferRecordedRef.current = false;
+            throw new Error(
+              "Secure transcription is temporarily unavailable. Tap again to use this device’s speech recognition.",
+            );
           }
           throw new Error(
             result.error || "Clippy could not transcribe that recording.",
@@ -260,13 +261,10 @@ export function VoiceCommand() {
         navigator.mediaDevices?.getUserMedia,
     );
     recordingAvailableRef.current = canRecord;
-    preferRecordedRef.current =
-      canRecord &&
-      (shouldPreferRecordedTranscription({
-        userAgent: navigator.userAgent,
-        maxTouchPoints: navigator.maxTouchPoints,
-      }) ||
-        !Recognition);
+    preferRecordedRef.current = shouldPreferRecordedTranscription({
+      hasSpeechRecognition: Boolean(Recognition),
+      canRecord,
+    });
 
     if (!Recognition && !canRecord) {
       setUnavailableMessage(
@@ -456,6 +454,20 @@ export function VoiceCommand() {
             <span className="text-xs font-medium text-foreground">
               {statusTitle}
             </span>
+            {errorMessage ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setErrorMessage(null);
+                  setTranscript("");
+                }}
+                className="ml-auto rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Dismiss voice message"
+                title="Close"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
           <p
             className={

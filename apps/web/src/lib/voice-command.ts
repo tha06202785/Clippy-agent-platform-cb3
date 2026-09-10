@@ -23,14 +23,13 @@ export function resolveVoiceRecordingMimeType(scope: {
 }
 
 export function shouldPreferRecordedTranscription(scope: {
-  userAgent?: string;
-  maxTouchPoints?: number;
+  hasSpeechRecognition: boolean;
+  canRecord: boolean;
 }): boolean {
-  const userAgent = scope.userAgent || "";
-  return (
-    /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent) ||
-    (/Macintosh/i.test(userAgent) && (scope.maxTouchPoints || 0) > 1)
-  );
+  // Browser speech recognition is immediate, avoids an upload, and remains
+  // available on iPhone/iPad through the webkit-prefixed implementation.
+  // Recorded transcription is only needed when that native path is absent.
+  return scope.canRecord && !scope.hasSpeechRecognition;
 }
 
 export function voiceRecognitionErrorMessage(error?: string): string {

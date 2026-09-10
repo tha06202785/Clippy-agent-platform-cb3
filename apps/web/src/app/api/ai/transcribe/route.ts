@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
       "Short Australian real estate command for Clippy. Preserve client names, property addresses and normal punctuation.",
     );
 
+    const providerStartedAt = Date.now();
     const transcriptionResponse = await fetch(
       "https://api.openai.com/v1/audio/transcriptions",
       {
@@ -139,9 +140,13 @@ export async function POST(request: NextRequest) {
       console.error("OpenAI transcription failed", {
         status: transcriptionResponse.status,
         requestId: transcriptionResponse.headers.get("x-request-id"),
+        duration_ms: Date.now() - providerStartedAt,
       });
       return NextResponse.json(
-        { error: "Clippy could not transcribe that recording. Try again." },
+        {
+          error: "Secure voice transcription is temporarily unavailable.",
+          code: "transcription_unavailable",
+        },
         { status: 502 },
       );
     }
@@ -155,6 +160,11 @@ export async function POST(request: NextRequest) {
         { status: 422 },
       );
     }
+
+    console.info("OpenAI transcription completed", {
+      status: transcriptionResponse.status,
+      duration_ms: Date.now() - providerStartedAt,
+    });
 
     return NextResponse.json(
       { transcript },
