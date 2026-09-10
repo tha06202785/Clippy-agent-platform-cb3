@@ -142,6 +142,8 @@ export async function GET(_req: NextRequest) {
                   : whatsappReadiness.can_send,
               phone_number: settings.whatsapp_display_phone_number || null,
               selected_phone_id: settings.whatsapp_phone_number_id || null,
+              business_account_id:
+                settings.whatsapp_business_account_id || null,
               phones: settings.whatsapp_available_phones || [],
             }
           : undefined,

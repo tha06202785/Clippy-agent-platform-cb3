@@ -6,6 +6,7 @@ import {
   ComposioRequestError,
   createComposioConnectLink,
   getComposioUserId,
+  normaliseWhatsAppBusinessAccountId,
   type ClippyComposioToolkit,
 } from "@/lib/composio";
 import { getAppOrigin } from "@/lib/app-origin";
@@ -29,6 +30,18 @@ export async function GET(
     return NextResponse.json(
       { error: "Unsupported integration" },
       { status: 404 },
+    );
+  }
+
+  const whatsappBusinessAccountId =
+    toolkit === "whatsapp"
+      ? normaliseWhatsAppBusinessAccountId(
+          req.nextUrl.searchParams.get("waba_id"),
+        )
+      : null;
+  if (toolkit === "whatsapp" && !whatsappBusinessAccountId) {
+    return NextResponse.redirect(
+      new URL("/integrations?error=whatsapp_waba_required", req.url),
     );
   }
 
@@ -68,12 +81,16 @@ export async function GET(
     );
     callbackUrl.searchParams.set("toolkit", toolkit);
     callbackUrl.searchParams.set("state", state);
+    if (whatsappBusinessAccountId) {
+      callbackUrl.searchParams.set("waba_id", whatsappBusinessAccountId);
+    }
 
     const link = await createComposioConnectLink({
       toolkit,
       userId: composioUserId,
       callbackUrl: callbackUrl.toString(),
       alias: `clippy-${toolkit}-${composioUserId.slice(-8)}-${state.slice(0, 8)}`,
+      whatsappBusinessAccountId: whatsappBusinessAccountId || undefined,
     });
 
     const response = NextResponse.redirect(link.redirect_url);

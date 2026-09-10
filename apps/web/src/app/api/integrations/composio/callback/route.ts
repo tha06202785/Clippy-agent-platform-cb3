@@ -5,6 +5,7 @@ import {
   getComposioToolkitDisplayName,
   getComposioToolkitProvider,
   getComposioUserId,
+  normaliseWhatsAppBusinessAccountId,
   verifyComposioConnectedAccount,
   type ClippyComposioToolkit,
 } from "@/lib/composio";
@@ -40,6 +41,9 @@ export async function GET(req: NextRequest) {
   const returnedState = url.searchParams.get("state");
   const toolkitValue = url.searchParams.get("toolkit")?.toLowerCase();
   const toolkit = toolkitValue as ClippyComposioToolkit;
+  const whatsappBusinessAccountId = normaliseWhatsAppBusinessAccountId(
+    url.searchParams.get("waba_id"),
+  );
   const expectedState = req.cookies.get(COMPOSIO_OAUTH_STATE_COOKIE)?.value;
 
   if (toolkit !== "whatsapp" && toolkit !== "follow_up_boss") {
@@ -50,6 +54,11 @@ export async function GET(req: NextRequest) {
   if (!matchesOAuthState(expectedState, returnedState)) {
     return redirectAndClearState(
       new URL("/integrations?error=invalid_state", appOrigin),
+    );
+  }
+  if (toolkit === "whatsapp" && !whatsappBusinessAccountId) {
+    return redirectAndClearState(
+      new URL("/integrations?error=whatsapp_waba_required", appOrigin),
     );
   }
   if (status !== "success" || !accountId) {
@@ -122,6 +131,11 @@ export async function GET(req: NextRequest) {
           toolkit: account.toolkit?.slug || toolkit.toUpperCase(),
           auth_scheme: account.auth_config?.auth_scheme || null,
           managed_auth: account.auth_config?.is_composio_managed ?? null,
+          ...(whatsappBusinessAccountId
+            ? {
+                whatsapp_business_account_id: whatsappBusinessAccountId,
+              }
+            : {}),
           access_mode:
             toolkit === "follow_up_boss" ? "connection_only" : "delivery_proof",
           import_enabled: false,

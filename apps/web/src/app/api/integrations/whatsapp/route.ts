@@ -43,9 +43,10 @@ export async function GET(req: NextRequest) {
           new URL("/integrations?error=composio_not_configured", req.url),
         );
       }
-      return NextResponse.redirect(
-        new URL("/api/integrations/composio/whatsapp", req.url),
-      );
+      const target = new URL("/api/integrations/composio/whatsapp", req.url);
+      const wabaId = req.nextUrl.searchParams.get("waba_id");
+      if (wabaId) target.searchParams.set("waba_id", wabaId);
+      return NextResponse.redirect(target);
     }
 
     const clientId = process.env.WHATSAPP_APP_ID || process.env.FACEBOOK_APP_ID;

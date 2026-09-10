@@ -170,6 +170,12 @@ export function getComposioUserId(orgId: string, userId: string) {
   return `clippy_${digest}`;
 }
 
+export function normaliseWhatsAppBusinessAccountId(value: unknown) {
+  if (typeof value !== "string") return null;
+  const id = value.trim();
+  return /^\d{5,32}$/.test(id) ? id : null;
+}
+
 async function composioFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${configuredApiBase()}${path}`, {
     ...init,
@@ -196,13 +202,24 @@ export async function createComposioConnectLink({
   userId,
   callbackUrl,
   alias,
+  whatsappBusinessAccountId,
 }: {
   toolkit: ClippyComposioToolkit;
   userId: string;
   callbackUrl: string;
   alias: string;
+  whatsappBusinessAccountId?: string;
 }) {
   const config = toolkitConfiguration(toolkit);
+  const wabaId = normaliseWhatsAppBusinessAccountId(
+    whatsappBusinessAccountId,
+  );
+  if (toolkit === "whatsapp" && !wabaId) {
+    throw new ComposioRequestError(
+      "WhatsApp Business Account ID is required",
+      400,
+    );
+  }
   const result = await composioFetch<{
     connected_account_id?: string;
     redirect_url?: string;
@@ -214,6 +231,13 @@ export async function createComposioConnectLink({
       user_id: userId,
       callback_url: callbackUrl,
       alias,
+      ...(wabaId
+        ? {
+            connection_data: {
+              generic_id: wabaId,
+            },
+          }
+        : {}),
     }),
   });
 

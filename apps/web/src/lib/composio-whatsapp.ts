@@ -37,7 +37,9 @@ export function getWhatsAppReadiness(settings: WhatsAppSettings) {
     can_receive: canReceive,
     status: canSend && canReceive ? "healthy" : "warning",
     humanMessage: !canSend
-      ? "WhatsApp is connected. Check the business number's Cloud API status to finish reply setup."
+      ? typeof settings.whatsapp_business_account_id !== "string"
+        ? "WhatsApp needs its Meta Business Account ID. Enter the WABA ID below and reconnect."
+        : "WhatsApp is connected. Check the business number's Cloud API status to finish reply setup."
       : !canReceive
         ? "WhatsApp replies are ready to test. Incoming enquiries will be confirmed after Clippy receives the first signed WhatsApp message."
         : "WhatsApp replies and incoming enquiries are working.",
@@ -275,7 +277,9 @@ export async function checkComposioWhatsApp({
     humanMessage: phone
       ? readiness.humanMessage
       : phones.length === 0
-        ? "WhatsApp is connected, but this business account has no Cloud API phone number. Add a business phone number in Meta, then check again."
+        ? typeof settings.whatsapp_business_account_id !== "string"
+          ? "This connection is missing its Meta Business Account ID. Enter the WABA ID and reconnect WhatsApp."
+          : "WhatsApp is connected, but this business account has no Cloud API phone number. Add a business phone number in Meta, then check again."
         : settings.whatsapp_phone_number_id &&
             !phones.some(
               (candidate) => candidate.id === settings.whatsapp_phone_number_id,

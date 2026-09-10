@@ -63,6 +63,7 @@ describe("Composio integration", () => {
       userId: "clippy_user",
       callbackUrl: "https://useclippy.com/api/integrations/composio/callback",
       alias: "clippy-whatsapp-user",
+      whatsappBusinessAccountId: "123456789012345",
     });
 
     expect(result.redirect_url).toBe(
@@ -76,7 +77,28 @@ describe("Composio integration", () => {
     expect(JSON.parse(request.body)).toMatchObject({
       auth_config_id: "ac_whatsapp",
       user_id: "clippy_user",
+      connection_data: {
+        generic_id: "123456789012345",
+      },
     });
+  });
+
+  it("requires a numeric WABA ID before creating a WhatsApp link", async () => {
+    vi.stubEnv("COMPOSIO_API_KEY", "test-api-key");
+    vi.stubEnv("COMPOSIO_WHATSAPP_AUTH_CONFIG_ID", "ac_whatsapp");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createComposioConnectLink({
+        toolkit: "whatsapp",
+        userId: "clippy_user",
+        callbackUrl: "https://useclippy.com/callback",
+        alias: "clippy-whatsapp-user",
+        whatsappBusinessAccountId: "not-a-waba",
+      }),
+    ).rejects.toBeInstanceOf(ComposioRequestError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("uses the dedicated Follow Up Boss auth configuration", async () => {
@@ -128,6 +150,7 @@ describe("Composio integration", () => {
         userId: "clippy_user",
         callbackUrl: "https://useclippy.com/callback",
         alias: "clippy-whatsapp-user",
+        whatsappBusinessAccountId: "123456789012345",
       }),
     ).rejects.toBeInstanceOf(ComposioRequestError);
   });

@@ -57,6 +57,7 @@ type WhatsAppReadiness = {
   can_receive: boolean;
   phone_number?: string | null;
   selected_phone_id?: string | null;
+  business_account_id?: string | null;
   phones: Array<{
     id: string;
     display_phone_number: string;
@@ -171,6 +172,8 @@ const OAUTH_ERRORS: Record<string, string> = {
     "This Composio connection is not configured yet. Add its server-side auth configuration first.",
   composio_unavailable:
     "Composio could not start the connection. Please try again shortly.",
+  whatsapp_waba_required:
+    "Enter the numeric WhatsApp Business Account ID (WABA ID) before connecting.",
   composio_access_denied:
     "Provider access was not completed. Please try connecting again.",
   composio_account_mismatch:
@@ -241,6 +244,8 @@ export default function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [whatsappPhoneId, setWhatsAppPhoneId] = useState("");
+  const [whatsappBusinessAccountId, setWhatsAppBusinessAccountId] =
+    useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [googleDiagnostic, setGoogleDiagnostic] =
@@ -262,6 +267,14 @@ export default function IntegrationsPage() {
         : Array.isArray(payload?.integrations)
           ? payload.integrations
           : [];
+      const savedWhatsAppBusinessAccountId = statuses.find(
+        (item) => item.provider === "whatsapp",
+      )?.whatsapp?.business_account_id;
+      if (savedWhatsAppBusinessAccountId) {
+        setWhatsAppBusinessAccountId((current) =>
+          current || savedWhatsAppBusinessAccountId,
+        );
+      }
       setAccounts(Array.isArray(payload?.accounts) ? payload.accounts : []);
       setConnectionOptions(
         payload?.connectionOptions &&
@@ -379,6 +392,8 @@ export default function IntegrationsPage() {
                         can_receive: result.can_receive,
                         phone_number: result.phoneNumber,
                         selected_phone_id: result.selectedPhoneId,
+                        business_account_id:
+                          item.whatsapp?.business_account_id,
                         phones: result.phones,
                       }
                     : item.whatsapp
@@ -502,7 +517,20 @@ export default function IntegrationsPage() {
   };
 
   const connect = (provider: keyof typeof CONFIG) => {
-    window.location.assign(CONFIG[provider].connectUrl);
+    const target = new URL(CONFIG[provider].connectUrl, window.location.origin);
+    if (
+      provider === "whatsapp" &&
+      connectionOptions.whatsapp?.preferred === "composio"
+    ) {
+      if (!/^\d{5,32}$/.test(whatsappBusinessAccountId)) {
+        setError(
+          "Enter the numeric WhatsApp Business Account ID (WABA ID) before connecting.",
+        );
+        return;
+      }
+      target.searchParams.set("waba_id", whatsappBusinessAccountId);
+    }
+    window.location.assign(`${target.pathname}${target.search}`);
   };
 
   const healthy = integrations.filter(
@@ -897,7 +925,8 @@ export default function IntegrationsPage() {
                     )}
                     {integration.connectionMode === "composio" &&
                       !integration.whatsapp.can_send &&
-                      integration.whatsapp.phones.length === 0 && (
+                      integration.whatsapp.phones.length === 0 &&
+                      integration.whatsapp.business_account_id && (
                         <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
                           <label
                             htmlFor="whatsapp-phone-number-id"
@@ -943,6 +972,51 @@ export default function IntegrationsPage() {
                       )}
                   </div>
                 )}
+                {integration.provider === "whatsapp" &&
+                  connectionOptions.whatsapp?.preferred === "composio" &&
+                  !integration.whatsapp?.business_account_id && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <label
+                        htmlFor="whatsapp-business-account-id"
+                        className="block font-medium text-amber-900"
+                      >
+                        WhatsApp Business Account ID (WABA ID)
+                      </label>
+                      <p className="mt-1 text-xs text-amber-800">
+                        Enter the numeric WABA ID from Meta WhatsApp Manager.
+                        Clippy will pass it securely to Composio during
+                        reconnection.
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          id="whatsapp-business-account-id"
+                          aria-label="Meta WhatsApp Business Account ID"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete="off"
+                          value={whatsappBusinessAccountId}
+                          onChange={(event) =>
+                            setWhatsAppBusinessAccountId(
+                              event.target.value.replace(/\D/g, ""),
+                            )
+                          }
+                          placeholder="e.g. 123456789012345"
+                          className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2"
+                        />
+                        <button
+                          type="button"
+                          disabled={
+                            busy === "whatsapp" ||
+                            !/^\d{5,32}$/.test(whatsappBusinessAccountId)
+                          }
+                          onClick={() => connect("whatsapp")}
+                          className="rounded-lg bg-emerald-600 px-3 py-2 font-semibold text-white disabled:opacity-50"
+                        >
+                          Reconnect
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 <p>
                   {integration.itemsIndexed.toLocaleString("en-AU")} items
                   indexed · Last sync {relativeTime(integration.lastSync)}

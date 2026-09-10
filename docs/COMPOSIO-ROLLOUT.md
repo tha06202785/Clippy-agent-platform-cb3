@@ -11,9 +11,11 @@ integration vendor.
 ## WhatsApp connection flow
 
 1. An authenticated agent selects **Connect WhatsApp Business**.
-2. If Composio is configured, Clippy creates a short-lived Connect Link for a
-   pseudonymous, organisation-scoped user ID. Otherwise, Clippy retains the
-   direct Meta Embedded Signup flow.
+2. If Composio is configured, Clippy collects the numeric Meta WhatsApp
+   Business Account ID (WABA ID) and creates a short-lived Connect Link for a
+   pseudonymous, organisation-scoped user ID. The WABA ID is passed as
+   `connection_data.generic_id`, which Composio requires even for WhatsApp
+   OAuth. Otherwise, Clippy retains the direct Meta Embedded Signup flow.
 3. Composio returns to Clippy's callback with the connected-account ID.
 4. Clippy verifies the signed browser state, current user, account ownership,
    toolkit and active status with Composio.
@@ -37,9 +39,12 @@ automatically retried.
 
 The callback and **Test connection** use `WHATSAPP_GET_PHONE_NUMBERS` to discover
 sender numbers. One messaging-capable number is selected automatically.
-Multiple Cloud API numbers require an explicit selection in Connections. A
-vanished saved number is never silently replaced. Sender selection also creates
-the phone-to-agency mapping used by Clippy's existing Meta webhook.
+Multiple Cloud API numbers require an explicit selection in Connections. If
+the WABA-scoped list is empty, Connections accepts a numeric Meta Phone Number
+ID and validates it with `WHATSAPP_GET_PHONE_NUMBER`; the ID is never trusted
+without that provider check. The exact sender is checked again before each send.
+A vanished saved number is never silently replaced. Sender selection also
+creates the phone-to-agency mapping used by Clippy's existing Meta webhook.
 
 Connections reports sending readiness separately from receiving proof. OAuth
 alone no longer marks this integration healthy. Health tests preserve indexed
