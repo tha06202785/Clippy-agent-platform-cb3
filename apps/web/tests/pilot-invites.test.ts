@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   addHours,
+  canResendPilotInvite,
   createPilotInviteSchema,
   getPilotInviteDisplayStatus,
   getPilotRedirectUrl,
@@ -44,6 +45,15 @@ describe("private pilot invitations", () => {
     const expired = invite({ expires_at: addHours(now, -1).toISOString() });
     expect(isPilotInviteActive(expired, now)).toBe(false);
     expect(getPilotInviteDisplayStatus(expired, now)).toBe("expired");
+  });
+
+  it("keeps expired pending invitations eligible for resend", () => {
+    const expired = invite({ expires_at: addHours(now, -1).toISOString() });
+    expect(getPilotInviteDisplayStatus(expired, now)).toBe("expired");
+    expect(canResendPilotInvite(expired)).toBe(true);
+    expect(
+      canResendPilotInvite(invite({ status: "accepted" })),
+    ).toBe(false);
   });
 
   it("treats accepted pilots as active only during their trial", () => {
