@@ -10,7 +10,11 @@ import {
   ShieldCheck,
   UserRoundX,
 } from "lucide-react";
-import type { PilotInviteRecord, PilotInviteStatus } from "@/lib/pilot-invites";
+import {
+  canResendPilotInvite,
+  type PilotInviteRecord,
+  type PilotInviteStatus,
+} from "@/lib/pilot-invites";
 import type { PilotProgress } from "@/lib/pilot-progress";
 
 type DisplayInvite = PilotInviteRecord & {
@@ -92,9 +96,29 @@ export default function PilotInvitesPage() {
         body: JSON.stringify({ email }),
       });
       const payload = (await response.json()) as {
+        code?: string;
         error?: string;
+        inviteId?: string;
         message?: string;
       };
+      if (
+        response.status === 409 &&
+        payload.code === "pilot_invite_resend_required" &&
+        payload.inviteId
+      ) {
+        const expiredInvite = data?.invites.find(
+          (invite) => invite.id === payload.inviteId,
+        );
+        if (!expiredInvite) {
+          await load();
+          throw new Error(
+            "The expired invitation was refreshed. Please press Send again.",
+          );
+        }
+        const resent = await act(expiredInvite, "resend");
+        if (resent) setEmail("");
+        return;
+      }
       if (!response.ok)
         throw new Error(payload.error || "Invitation could not be sent");
       setEmail("");
@@ -142,12 +166,14 @@ export default function PilotInvitesPage() {
           (action === "extend" ? "Pilot extended by 14 days" : "Pilot updated"),
       );
       await load();
+      return true;
     } catch (actionError) {
       setError(
         actionError instanceof Error
           ? actionError.message
           : "Pilot access could not be updated",
       );
+      return false;
     } finally {
       setBusyId("");
     }
@@ -293,7 +319,22 @@ export default function PilotInvitesPage() {
               <tbody className="divide-y">
                 {data.invites.map((invite) => (
                   <tr key={invite.id}>
-                    <td className="p-4 font-medium">{invite.email}</td>
+                    <td className="p-4 font-medium">
+                      <div>{invite.email}</div>
+                      {canResendPilotInvite(invite) && (
+                        <button
+                          type="button"
+                          onClick={() => void act(invite, "resend")}
+                          disabled={busyId === invite.id}
+                          className="mt-3 inline-flex items-center gap-1 rounded-lg border px-3 py-2 font-medium hover:bg-muted disabled:opacity-50 md:hidden"
+                        >
+                          <RotateCw className="h-3.5 w-3.5" />
+                          {invite.display_status === "expired"
+                            ? "Resend expired link"
+                            : "Resend"}
+                        </button>
+                      )}
+                    </td>
                     <td className="p-4">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClasses(invite.display_status)}`}
@@ -339,12 +380,12 @@ export default function PilotInvitesPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex justify-end gap-2">
-                        {invite.display_status === "pending" && (
+                        {canResendPilotInvite(invite) && (
                           <button
                             type="button"
                             onClick={() => void act(invite, "resend")}
                             disabled={busyId === invite.id}
-                            className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 font-medium hover:bg-muted disabled:opacity-50"
+                            className="hidden items-center gap-1 rounded-lg border px-3 py-2 font-medium hover:bg-muted disabled:opacity-50 md:inline-flex"
                           >
                             <RotateCw className="h-3.5 w-3.5" />
                             Resend
