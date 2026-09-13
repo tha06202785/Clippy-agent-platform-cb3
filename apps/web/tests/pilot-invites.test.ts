@@ -5,6 +5,7 @@ import {
   canResendPilotInvite,
   createPilotInviteSchema,
   getPilotInviteDisplayStatus,
+  getPilotInviteEmailFailure,
   getPilotRedirectUrl,
   isPilotInviteActive,
   normalizePilotEmail,
@@ -50,10 +51,24 @@ describe("private pilot invitations", () => {
   it("keeps expired pending invitations eligible for resend", () => {
     const expired = invite({ expires_at: addHours(now, -1).toISOString() });
     expect(getPilotInviteDisplayStatus(expired, now)).toBe("expired");
-    expect(canResendPilotInvite(expired)).toBe(true);
+    expect(canResendPilotInvite(expired, now)).toBe(true);
+    expect(canResendPilotInvite(invite({}), now)).toBe(false);
     expect(
-      canResendPilotInvite(invite({ status: "accepted" })),
+      canResendPilotInvite(invite({ status: "accepted" }), now),
     ).toBe(false);
+  });
+
+  it("reports email throttling without exposing provider details", () => {
+    expect(
+      getPilotInviteEmailFailure(
+        { status: 429, message: "email rate limit exceeded" },
+        "fallback",
+      ),
+    ).toEqual({
+      message:
+        "The invitation email limit was reached. Please wait before trying again.",
+      status: 429,
+    });
   });
 
   it("treats accepted pilots as active only during their trial", () => {

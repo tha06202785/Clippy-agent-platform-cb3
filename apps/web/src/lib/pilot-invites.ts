@@ -60,9 +60,44 @@ export function isPilotInviteActive(
 }
 
 export function canResendPilotInvite(
-  invite: Pick<PilotInviteRecord, "status">,
+  invite: Pick<PilotInviteRecord, "status" | "expires_at">,
+  now = new Date(),
 ): boolean {
-  return invite.status === "pending";
+  return (
+    invite.status === "pending" &&
+    new Date(invite.expires_at).getTime() <= now.getTime()
+  );
+}
+
+type PilotInviteEmailError = {
+  code?: string;
+  message?: string;
+  status?: number;
+};
+
+export function getPilotInviteEmailFailure(
+  error: PilotInviteEmailError | null | undefined,
+  fallback: string,
+): { message: string; status: number } {
+  const detail = error?.message?.toLowerCase() || "";
+  if (
+    error?.status === 429 ||
+    detail.includes("rate limit") ||
+    detail.includes("too many requests")
+  ) {
+    return {
+      message:
+        "The invitation email limit was reached. Please wait before trying again.",
+      status: 429,
+    };
+  }
+  if (detail.includes("already")) {
+    return {
+      message: "This email already has a Clippy account",
+      status: 409,
+    };
+  }
+  return { message: fallback, status: error?.status || 502 };
 }
 
 export function getPilotInviteDisplayStatus(
