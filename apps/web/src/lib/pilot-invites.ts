@@ -59,6 +59,12 @@ export function isPilotInviteActive(
   return false;
 }
 
+export function canResendPilotInvite(
+  invite: Pick<PilotInviteRecord, "status">,
+): boolean {
+  return invite.status === "pending";
+}
+
 export function getPilotInviteDisplayStatus(
   invite: Pick<PilotInviteRecord, "status" | "expires_at" | "trial_ends_at">,
   now = new Date(),
