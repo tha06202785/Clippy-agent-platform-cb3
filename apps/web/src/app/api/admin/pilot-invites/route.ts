@@ -6,6 +6,7 @@ import {
   canResendPilotInvite,
   createPilotInviteSchema,
   getPilotInviteDisplayStatus,
+  getPilotInviteEmailFailure,
   getPilotRedirectUrl,
   isPilotInviteActive,
   normalizePilotEmail,
@@ -146,10 +147,18 @@ export async function POST(request: NextRequest) {
         data: { access_type: "pilot" },
       });
     if (inviteError || !invited.user) {
-      const message = inviteError?.message?.toLowerCase().includes("already")
-        ? "This email already has a Clippy account"
-        : "The secure pilot invitation could not be emailed";
-      return NextResponse.json({ error: message }, { status: 409 });
+      const failure = getPilotInviteEmailFailure(
+        inviteError,
+        "The secure pilot invitation could not be emailed",
+      );
+      console.warn("Pilot invite email delivery failed", {
+        code: inviteError?.code,
+        status: inviteError?.status,
+      });
+      return NextResponse.json(
+        { error: failure.message },
+        { status: failure.status },
+      );
     }
 
     const expiresAt = addHours(now, PILOT_INVITE_VALIDITY_HOURS).toISOString();
