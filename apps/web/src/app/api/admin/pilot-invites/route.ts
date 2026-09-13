@@ -3,6 +3,7 @@ import { getPlatformAdminContext } from "@/lib/admin-access";
 import { getAppOrigin } from "@/lib/app-origin";
 import {
   addHours,
+  canResendPilotInvite,
   createPilotInviteSchema,
   getPilotInviteDisplayStatus,
   getPilotRedirectUrl,
@@ -115,9 +116,20 @@ export async function POST(request: NextRequest) {
     const invites = await listInvites(admin);
     const now = new Date();
     const active = invites.filter((invite) => isPilotInviteActive(invite, now));
-    if (active.some((invite) => invite.email === email)) {
+    const existing = invites.find((invite) => invite.email === email);
+    if (existing && isPilotInviteActive(existing, now)) {
       return NextResponse.json(
         { error: "This agent already has an active pilot invite" },
+        { status: 409 },
+      );
+    }
+    if (existing && canResendPilotInvite(existing)) {
+      return NextResponse.json(
+        {
+          error: "This invitation expired and must be resent",
+          code: "pilot_invite_resend_required",
+          inviteId: existing.id,
+        },
         { status: 409 },
       );
     }
