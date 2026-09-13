@@ -4,6 +4,8 @@ import { getPlatformAdminContext } from "@/lib/admin-access";
 import { getAppOrigin } from "@/lib/app-origin";
 import {
   addHours,
+  canResendPilotInvite,
+  getPilotInviteEmailFailure,
   getPilotRedirectUrl,
   normalizePilotEmail,
   pilotInviteActionSchema,
@@ -118,6 +120,15 @@ export async function PATCH(
         { status: 409 },
       );
     }
+    if (!canResendPilotInvite(invite, now)) {
+      return NextResponse.json(
+        {
+          error:
+            "A valid invitation is already pending. Ask the agent to use the latest email.",
+        },
+        { status: 409 },
+      );
+    }
 
     const email = normalizePilotEmail(invite.email);
     const { error: revokeOldError } = await admin
@@ -148,11 +159,17 @@ export async function PATCH(
         data: { access_type: "pilot" },
       });
     if (inviteError || !reinvited.user) {
+      const failure = getPilotInviteEmailFailure(
+        inviteError,
+        "The old link was revoked, but a new email could not be sent",
+      );
+      console.warn("Pilot resend email delivery failed", {
+        code: inviteError?.code,
+        status: inviteError?.status,
+      });
       return NextResponse.json(
-        {
-          error: "The old link was revoked, but a new email could not be sent",
-        },
-        { status: 500 },
+        { error: failure.message },
+        { status: failure.status },
       );
     }
 
