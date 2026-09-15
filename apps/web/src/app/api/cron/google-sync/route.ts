@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
       });
     } catch (syncError) {
       console.error("Scheduled Google sync failed", orgId, syncError);
-      await recordGoogleSyncFailure(orgId, syncError);
+      await recordGoogleSyncFailure(orgId, syncError, account.id);
       results.push({
         org_id: orgId,
         integration_account_id: account.id || null,

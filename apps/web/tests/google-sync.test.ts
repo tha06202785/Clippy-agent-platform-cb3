@@ -9,6 +9,7 @@ import {
   extractPropertyAddress,
   isLikelyRealEstateCalendarItem,
   isLikelyRealEstateLead,
+  isGoogleReconnectRequired,
   mapWithConcurrency,
   stripQuotedReply,
 } from "@/lib/integrations/google-sync";
@@ -16,6 +17,23 @@ import {
 const encode = (value: string) => Buffer.from(value).toString("base64url");
 
 describe("Google knowledge sync", () => {
+  it.each([
+    "Google token refresh failed (400)",
+    "Google token refresh failed (401)",
+    "Google access token is missing; reconnect Google",
+  ])(
+    "marks permanent Google authentication failures for reconnect: %s",
+    (message) => {
+      expect(isGoogleReconnectRequired(new Error(message))).toBe(true);
+    },
+  );
+
+  it("keeps transient Google failures eligible for a later retry", () => {
+    expect(
+      isGoogleReconnectRequired(new Error("Gmail request failed (503)")),
+    ).toBe(false);
+  });
+
   it("bounds Gmail request fan-out while preserving result order", async () => {
     let active = 0;
     let maximumActive = 0;

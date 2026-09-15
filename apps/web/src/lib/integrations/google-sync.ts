@@ -2074,11 +2074,25 @@ export async function syncGoogleKnowledge(
   return { gmail, calendar, learning: { ...learning, messageHistory } };
 }
 
-export async function recordGoogleSyncFailure(orgId: string, error: unknown) {
+export function isGoogleReconnectRequired(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return (
+    /google token refresh failed \((400|401|403)\)/i.test(message) ||
+    /reconnect google/i.test(message) ||
+    /google access token is missing/i.test(message)
+  );
+}
+
+export async function recordGoogleSyncFailure(
+  orgId: string,
+  error: unknown,
+  integrationAccountId?: string | null,
+) {
   const admin = createAdminClient();
   const message =
     error instanceof Error ? error.message.slice(0, 300) : "Google sync failed";
   const now = new Date().toISOString();
+  const reconnectRequired = isGoogleReconnectRequired(error);
   await Promise.all(
     ["gmail", "google-calendar"].map(async (provider) => {
       const { data: current } = await admin
@@ -2100,9 +2114,38 @@ export async function recordGoogleSyncFailure(orgId: string, error: unknown) {
       );
       await admin
         .from("integrations")
-        .update({ last_error: message, updated_at: now })
+        .update({
+          ...(reconnectRequired ? { status: "error" } : {}),
+          last_error: message,
+          updated_at: now,
+        })
         .eq("org_id", orgId)
         .eq("provider", provider);
     }),
   );
+
+  if (integrationAccountId) {
+    await Promise.all([
+      admin
+        .from("integration_accounts")
+        .update({
+          ...(reconnectRequired ? { status: "error" } : {}),
+          last_error: message,
+          updated_at: now,
+        })
+        .eq("id", integrationAccountId)
+        .eq("org_id", orgId),
+      admin
+        .from("integration_resources")
+        .update({
+          ...(reconnectRequired
+            ? { status: "error", next_sync_at: null }
+            : {}),
+          last_error: message,
+          updated_at: now,
+        })
+        .eq("integration_account_id", integrationAccountId)
+        .eq("org_id", orgId),
+    ]);
+  }
 }
