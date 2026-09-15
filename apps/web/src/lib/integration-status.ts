@@ -12,9 +12,7 @@ type ConnectionTestResult = {
 
 const GOOGLE_REQUIRED_SCOPES: Record<string, string[]> = {
   gmail: ["https://www.googleapis.com/auth/gmail.modify"],
-  "google-calendar": [
-    "https://www.googleapis.com/auth/calendar.events",
-  ],
+  "google-calendar": ["https://www.googleapis.com/auth/calendar.events"],
 };
 
 export function getGooglePermissionSummary(
@@ -64,4 +62,16 @@ export function isIntegrationStale(
   const lastSync = new Date(lastSyncAt).getTime();
   if (!Number.isFinite(lastSync)) return false;
   return now.getTime() - lastSync > staleAfterDays * 86_400_000;
+}
+
+export function isOperationalIntegration(input: {
+  connectionStatus: string | null | undefined;
+  healthStatus: string | null | undefined;
+  lastError?: string | null;
+}): boolean {
+  return (
+    ["connected", "healthy"].includes(input.connectionStatus || "") &&
+    ["connected", "healthy"].includes(input.healthStatus || "") &&
+    !input.lastError?.trim()
+  );
 }

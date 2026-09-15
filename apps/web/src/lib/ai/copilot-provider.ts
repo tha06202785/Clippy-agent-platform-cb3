@@ -4,7 +4,10 @@ type ChatMessage = {
 };
 
 type ChatCompletion = {
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{
+    message?: { content?: string };
+    finish_reason?: string | null;
+  }>;
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
@@ -15,12 +18,32 @@ type ChatCompletion = {
 
 type CopilotProvider = "vercel-ai-gateway" | "openai" | "ollama";
 
+export type ProviderAttemptErrorCode =
+  | "provider_authentication_failed"
+  | "provider_rate_limited"
+  | "provider_timeout"
+  | "provider_incomplete_response"
+  | "provider_invalid_response"
+  | "provider_network_error"
+  | "provider_request_rejected"
+  | "provider_unavailable";
+
+export type ProviderAttemptTelemetry = {
+  provider: CopilotProvider;
+  attempt: number;
+  status: "success" | "error";
+  durationMs: number;
+  httpStatus?: number;
+  errorCode?: ProviderAttemptErrorCode;
+};
+
 type CopilotCompletion = {
   data: ChatCompletion;
   model: string;
   provider: CopilotProvider;
   attempts: number;
   usedRetry: boolean;
+  providerAttempts: ProviderAttemptTelemetry[];
 };
 
 type CompletionOptions = {
@@ -59,13 +82,27 @@ class ProviderHttpError extends Error {
   }
 }
 
+class ProviderIncompleteResponseError extends Error {
+  constructor() {
+    super("Provider response stopped before completion");
+    this.name = "ProviderIncompleteResponseError";
+  }
+}
+
 export class CopilotProviderUnavailableError extends Error {
   readonly attemptedProviders: CopilotProvider[];
+  readonly providerAttempts: ProviderAttemptTelemetry[];
+  readonly errorCode: ProviderAttemptErrorCode;
 
-  constructor(attemptedProviders: CopilotProvider[]) {
+  constructor(
+    attemptedProviders: CopilotProvider[],
+    providerAttempts: ProviderAttemptTelemetry[] = [],
+  ) {
     super("AI service is temporarily unavailable");
     this.name = "CopilotProviderUnavailableError";
     this.attemptedProviders = attemptedProviders;
+    this.providerAttempts = providerAttempts;
+    this.errorCode = primaryProviderErrorCode(providerAttempts);
   }
 }
 
@@ -108,6 +145,46 @@ function safeProviderError(error: unknown) {
   if (error instanceof SyntaxError) return "invalid_json";
   if (error instanceof TypeError) return "network_error";
   return "provider_error";
+}
+
+function providerAttemptErrorCode(error: unknown): ProviderAttemptErrorCode {
+  if (error instanceof ProviderHttpError) {
+    if (error.status === 401 || error.status === 403) {
+      return "provider_authentication_failed";
+    }
+    if (error.status === 429) return "provider_rate_limited";
+    if (error.status === 408) return "provider_timeout";
+    if (error.status >= 500) return "provider_unavailable";
+    return "provider_request_rejected";
+  }
+  if (error instanceof ProviderIncompleteResponseError) {
+    return "provider_incomplete_response";
+  }
+  if (isAbortError(error)) return "provider_timeout";
+  if (error instanceof SyntaxError) return "provider_invalid_response";
+  if (error instanceof TypeError) return "provider_network_error";
+  return "provider_unavailable";
+}
+
+export function primaryProviderErrorCode(
+  attempts: ProviderAttemptTelemetry[],
+): ProviderAttemptErrorCode {
+  const codes = new Set(
+    attempts
+      .filter((attempt) => attempt.status === "error")
+      .map((attempt) => attempt.errorCode),
+  );
+  const priority: ProviderAttemptErrorCode[] = [
+    "provider_authentication_failed",
+    "provider_rate_limited",
+    "provider_timeout",
+    "provider_incomplete_response",
+    "provider_invalid_response",
+    "provider_network_error",
+    "provider_request_rejected",
+    "provider_unavailable",
+  ];
+  return priority.find((code) => codes.has(code)) || "provider_unavailable";
 }
 
 function createDeadlineSignal(
@@ -163,6 +240,7 @@ async function postCompletion({
   signal,
   attemptTimeoutMs,
   maxAttempts,
+  attemptTelemetry,
 }: {
   url: string;
   token: string;
@@ -171,6 +249,7 @@ async function postCompletion({
   signal: AbortSignal;
   attemptTimeoutMs: number;
   maxAttempts: number;
+  attemptTelemetry: ProviderAttemptTelemetry[];
 }) {
   let lastError: unknown;
 
@@ -212,10 +291,29 @@ async function postCompletion({
       if (!data.choices?.[0]?.message?.content?.trim()) {
         throw new SyntaxError("Provider returned an empty completion");
       }
+      if (data.choices[0]?.finish_reason === "length") {
+        throw new ProviderIncompleteResponseError();
+      }
+      attemptTelemetry.push({
+        provider,
+        attempt,
+        status: "success",
+        httpStatus: response.status,
+        durationMs: Date.now() - startedAt,
+      });
       return { data, attempts: attempt };
     } catch (error) {
       lastError = error;
       const retryable = isRetryableProviderError(error);
+      attemptTelemetry.push({
+        provider,
+        attempt,
+        status: "error",
+        httpStatus:
+          error instanceof ProviderHttpError ? error.status : undefined,
+        errorCode: providerAttemptErrorCode(error),
+        durationMs: Date.now() - startedAt,
+      });
       console.warn(
         JSON.stringify({
           level: "warning",
@@ -257,6 +355,7 @@ export async function requestCopilotCompletion({
 }: CompletionOptions): Promise<CopilotCompletion> {
   const failures: string[] = [];
   const attemptedProviders: CopilotProvider[] = [];
+  const providerAttempts: ProviderAttemptTelemetry[] = [];
   const deadline = createDeadlineSignal(signal, providerBudgetMs);
 
   try {
@@ -278,6 +377,7 @@ export async function requestCopilotCompletion({
           signal: deadline.signal,
           attemptTimeoutMs,
           maxAttempts,
+          attemptTelemetry: providerAttempts,
           body: {
             model,
             messages,
@@ -288,10 +388,7 @@ export async function requestCopilotCompletion({
             providerOptions: {
               gateway: {
                 user: userId,
-                models: [
-                  "openai/gpt-5.4-mini",
-                  "openai/gpt-5.4-nano",
-                ],
+                models: ["openai/gpt-5.4-mini", "openai/gpt-5.4-nano"],
                 tags: gatewayTags,
               },
             },
@@ -303,6 +400,7 @@ export async function requestCopilotCompletion({
           provider: "vercel-ai-gateway",
           attempts: result.attempts,
           usedRetry: result.attempts > 1,
+          providerAttempts,
         };
       } catch (error) {
         failures.push(`vercel-ai-gateway:${safeProviderError(error)}`);
@@ -325,6 +423,7 @@ export async function requestCopilotCompletion({
           signal: deadline.signal,
           attemptTimeoutMs,
           maxAttempts,
+          attemptTelemetry: providerAttempts,
           body: {
             model,
             messages,
@@ -340,6 +439,7 @@ export async function requestCopilotCompletion({
           provider: "openai",
           attempts: result.attempts,
           usedRetry: result.attempts > 1,
+          providerAttempts,
         };
       } catch (error) {
         failures.push(`openai:${safeProviderError(error)}`);
@@ -362,6 +462,7 @@ export async function requestCopilotCompletion({
           signal: deadline.signal,
           attemptTimeoutMs,
           maxAttempts,
+          attemptTelemetry: providerAttempts,
           body: {
             model,
             messages,
@@ -376,6 +477,7 @@ export async function requestCopilotCompletion({
           provider: "ollama",
           attempts: result.attempts,
           usedRetry: result.attempts > 1,
+          providerAttempts,
         };
       } catch (error) {
         failures.push(`ollama:${safeProviderError(error)}`);
@@ -390,7 +492,10 @@ export async function requestCopilotCompletion({
         failures,
       }),
     );
-    throw new CopilotProviderUnavailableError(attemptedProviders);
+    throw new CopilotProviderUnavailableError(
+      attemptedProviders,
+      providerAttempts,
+    );
   } finally {
     deadline.cleanup();
   }

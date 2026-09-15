@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getGooglePermissionSummary,
   isIntegrationStale,
+  isOperationalIntegration,
   requiresReconnectAfterTest,
 } from "../src/lib/integration-status";
 
@@ -66,5 +67,27 @@ describe("integration status", () => {
     expect(isIntegrationStale("2026-08-14T23:59:59.000Z", now)).toBe(true);
     expect(isIntegrationStale("2026-08-21T00:00:00.000Z", now)).toBe(false);
     expect(isIntegrationStale(undefined, now)).toBe(false);
+  });
+
+  it("requires both a connected account and a clean health check", () => {
+    expect(
+      isOperationalIntegration({
+        connectionStatus: "connected",
+        healthStatus: "healthy",
+      }),
+    ).toBe(true);
+    expect(
+      isOperationalIntegration({
+        connectionStatus: "connected",
+        healthStatus: "error",
+        lastError: "Token refresh failed",
+      }),
+    ).toBe(false);
+    expect(
+      isOperationalIntegration({
+        connectionStatus: "connected",
+        healthStatus: undefined,
+      }),
+    ).toBe(false);
   });
 });

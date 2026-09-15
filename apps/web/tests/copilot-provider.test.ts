@@ -68,6 +68,15 @@ describe("Copilot provider routing", () => {
     });
 
     expect(result.provider).toBe("ollama");
+    expect(result.providerAttempts).toEqual([
+      expect.objectContaining({
+        provider: "vercel-ai-gateway",
+        status: "error",
+        httpStatus: 403,
+        errorCode: "provider_authentication_failed",
+      }),
+      expect.objectContaining({ provider: "ollama", status: "success" }),
+    ]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1][0]).toBe(
       "https://ollama.com/v1/chat/completions",
@@ -128,13 +137,23 @@ describe("Copilot provider routing", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    await requestCopilotCompletion({
+    const result = await requestCopilotCompletion({
       messages: [{ role: "user", content: "Inspection please" }],
       userId: "user-1",
       responseFormat: { type: "json_object" },
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.providerAttempts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "error",
+          httpStatus: 429,
+          errorCode: "provider_rate_limited",
+        }),
+        expect.objectContaining({ status: "success" }),
+      ]),
+    );
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
       response_format: { type: "json_object" },
     });
@@ -191,6 +210,48 @@ describe("Copilot provider routing", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.usedRetry).toBe(true);
+  });
+
+  it("rejects a length-truncated response and falls back", async () => {
+    process.env.VERCEL_OIDC_TOKEN = "oidc-token";
+    process.env.OLLAMA_API_KEY = "ollama-token";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: { content: "This answer stops mid-sentence" },
+                finish_reason: "length",
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "Complete fallback response." } }],
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await requestCopilotCompletion({
+      messages: [{ role: "user", content: "Hello" }],
+      userId: "user-1",
+      maxAttempts: 1,
+    });
+
+    expect(result.provider).toBe("ollama");
+    expect(result.providerAttempts[0]).toMatchObject({
+      provider: "vercel-ai-gateway",
+      status: "error",
+      errorCode: "provider_incomplete_response",
+    });
   });
 
   it("stops a hung provider at the total provider budget", async () => {

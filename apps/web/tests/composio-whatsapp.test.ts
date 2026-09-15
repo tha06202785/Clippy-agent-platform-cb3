@@ -110,12 +110,20 @@ function providerResponse(
   return Response.json(
     url.includes("/connected_accounts/")
       ? account
-      : url.endsWith("WHATSAPP_GET_PHONE_NUMBERS")
+      : url.endsWith("WHATSAPP_GET_PHONE_NUMBER")
         ? {
             successful: true,
-            data: { data: JSON.stringify({ data: [phone] }), successful: true },
+            data: { data: JSON.stringify(phone), successful: true },
           }
-        : sendResponse,
+        : url.endsWith("WHATSAPP_GET_PHONE_NUMBERS")
+          ? {
+              successful: true,
+              data: {
+                data: JSON.stringify({ data: [phone] }),
+                successful: true,
+              },
+            }
+          : sendResponse,
   );
 }
 

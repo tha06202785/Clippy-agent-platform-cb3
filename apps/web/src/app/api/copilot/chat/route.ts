@@ -21,6 +21,7 @@ import {
 import { evaluateCopilotReply } from "@/lib/copilot-compliance";
 import {
   CopilotProviderUnavailableError,
+  primaryProviderErrorCode,
   requestCopilotCompletion,
 } from "@/lib/ai/copilot-provider";
 import {
@@ -49,6 +50,16 @@ const copilotRequestSchema = z.object({
 });
 
 class ContextConflictError extends Error {}
+
+class ContextLoadError extends Error {
+  constructor(
+    readonly contextType: "client" | "property",
+    readonly databaseCode?: string,
+  ) {
+    super(`${contextType} context query failed`);
+    this.name = "ContextLoadError";
+  }
+}
 
 function firstText(record: RecordValue | null, keys: string[]): string | null {
   if (!record) return null;
@@ -320,7 +331,10 @@ export async function POST(req: NextRequest) {
         .eq("id", leadId)
         .eq("org_id", orgId)
         .maybeSingle();
-      if (error) console.error("Copilot client context failed:", error.code);
+      if (error) {
+        console.error("Copilot client context failed:", error.code);
+        throw new ContextLoadError("client", error.code);
+      }
       if (!client) return contextNotFound(requestId);
       clientContext = {
         name: client.full_name,
@@ -344,7 +358,10 @@ export async function POST(req: NextRequest) {
         .eq("id", listingId)
         .eq("org_id", orgId)
         .maybeSingle();
-      if (error) console.error("Copilot property context failed:", error.code);
+      if (error) {
+        console.error("Copilot property context failed:", error.code);
+        throw new ContextLoadError("property", error.code);
+      }
       if (!property) return contextNotFound(requestId);
       propertyContext = {
         address: property.address,
@@ -727,7 +744,13 @@ export async function POST(req: NextRequest) {
       costMicros: estimateCostMicros(inputTokens, outputTokens),
       latencyMs: Date.now() - startedAt,
       status: compliance.passed ? "success" : "blocked",
-      errorCode: compliance.passed ? undefined : "compliance_review",
+      errorCode: compliance.passed
+        ? completion.providerAttempts.some(
+            (attempt) => attempt.status === "error",
+          )
+          ? primaryProviderErrorCode(completion.providerAttempts)
+          : undefined
+        : "compliance_review",
       metadata: {
         lead_id: leadId || null,
         listing_id: listingId || null,
@@ -740,6 +763,10 @@ export async function POST(req: NextRequest) {
         compliance_passed: compliance.passed,
         compliance_checks: compliance.checks,
         response_withheld: !compliance.passed,
+        provider_fallback: completion.providerAttempts.some(
+          (attempt) => attempt.status === "error",
+        ),
+        provider_attempts: completion.providerAttempts,
       },
     });
 
@@ -789,6 +816,7 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const providerUnavailable =
       error instanceof CopilotProviderUnavailableError;
+    const contextLoadError = error instanceof ContextLoadError;
     console.error("Copilot error:", error);
 
     if (error instanceof ContextConflictError) {
@@ -815,11 +843,22 @@ export async function POST(req: NextRequest) {
         latencyMs: Date.now() - startedAt,
         status: "error",
         errorCode: providerUnavailable
-          ? "provider_unavailable"
-          : "application_error",
+          ? error.errorCode
+          : contextLoadError
+            ? `${error.contextType}_context_query_failed`
+            : "application_error",
         metadata: {
           error_class:
             error instanceof Error ? error.name : "NonErrorException",
+          ...(providerUnavailable
+            ? { provider_attempts: error.providerAttempts }
+            : {}),
+          ...(contextLoadError
+            ? {
+                context_type: error.contextType,
+                database_error_code: error.databaseCode || null,
+              }
+            : {}),
         },
       });
     }

@@ -1,3 +1,10 @@
+import {
+  CopilotProviderUnavailableError,
+  primaryProviderErrorCode,
+  type ProviderAttemptErrorCode,
+  type ProviderAttemptTelemetry,
+} from "./copilot-provider";
+
 export type AiMessageStageName =
   "intent" | "qualification" | "stage" | "response" | "compliance";
 
@@ -8,6 +15,8 @@ export type AiMessageStageTelemetry = {
   model?: string;
   attempts?: number;
   usedRetry?: boolean;
+  providerAttempts?: ProviderAttemptTelemetry[];
+  errorCode?: ProviderAttemptErrorCode;
   durationMs: number;
 };
 
@@ -17,6 +26,7 @@ type StageResult<T> = {
   model: string;
   attempts: number;
   usedRetry: boolean;
+  providerAttempts?: ProviderAttemptTelemetry[];
 };
 
 export async function runAiMessageStage<T>({
@@ -42,13 +52,23 @@ export async function runAiMessageStage<T>({
       model: result.model,
       attempts: result.attempts,
       usedRetry: result.usedRetry,
+      providerAttempts: result.providerAttempts,
+      errorCode: result.providerAttempts?.some(
+        (attempt) => attempt.status === "error",
+      )
+        ? primaryProviderErrorCode(result.providerAttempts)
+        : undefined,
       durationMs: Date.now() - startedAt,
     });
     return result.value;
   } catch (error) {
+    const providerError =
+      error instanceof CopilotProviderUnavailableError ? error : null;
     telemetry.push({
       stage,
       status: "fallback",
+      providerAttempts: providerError?.providerAttempts,
+      errorCode: providerError?.errorCode,
       durationMs: Date.now() - startedAt,
     });
     onFallback?.(error);

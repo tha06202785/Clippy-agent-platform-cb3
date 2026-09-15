@@ -10,6 +10,7 @@ import {
   normaliseImportPhone,
 } from "@/lib/crm-import-deduplication";
 import { isLikelyRealEstateLead } from "@/lib/integrations/gmail-relevance";
+import { isOperationalIntegration } from "@/lib/integration-status";
 
 export const dynamic = "force-dynamic";
 
@@ -154,28 +155,54 @@ export async function GET() {
       });
 
       const integrationStarted = Date.now();
-      const { data: integrations, error: integrationError } = await supabase
-        .from("integrations")
-        .select("provider, status")
-        .eq("org_id", orgId)
-        .limit(50);
-
-      const connected =
-        integrations?.filter((item: any) =>
-          ["connected", "healthy"].includes(item.status),
-        ).length || 0;
+      const [integrationResult, integrationHealthResult] = await Promise.all([
+        supabase
+          .from("integrations")
+          .select("provider, status")
+          .eq("org_id", orgId)
+          .limit(50),
+        supabase
+          .from("integration_health")
+          .select("provider,status,last_error")
+          .eq("org_id", orgId)
+          .limit(50),
+      ]);
+      const integrations = integrationResult.data || [];
+      const integrationError =
+        integrationResult.error || integrationHealthResult.error;
+      const healthByProvider = new Map(
+        (integrationHealthResult.data || []).map((health: any) => [
+          health.provider,
+          health,
+        ]),
+      );
+      const configured = integrations.filter((item: any) =>
+        ["connected", "healthy"].includes(item.status),
+      );
+      const healthy = configured.filter((item: any) => {
+        const health = healthByProvider.get(item.provider) as any;
+        return isOperationalIntegration({
+          connectionStatus: item.status,
+          healthStatus: health?.status,
+          lastError: health?.last_error,
+        });
+      });
 
       checks.push({
         key: "integrations",
         name: "Integrations",
         status: integrationError
           ? "error"
-          : connected > 0
-            ? "healthy"
-            : "warning",
+          : configured.length === 0
+            ? "warning"
+            : healthy.length === configured.length
+              ? "healthy"
+              : healthy.length === 0
+                ? "error"
+                : "warning",
         message: integrationError
           ? integrationError.message
-          : `${connected} of ${integrations?.length || 0} integrations healthy`,
+          : `${healthy.length} of ${configured.length} connected integrations healthy`,
         latencyMs: elapsed(integrationStarted),
       });
 

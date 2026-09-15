@@ -33,20 +33,23 @@ describe("mobile voice command compatibility", () => {
     expect(resolveSpeechRecognitionConstructor({})).toBeNull();
   });
 
-  it("prefers server transcription on phones and iPads", () => {
-    expect(
-      shouldPreferRecordedTranscription({ userAgent: "Mozilla/5.0 iPhone" }),
-    ).toBe(true);
+  it("uses recorded transcription only when native recognition is unavailable", () => {
     expect(
       shouldPreferRecordedTranscription({
-        userAgent: "Mozilla/5.0 (Macintosh)",
-        maxTouchPoints: 5,
+        hasSpeechRecognition: false,
+        canRecord: true,
       }),
     ).toBe(true);
     expect(
       shouldPreferRecordedTranscription({
-        userAgent: "Mozilla/5.0 (Macintosh)",
-        maxTouchPoints: 0,
+        hasSpeechRecognition: true,
+        canRecord: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPreferRecordedTranscription({
+        hasSpeechRecognition: false,
+        canRecord: false,
       }),
     ).toBe(false);
   });

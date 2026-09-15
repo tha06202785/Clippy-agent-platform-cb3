@@ -291,6 +291,7 @@ async function callLlm(
     model: completion.model,
     attempts: completion.attempts,
     usedRetry: completion.usedRetry,
+    providerAttempts: completion.providerAttempts,
   };
 }
 
@@ -564,7 +565,10 @@ export async function POST(req: NextRequest) {
         issues: deterministicCompliance.checks,
         suggested_fix: deterministicCompliance.safeReply,
       };
-      if (!deterministicCompliance.passed && deterministicCompliance.safeReply) {
+      if (
+        !deterministicCompliance.passed &&
+        deterministicCompliance.safeReply
+      ) {
         responseResult.reply = deterministicCompliance.safeReply;
       }
     } finally {
@@ -763,7 +767,9 @@ export async function POST(req: NextRequest) {
       model: responseTelemetry?.model || "safe-fallback",
       latencyMs: Date.now() - startTime,
       status: responseDegraded ? "error" : "success",
-      errorCode: responseDegraded ? "response_stage_unavailable" : undefined,
+      errorCode:
+        responseTelemetry?.errorCode ||
+        (responseDegraded ? "response_stage_unavailable" : undefined),
       metadata: {
         action: "ai_message",
         channel: body.channel || "website",
@@ -776,6 +782,8 @@ export async function POST(req: NextRequest) {
           attempts: event.attempts,
           used_retry: event.usedRetry,
           duration_ms: event.durationMs,
+          error_code: event.errorCode,
+          provider_attempts: event.providerAttempts,
         })),
       },
     });
