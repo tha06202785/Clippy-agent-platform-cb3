@@ -262,9 +262,13 @@ async function postCompletion({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(body),
+        // All three upstreams expose an OpenAI-compatible endpoint, but some
+        // Ollama Cloud models may otherwise return a streaming body. This
+        // route parses one complete Chat Completion document.
+        body: JSON.stringify({ ...body, stream: false }),
         signal: attemptSignal.signal,
       });
 

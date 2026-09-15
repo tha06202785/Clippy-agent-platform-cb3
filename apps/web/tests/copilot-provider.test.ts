@@ -39,6 +39,7 @@ describe("Copilot provider routing", () => {
     );
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
       max_tokens: 1200,
+      stream: false,
       user: "user-1",
       providerOptions: { gateway: { user: "user-1" } },
     });
@@ -310,10 +311,12 @@ describe("Copilot provider routing", () => {
       "https://ollama.com/v1/chat/completions",
     );
     expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+      Accept: "application/json",
       Authorization: "Bearer ollama-token",
     });
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
       model: "kimi-k2.6",
+      stream: false,
     });
   });
 
