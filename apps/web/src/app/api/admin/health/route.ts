@@ -218,7 +218,7 @@ export async function GET() {
       ] = await Promise.all([
         supabase
           .from("leads")
-          .select("id,email,phone")
+          .select("id,email,phone,status,source,source_data")
           .eq("org_id", orgId)
           .limit(2000),
         supabase
