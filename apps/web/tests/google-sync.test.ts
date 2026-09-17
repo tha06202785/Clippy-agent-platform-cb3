@@ -488,6 +488,36 @@ describe("Google knowledge sync", () => {
     expect(item && isLikelyRealEstateLead(item)).toBe(true);
   });
 
+  it("accepts a location-wide rental enquiry without a property address", () => {
+    const item = gmailMessageToKnowledge({
+      id: "generic-rental-enquiry",
+      threadId: "generic-rental-enquiry",
+      labelIds: ["INBOX"],
+      payload: {
+        mimeType: "text/plain",
+        headers: [
+          { name: "Subject", value: "House for rent" },
+          { name: "From", value: "ira tha <iravish22@gmail.com>" },
+          { name: "To", value: "kenoltha@gmail.com" },
+        ],
+        body: {
+          data: encode("Hi do you have house for rent in Melbourne"),
+        },
+      },
+    });
+
+    expect(classifyGmailRelevance(item!)).toMatchObject({
+      decision: "relevant",
+      score: 55,
+      tags: expect.arrayContaining(["rental"]),
+      reasons: expect.arrayContaining([
+        "real_estate_language",
+        "client_intent_detected",
+        "rental_demand_detected",
+      ]),
+    });
+  });
+
   it("converts active calendar events and ignores cancellations", () => {
     const active = calendarEventToKnowledge({
       id: "event-123",
