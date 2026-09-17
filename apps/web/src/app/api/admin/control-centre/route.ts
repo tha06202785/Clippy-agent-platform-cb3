@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin-access";
 import { calculateRecentAIReliability } from "@/lib/ai/usage-metrics";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,13 @@ export async function GET() {
       );
     }
     if (context.status === "forbidden") {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Admin access required" },
+        { status: 403 },
+      );
     }
 
-    const { membership, supabase } = context;
+    const { membership } = context;
     if (!membership?.org_id) {
       return NextResponse.json(
         { error: "Organisation admin access required" },
@@ -28,6 +32,10 @@ export async function GET() {
       );
     }
     const orgId = membership.org_id;
+    // Authentication and organisation membership are verified above. Use the
+    // server-only client for operational columns such as integrations.last_sync_at,
+    // which are intentionally unavailable to authenticated Data API callers.
+    const dataClient = createAdminClient();
     const monthStart = new Date();
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);
@@ -43,53 +51,75 @@ export async function GET() {
       ticketsResult,
       integrationsResult,
     ] = await Promise.all([
-        supabase
-          .from("org_subscriptions")
-          .select("status, current_period_end, plans(key,name,monthly_price_cents,included_credits,currency)")
-          .eq("org_id", orgId)
-          .maybeSingle(),
-        supabase
-          .from("ai_usage_events")
-          .select("feature_key, provider, model, credits_used, cost_micros, latency_ms, status, created_at")
-          .eq("org_id", orgId)
-          .gte("created_at", usageQueryStart.toISOString())
-          .order("created_at", { ascending: false })
-          .limit(500),
-        supabase
-          .from("system_incidents")
-          .select("id,severity,component,title,status,last_seen_at,occurrence_count")
-          .or(`org_id.eq.${orgId},org_id.is.null`)
-          .neq("status", "resolved")
-          .order("last_seen_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("support_tickets")
-          .select("id,priority,category,subject,status,created_at")
-          .eq("org_id", orgId)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("integrations")
-          .select("provider,status,last_sync_at")
-          .eq("org_id", orgId)
-          .limit(50),
-      ]);
+      dataClient
+        .from("org_subscriptions")
+        .select(
+          "status, current_period_end, plans(key,name,monthly_price_cents,included_credits,currency)",
+        )
+        .eq("org_id", orgId)
+        .maybeSingle(),
+      dataClient
+        .from("ai_usage_events")
+        .select(
+          "feature_key, provider, model, credits_used, cost_micros, latency_ms, status, created_at",
+        )
+        .eq("org_id", orgId)
+        .gte("created_at", usageQueryStart.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(500),
+      dataClient
+        .from("system_incidents")
+        .select(
+          "id,severity,component,title,status,last_seen_at,occurrence_count",
+        )
+        .or(`org_id.eq.${orgId},org_id.is.null`)
+        .neq("status", "resolved")
+        .order("last_seen_at", { ascending: false })
+        .limit(20),
+      dataClient
+        .from("support_tickets")
+        .select("id,priority,category,subject,status,created_at")
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      dataClient
+        .from("integrations")
+        .select("provider,status,last_sync_at")
+        .eq("org_id", orgId)
+        .limit(50),
+    ]);
 
     const allUsage = usageResult.data || [];
     const usage = allUsage.filter(
       (row: any) => new Date(row.created_at).getTime() >= monthStart.getTime(),
     );
     const totalRequests = usage.length;
-    const failedRequests = usage.filter((row: any) => row.status === "error").length;
-    const blockedRequests = usage.filter((row: any) => row.status === "blocked").length;
-    const totalCostMicros = usage.reduce((sum: number, row: any) => sum + Number(row.cost_micros || 0), 0);
-    const totalCredits = usage.reduce((sum: number, row: any) => sum + Number(row.credits_used || 0), 0);
+    const failedRequests = usage.filter(
+      (row: any) => row.status === "error",
+    ).length;
+    const blockedRequests = usage.filter(
+      (row: any) => row.status === "blocked",
+    ).length;
+    const totalCostMicros = usage.reduce(
+      (sum: number, row: any) => sum + Number(row.cost_micros || 0),
+      0,
+    );
+    const totalCredits = usage.reduce(
+      (sum: number, row: any) => sum + Number(row.credits_used || 0),
+      0,
+    );
     const recentReliability = calculateRecentAIReliability(allUsage);
 
     const byFeature = Object.values(
       usage.reduce((acc: Record<string, any>, row: any) => {
         const key = row.feature_key || "unknown";
-        acc[key] ||= { feature: key, requests: 0, credits: 0, costMicros: 0, failures: 0 };
+        acc[key] ||= {
+          feature: key,
+          requests: 0,
+          credits: 0,
+          costMicros: 0,
+          failures: 0,
+        };
         acc[key].requests += 1;
         acc[key].credits += Number(row.credits_used || 0);
         acc[key].costMicros += Number(row.cost_micros || 0);
@@ -98,8 +128,8 @@ export async function GET() {
       }, {}),
     );
 
-    const connectedIntegrations = (integrationsResult.data || []).filter((item: any) =>
-      ["connected", "healthy"].includes(item.status),
+    const connectedIntegrations = (integrationsResult.data || []).filter(
+      (item: any) => ["connected", "healthy"].includes(item.status),
     ).length;
 
     return NextResponse.json(
@@ -131,6 +161,9 @@ export async function GET() {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Control Centre failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || "Control Centre failed" },
+      { status: 500 },
+    );
   }
 }

@@ -51,11 +51,12 @@ const nextActions: Record<string, string> = {
   organisation: "Assign the signed-in user to the correct organisation.",
   knowledge: "Add approved agency knowledge before starting the pilot.",
   integrations: "Reconnect or test the affected channel in Integrations.",
-  ai: "Configure a production AI provider before using Copilot.",
+  ai: "Restore provider credentials and run one controlled Copilot test.",
   automation: "Configure the automation secrets in Vercel.",
   "google-oauth": "Correct the Google OAuth credentials and redirect URL.",
   "client-360-data": "Import or add one genuine client to exercise Client 360.",
-  "property-separation": "Repair enquiries missing a client or property link.",
+  "property-separation":
+    "Repair active enquiries missing a client or property link.",
   "copilot-context":
     "Review conversations with missing or mismatched CRM context.",
   "follow-up-workflow":

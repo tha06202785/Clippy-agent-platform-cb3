@@ -41,6 +41,8 @@ interface DashboardData {
     recentAverageLatencyMs?: number | null;
     recentErrorRate?: number | null;
     lastFailureAt?: string | null;
+    lastSuccessAt?: string | null;
+    successfulRequestsSinceLastFailure?: number;
   };
   usageByFeature: Array<{
     feature: string;
@@ -267,12 +269,18 @@ export default function ControlCentrePage() {
                 value={
                   metrics.recentErrorRate == null
                     ? "No samples"
-                    : `${metrics.recentErrorRate}% · ${metrics.recentRequests || 0} req`
+                    : `${metrics.recentErrorRate}% · ${metrics.recentRequests || 0} req${metrics.lastFailureAt && (metrics.successfulRequestsSinceLastFailure || 0) > 0 ? ` · ${metrics.successfulRequestsSinceLastFailure} successful since last failure` : ""}`
                 }
                 healthy={
                   metrics.recentErrorRate == null
                     ? null
-                    : metrics.recentErrorRate < 5
+                    : metrics.recentErrorRate < 5 ||
+                      Boolean(
+                        metrics.lastFailureAt &&
+                        metrics.lastSuccessAt &&
+                        metrics.lastSuccessAt > metrics.lastFailureAt &&
+                        (metrics.successfulRequestsSinceLastFailure || 0) >= 2,
+                      )
                 }
               />
               <StatusRow
@@ -438,9 +446,7 @@ function StatusRow({ label, value, healthy }: StatusRowProps) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span
-        className={`rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}
-      >
+      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}>
         {value}
       </span>
     </div>

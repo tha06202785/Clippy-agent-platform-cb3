@@ -11,6 +11,10 @@ import {
 } from "@/lib/crm-import-deduplication";
 import { isLikelyRealEstateLead } from "@/lib/integrations/gmail-relevance";
 import { isOperationalIntegration } from "@/lib/integration-status";
+import {
+  classifyAIProviderHealth,
+  summarisePropertyContextHealth,
+} from "@/lib/launch-diagnostics";
 
 export const dynamic = "force-dynamic";
 
@@ -222,7 +226,7 @@ export async function GET() {
           .limit(2000),
         supabase
           .from("property_enquiries")
-          .select("id,lead_id,listing_id")
+          .select("id,lead_id,listing_id,status,metadata")
           .eq("org_id", orgId)
           .limit(2000),
         supabase
@@ -266,35 +270,23 @@ export async function GET() {
       });
 
       const enquiries = enquiriesResult.data || [];
-      const invalidEnquiries = enquiries.filter(
-        (enquiry: any) => !enquiry.lead_id || !enquiry.listing_id,
-      );
-      const propertiesByLead = new Map<string, Set<string>>();
-      for (const enquiry of enquiries as any[]) {
-        if (!enquiry.lead_id || !enquiry.listing_id) continue;
-        const listings = propertiesByLead.get(enquiry.lead_id) || new Set();
-        listings.add(enquiry.listing_id);
-        propertiesByLead.set(enquiry.lead_id, listings);
-      }
-      const multiPropertyClients = [...propertiesByLead.values()].filter(
-        (listings) => listings.size > 1,
-      ).length;
+      const propertyContext = summarisePropertyContextHealth(enquiries);
       checks.push({
         key: "property-separation",
         name: "Property context separation",
         status:
-          enquiriesResult.error || invalidEnquiries.length
+          enquiriesResult.error || propertyContext.invalid.length
             ? "error"
-            : enquiries.length
+            : propertyContext.actionable.length
               ? "healthy"
               : "warning",
         message: enquiriesResult.error
           ? enquiriesResult.error.message
-          : invalidEnquiries.length
-            ? `${invalidEnquiries.length} enquiries are missing a client or property link`
-            : enquiries.length
-              ? `${enquiries.length} valid client-property links; ${multiPropertyClients} multi-property clients kept separate`
-              : "No property enquiries are available to exercise context separation",
+          : propertyContext.invalid.length
+            ? `${propertyContext.invalid.length} active enquiries are missing a client or property link`
+            : propertyContext.actionable.length
+              ? `${propertyContext.actionable.length} active client-property links are valid; ${propertyContext.multiPropertyClients} multi-property clients kept separate${propertyContext.excluded ? `; ${propertyContext.excluded} closed, dismissed or test enquiries excluded` : ""}`
+              : "No active property enquiries are available to exercise context separation",
       });
 
       const conversations = conversationsResult.data || [];
@@ -444,18 +436,32 @@ export async function GET() {
     }
 
     const aiConfigured = Boolean(
+      process.env.AI_GATEWAY_API_KEY ||
+      process.env.VERCEL_OIDC_TOKEN ||
       process.env.OPENAI_API_KEY ||
       process.env.ANTHROPIC_API_KEY ||
       process.env.OLLAMA_API_KEY ||
       process.env.OLLAMA_BASE_URL,
     );
+    const latestAIResult = aiConfigured
+      ? await supabase
+          .from("ai_usage_events")
+          .select("provider,status,error_code,latency_ms,created_at")
+          .eq("org_id", orgId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null, error: null };
+    const aiHealth = classifyAIProviderHealth({
+      configured: aiConfigured,
+      latest: latestAIResult.data,
+      queryError: latestAIResult.error?.message,
+    });
     checks.push({
       key: "ai",
       name: "AI provider",
-      status: aiConfigured ? "healthy" : "error",
-      message: aiConfigured
-        ? "AI provider configuration detected"
-        : "No AI provider configuration detected",
+      status: aiHealth.status,
+      message: aiHealth.message,
     });
 
     const automationIssues = automationSecretIssues();

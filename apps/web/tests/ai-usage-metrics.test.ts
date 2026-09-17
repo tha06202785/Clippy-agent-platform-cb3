@@ -27,6 +27,8 @@ describe("AI reliability metrics", () => {
       recentErrorRate: 0,
       recentAverageLatencyMs: 12_000,
       lastFailureAt: null,
+      lastSuccessAt: "2026-08-20T00:00:00.000Z",
+      successfulRequestsSinceLastFailure: 1,
     });
   });
 
@@ -64,6 +66,26 @@ describe("AI reliability metrics", () => {
       recentErrorRate: 33.3,
       recentAverageLatencyMs: 8_000,
       lastFailureAt: "2026-08-21T02:00:00.000Z",
+      lastSuccessAt: "2026-08-21T00:00:00.000Z",
+      successfulRequestsSinceLastFailure: 0,
+    });
+  });
+
+  it("records successful recovery after the most recent failure", () => {
+    expect(
+      calculateRecentAIReliability(
+        [
+          { status: "error", created_at: "2026-08-20T00:00:00.000Z" },
+          { status: "success", created_at: "2026-08-21T00:00:00.000Z" },
+          { status: "success", created_at: "2026-08-21T01:00:00.000Z" },
+        ],
+        now,
+      ),
+    ).toMatchObject({
+      recentErrorRate: 33.3,
+      successfulRequestsSinceLastFailure: 2,
+      lastFailureAt: "2026-08-20T00:00:00.000Z",
+      lastSuccessAt: "2026-08-21T01:00:00.000Z",
     });
   });
 });

@@ -16,9 +16,7 @@ export function calculateRecentAIReliability(
     const createdAt = new Date(event.created_at || "").getTime();
     return Number.isFinite(createdAt) && createdAt >= cutoff;
   });
-  const failedEvents = recentEvents.filter(
-    (event) => event.status === "error",
-  );
+  const failedEvents = recentEvents.filter((event) => event.status === "error");
   const successfulEvents = recentEvents.filter(
     (event) => event.status === "success",
   );
@@ -27,6 +25,19 @@ export function calculateRecentAIReliability(
     if (!createdAt) return latest;
     return !latest || createdAt > latest ? createdAt : latest;
   }, null);
+  const lastSuccessAt = successfulEvents.reduce<string | null>(
+    (latest, event) => {
+      const createdAt = event.created_at || null;
+      if (!createdAt) return latest;
+      return !latest || createdAt > latest ? createdAt : latest;
+    },
+    null,
+  );
+  const successfulRequestsSinceLastFailure = recentEvents.filter((event) => {
+    if (event.status !== "success") return false;
+    if (!lastFailureAt) return true;
+    return String(event.created_at || "") > lastFailureAt;
+  }).length;
 
   return {
     recentWindowDays: windowDays,
@@ -44,5 +55,7 @@ export function calculateRecentAIReliability(
         )
       : null,
     lastFailureAt,
+    lastSuccessAt,
+    successfulRequestsSinceLastFailure,
   };
 }
