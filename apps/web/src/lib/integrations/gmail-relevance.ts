@@ -22,7 +22,7 @@ export type GmailRelevanceAssessment = {
   reasons: string[];
 };
 
-export const GMAIL_RELEVANCE_VERSION = 4;
+export const GMAIL_RELEVANCE_VERSION = 5;
 
 const PROPERTY_CONTEXT_TERMS = [
   "property",
@@ -81,6 +81,23 @@ const LEAD_INTENT_TERMS = [
   "enquiring about",
   "inquiring about",
   "contact me",
+];
+
+const RENTAL_DEMAND_TERMS = [
+  "house for rent",
+  "houses for rent",
+  "home for rent",
+  "homes for rent",
+  "apartment for rent",
+  "apartments for rent",
+  "unit for rent",
+  "units for rent",
+  "property for rent",
+  "properties for rent",
+  "rental available",
+  "rentals available",
+  "looking for a rental",
+  "looking for rental",
 ];
 
 const LEAD_SUBJECT_TERMS = [
@@ -341,7 +358,9 @@ export function classifyGmailRelevance(
   const linkCount = content.match(/https?:\/\//g)?.length || 0;
   const hasAddress = STREET_ADDRESS_PATTERN.test(content);
   const hasPropertyContext = includesAny(content, PROPERTY_CONTEXT_TERMS);
-  const hasIntent = includesAny(content, LEAD_INTENT_TERMS);
+  const hasRentalDemand = includesAny(content, RENTAL_DEMAND_TERMS);
+  const hasIntent =
+    hasRentalDemand || includesAny(content, LEAD_INTENT_TERMS);
   const subjectLooksLikeLead = includesAny(subject, LEAD_SUBJECT_TERMS);
   const hasFollowUpIntent = includesAny(content, LEAD_FOLLOW_UP_TERMS);
   const hasWorkflowContext = includesAny(content, REAL_ESTATE_WORKFLOW_TERMS);
@@ -518,6 +537,10 @@ export function classifyGmailRelevance(
   if (hasIntent) {
     score += 25;
     reasons.push("client_intent_detected");
+  }
+  if (hasRentalDemand) {
+    score += 10;
+    reasons.push("rental_demand_detected");
   }
   if (subjectLooksLikeLead) {
     score += 20;
