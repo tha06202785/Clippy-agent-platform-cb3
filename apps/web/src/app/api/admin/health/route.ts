@@ -5,14 +5,11 @@ import {
   getGoogleOAuthRedirectUri,
 } from "@/lib/google-oauth-config";
 import { automationSecretIssues } from "@/lib/automation-security";
-import {
-  normaliseImportEmail,
-  normaliseImportPhone,
-} from "@/lib/crm-import-deduplication";
 import { isLikelyRealEstateLead } from "@/lib/integrations/gmail-relevance";
 import { isOperationalIntegration } from "@/lib/integration-status";
 import {
   classifyAIProviderHealth,
+  summariseCRMIdentityHealth,
   summarisePropertyContextHealth,
 } from "@/lib/launch-diagnostics";
 
@@ -355,35 +352,23 @@ export async function GET() {
               : "No follow-ups are available to exercise reminder controls",
       });
 
-      const identityCounts = new Map<string, number>();
-      for (const lead of leads as any[]) {
-        const identities = [
-          lead.email ? `email:${normaliseImportEmail(lead.email)}` : "",
-          lead.phone ? `phone:${normaliseImportPhone(lead.phone)}` : "",
-        ].filter((identity) => identity.length > 0 && !identity.endsWith(":"));
-        for (const identity of new Set(identities)) {
-          identityCounts.set(identity, (identityCounts.get(identity) || 0) + 1);
-        }
-      }
-      const duplicateIdentities = [...identityCounts.values()].filter(
-        (count) => count > 1,
-      ).length;
+      const identityHealth = summariseCRMIdentityHealth(leads);
       checks.push({
         key: "crm-duplicate-protection",
         name: "CRM duplicate protection",
         status: leadsResult.error
           ? "error"
-          : duplicateIdentities
+          : identityHealth.duplicateIdentities
             ? "warning"
             : leads.length
               ? "healthy"
               : "warning",
         message: leadsResult.error
           ? leadsResult.error.message
-          : duplicateIdentities
-            ? `${duplicateIdentities} repeated email or phone identities need review before the next import`
+          : identityHealth.duplicateIdentities
+            ? `${identityHealth.duplicateIdentities} repeated email or phone identities need review before the next import`
             : leads.length
-              ? "No duplicate email or phone identities detected"
+              ? `No duplicate email or phone identities detected${identityHealth.excludedLeads || identityHealth.ignoredPlaceholderPhones ? `; ${identityHealth.excludedLeads} merged or test records and ${identityHealth.ignoredPlaceholderPhones} placeholder phone entries excluded` : ""}`
               : "No client records are available for duplicate analysis",
       });
 

@@ -1,3 +1,8 @@
+import {
+  normaliseImportEmail,
+  normaliseImportPhone,
+} from "@/lib/crm-import-deduplication";
+
 export type DiagnosticState = "healthy" | "warning" | "error";
 
 type PropertyEnquiryDiagnosticRecord = {
@@ -15,11 +20,34 @@ type AIUsageDiagnosticRecord = {
   created_at?: string | null;
 };
 
+type CRMLeadDiagnosticRecord = {
+  email?: string | null;
+  phone?: string | null;
+  status?: string | null;
+  source?: string | null;
+  source_data?: Record<string, unknown> | null;
+};
+
 const INACTIVE_ENQUIRY_STATUSES = new Set([
   "archived",
   "closed",
   "dismissed",
   "spam",
+]);
+
+const INACTIVE_LEAD_STATUSES = new Set(["archived", "deleted", "merged"]);
+const NON_PRODUCTION_LEAD_SOURCES = new Set([
+  "comprehensive_test",
+  "demo",
+  "sample",
+  "test",
+]);
+const PLACEHOLDER_PHONE_IDENTITIES = new Set([
+  "15556759862",
+  "61400000000",
+  "61411111111",
+  "61412345678",
+  "61499999999",
 ]);
 
 export function isActionablePropertyEnquiry(
@@ -58,6 +86,48 @@ export function summarisePropertyContextHealth(
     invalid,
     multiPropertyClients: [...propertiesByLead.values()].filter(
       (listings) => listings.size > 1,
+    ).length,
+  };
+}
+
+export function isActionableCRMLead(lead: CRMLeadDiagnosticRecord) {
+  const status = String(lead.status || "")
+    .trim()
+    .toLowerCase();
+  const source = String(lead.source || "")
+    .trim()
+    .toLowerCase();
+  if (INACTIVE_LEAD_STATUSES.has(status)) return false;
+  if (NON_PRODUCTION_LEAD_SOURCES.has(source)) return false;
+  return lead.source_data?.test_data !== true;
+}
+
+export function summariseCRMIdentityHealth(leads: CRMLeadDiagnosticRecord[]) {
+  const actionable = leads.filter(isActionableCRMLead);
+  const identityCounts = new Map<string, number>();
+  let ignoredPlaceholderPhones = 0;
+
+  for (const lead of actionable) {
+    const email = normaliseImportEmail(lead.email);
+    const phone = normaliseImportPhone(lead.phone);
+    const identities = email ? [`email:${email}`] : [];
+    if (phone && PLACEHOLDER_PHONE_IDENTITIES.has(phone)) {
+      ignoredPlaceholderPhones += 1;
+    } else if (phone) {
+      identities.push(`phone:${phone}`);
+    }
+
+    for (const identity of new Set(identities)) {
+      identityCounts.set(identity, (identityCounts.get(identity) || 0) + 1);
+    }
+  }
+
+  return {
+    actionable,
+    excludedLeads: leads.length - actionable.length,
+    ignoredPlaceholderPhones,
+    duplicateIdentities: [...identityCounts.values()].filter(
+      (count) => count > 1,
     ).length,
   };
 }
