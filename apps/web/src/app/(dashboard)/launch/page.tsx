@@ -14,6 +14,7 @@ import {
   buildProductionProof,
   type LaunchReadinessStep,
 } from "@/lib/launch-readiness";
+import { summarisePropertyContextHealth } from "@/lib/launch-diagnostics";
 
 export const dynamic = "force-dynamic";
 
@@ -159,7 +160,7 @@ export default async function LaunchCentrePage() {
       .limit(500),
     admin
       .from("property_enquiries")
-      .select("source,listing_id,metadata")
+      .select("source,lead_id,listing_id,status,metadata")
       .eq("org_id", orgId)
       .order("last_activity_at", { ascending: false })
       .limit(500),
@@ -246,6 +247,9 @@ export default async function LaunchCentrePage() {
       enquiry.metadata?.test_data !== true &&
       Boolean(enquiry.listing_id),
   ).length;
+  const propertyContext = summarisePropertyContextHealth(
+    proofEnquiriesResult.data ?? [],
+  );
   const bookings = proofBookingsResult.data ?? [];
   const confirmedBookingCount = bookings.filter(
     (booking) => booking.booking_status === "confirmed",
@@ -304,6 +308,7 @@ export default async function LaunchCentrePage() {
     calendarHealthy,
     inboundEmailCount,
     linkedGmailEnquiryCount,
+    propertyContextBlockerCount: propertyContext.invalid.length,
     approvedEmailDraftCount,
     deliveredApprovedEmailCount,
     confirmedBookingCount,

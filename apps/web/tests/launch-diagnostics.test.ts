@@ -3,6 +3,7 @@ import {
   classifyAIProviderHealth,
   isActionableCRMLead,
   isActionablePropertyEnquiry,
+  requiresPropertyContext,
   summariseCRMIdentityHealth,
   summarisePropertyContextHealth,
 } from "@/lib/launch-diagnostics";
@@ -23,9 +24,37 @@ describe("launch diagnostics", () => {
     ).toBe(false);
   });
 
-  it("keeps missing context on active enquiries as a launch blocker", () => {
+  it("allows general enquiries without a named property", () => {
+    expect(
+      requiresPropertyContext({
+        status: "active",
+        lead_id: "lead-1",
+        listing_id: null,
+        metadata: { subject: "Looking for a house in Melbourne" },
+      }),
+    ).toBe(false);
+
     const result = summarisePropertyContextHealth([
-      { status: "active", lead_id: "lead-1", listing_id: null },
+      {
+        status: "active",
+        lead_id: "lead-1",
+        listing_id: null,
+        metadata: { subject: "Looking for a house in Melbourne" },
+      },
+    ]);
+
+    expect(result.invalid).toHaveLength(0);
+    expect(result.actionable).toHaveLength(1);
+  });
+
+  it("keeps missing required context on property-specific enquiries as a launch blocker", () => {
+    const result = summarisePropertyContextHealth([
+      {
+        status: "active",
+        lead_id: "lead-1",
+        listing_id: null,
+        metadata: { property_address: "25 Collins Street, Melbourne" },
+      },
       {
         status: "closed",
         lead_id: "lead-2",
@@ -38,6 +67,19 @@ describe("launch diagnostics", () => {
     expect(result.invalid).toHaveLength(1);
     expect(result.excluded).toBe(1);
     expect(result.actionable).toHaveLength(2);
+  });
+
+  it("requires a client link for every active enquiry", () => {
+    const result = summarisePropertyContextHealth([
+      {
+        status: "active",
+        lead_id: null,
+        listing_id: null,
+        metadata: { subject: "Looking for a rental" },
+      },
+    ]);
+
+    expect(result.invalid).toHaveLength(1);
   });
 
   it("requires a clean latest AI result rather than configuration alone", () => {
@@ -63,9 +105,9 @@ describe("launch diagnostics", () => {
   });
 
   it("excludes merged, test and placeholder CRM identities", () => {
-    expect(
-      isActionableCRMLead({ status: "merged", source: "facebook" }),
-    ).toBe(false);
+    expect(isActionableCRMLead({ status: "merged", source: "facebook" })).toBe(
+      false,
+    );
     expect(
       isActionableCRMLead({ status: "new", source: "comprehensive_test" }),
     ).toBe(false);
