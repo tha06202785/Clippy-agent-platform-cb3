@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requestCopilotCompletion } from "@/lib/ai/copilot-provider";
+import {
+  CopilotProviderUnavailableError,
+  requestCopilotCompletion,
+  type ProviderAttemptTelemetry,
+} from "@/lib/ai/copilot-provider";
 import {
   createSafeDraftFallback,
   enforceFirstPersonAgentVoice,
@@ -192,6 +196,8 @@ export async function POST(req: NextRequest) {
     let outputTokens = 0;
     let cachedTokens = 0;
     let providerFallback = false;
+    let providerErrorCode: string | null = null;
+    let providerAttempts: ProviderAttemptTelemetry[] = [];
     try {
       const completion = await requestCopilotCompletion({
         userId: user.id,
@@ -242,6 +248,10 @@ export async function POST(req: NextRequest) {
       cachedTokens = completion.data.usage?.cached_tokens || 0;
     } catch (providerError) {
       providerFallback = true;
+      if (providerError instanceof CopilotProviderUnavailableError) {
+        providerErrorCode = providerError.errorCode;
+        providerAttempts = providerError.providerAttempts;
+      }
       console.warn(
         "Conversation draft provider fallback",
         providerError instanceof Error ? providerError.message : providerError,
@@ -339,6 +349,7 @@ export async function POST(req: NextRequest) {
       costMicros: estimateCostMicros(inputTokens, outputTokens),
       latencyMs: Date.now() - startedAt,
       status: "success",
+      errorCode: providerErrorCode || undefined,
       metadata: {
         action: "conversation_draft",
         conversation_id: conversation.id,
@@ -346,6 +357,7 @@ export async function POST(req: NextRequest) {
         listing_id: conversation.listing_id,
         enquiry_id: conversation.enquiry_id,
         provider_fallback: providerFallback,
+        provider_attempts: providerAttempts,
         adaptive_intelligence_used: adaptiveContext.enabled,
       },
     });

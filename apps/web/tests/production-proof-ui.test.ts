@@ -31,5 +31,7 @@ describe("controlled production-proof UI contracts", () => {
     expect(draftRoute).toContain("recordAIUsage");
     expect(draftRoute).toContain('action: "conversation_draft"');
     expect(draftRoute).toContain("request_id: requestId");
+    expect(draftRoute).toContain("errorCode: providerErrorCode");
+    expect(draftRoute).toContain("provider_attempts: providerAttempts");
   });
 });

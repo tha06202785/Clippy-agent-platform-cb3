@@ -3,12 +3,15 @@ import {
   checkoutEmailMatchesBillingContact,
   getAppUrl,
   getBillingContactFromUser,
+  getBillingConfigurationStatus,
   getPhoneLast4,
   getPlanForPriceId,
+  getStripeMode,
   getVerifiedCheckoutIdentity,
   isPaidCheckoutEnabled,
   isPaidPlan,
   normaliseBillingEmail,
+  stripeEventMatchesConfiguredMode,
   stripeCustomerMatchesBillingContact,
 } from "@/lib/billing";
 import { checkoutSchema } from "@/lib/validation";
@@ -37,31 +40,84 @@ describe("billing trust boundaries", () => {
     expect(
       isPaidCheckoutEnabled({
         ENABLE_PAID_CHECKOUT: "true",
-        STRIPE_SECRET_KEY: "sk_test_example",
-        STRIPE_WEBHOOK_SECRET: "whsec_example",
+        STRIPE_SECRET_KEY: "sk_test_1234567890example",
+        STRIPE_WEBHOOK_SECRET: "whsec_1234567890example",
         NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
-        SUPABASE_SERVICE_ROLE_KEY: "service_role_example",
+        SUPABASE_SERVICE_ROLE_KEY:
+          "eyJhbGciOiJIUzI1NiJ9.valid-service-role-token",
       }),
     ).toBe(false);
     expect(
       isPaidCheckoutEnabled({
         ENABLE_PAID_CHECKOUT: "true",
-        STRIPE_SECRET_KEY: "sk_test_example",
-        STRIPE_WEBHOOK_SECRET: "whsec_example",
+        STRIPE_SECRET_KEY: "sk_test_1234567890example",
+        STRIPE_WEBHOOK_SECRET: "whsec_1234567890example",
         NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
-        SUPABASE_SERVICE_ROLE_KEY: "service_role_example",
-        STRIPE_AGENCY_PRICE_ID: "price_agency",
+        SUPABASE_SERVICE_ROLE_KEY:
+          "eyJhbGciOiJIUzI1NiJ9.valid-service-role-token",
+        STRIPE_STARTER_PRICE_ID: "price_1234567890starter",
       }),
     ).toBe(true);
   });
 
+  it("rejects placeholders, malformed prices and test keys in production", () => {
+    const placeholder = getBillingConfigurationStatus({
+      ENABLE_PAID_CHECKOUT: "true",
+      STRIPE_SECRET_KEY: "your_stripe_secret_key",
+      STRIPE_WEBHOOK_SECRET: "your_stripe_webhook_signing_secret",
+      STRIPE_STARTER_PRICE_ID: "price_starter",
+      NEXT_PUBLIC_SUPABASE_URL: "your_supabase_url",
+      SUPABASE_SERVICE_ROLE_KEY: "your_supabase_service_role",
+    });
+    expect(placeholder.checkoutEnabled).toBe(false);
+    expect(placeholder.issues).toEqual(
+      expect.arrayContaining([
+        "Stripe secret key is missing or invalid",
+        "Founding Agent Stripe price is missing or invalid",
+      ]),
+    );
+
+    const productionTestMode = getBillingConfigurationStatus({
+      VERCEL_ENV: "production",
+      ENABLE_PAID_CHECKOUT: "true",
+      STRIPE_SECRET_KEY: "sk_test_1234567890example",
+      STRIPE_WEBHOOK_SECRET: "whsec_1234567890example",
+      STRIPE_STARTER_PRICE_ID: "price_1234567890starter",
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY:
+        "eyJhbGciOiJIUzI1NiJ9.valid-service-role-token",
+    });
+    expect(productionTestMode.checkoutEnabled).toBe(false);
+    expect(productionTestMode.issues).toContain(
+      "Production requires a live-mode Stripe key",
+    );
+  });
+
+  it("keeps webhook events in the configured Stripe mode", () => {
+    expect(getStripeMode("sk_live_1234567890example")).toBe("live");
+    expect(getStripeMode("rk_test_1234567890example")).toBe("test");
+    expect(getStripeMode("invalid")).toBe("unknown");
+    expect(
+      stripeEventMatchesConfiguredMode(true, {
+        STRIPE_SECRET_KEY: "sk_live_1234567890example",
+      }),
+    ).toBe(true);
+    expect(
+      stripeEventMatchesConfiguredMode(false, {
+        STRIPE_SECRET_KEY: "sk_live_1234567890example",
+      }),
+    ).toBe(false);
+  });
+
   it("maps paid entitlements from the Stripe price, not mutable metadata", () => {
     const env = {
-      STRIPE_STARTER_PRICE_ID: "price_starter",
-      STRIPE_PROFESSIONAL_PRICE_ID: "price_professional",
+      STRIPE_STARTER_PRICE_ID: "price_1234567890starter",
+      STRIPE_PROFESSIONAL_PRICE_ID: "price_1234567890professional",
     };
 
-    expect(getPlanForPriceId("price_professional", env)).toBe("professional");
+    expect(getPlanForPriceId("price_1234567890professional", env)).toBe(
+      "professional",
+    );
     expect(getPlanForPriceId("price_unknown", env)).toBeNull();
   });
 

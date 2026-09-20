@@ -31,6 +31,14 @@ const PUBLIC_PLAN_DETAILS: Partial<
 
 type BillingEnvironment = Record<string, string | undefined>;
 
+export type StripeMode = "test" | "live" | "unknown";
+
+export type BillingConfigurationStatus = {
+  checkoutEnabled: boolean;
+  mode: StripeMode;
+  issues: string[];
+};
+
 export type BillingAccount = {
   orgId: string;
   plan: string;
@@ -140,20 +148,86 @@ export function getPlanPriceId(
     agency: env.STRIPE_AGENCY_PRICE_ID,
   };
 
-  return priceIds[plan]?.trim() || null;
+  const priceId = priceIds[plan]?.trim();
+  if (!priceId || !/^price_[A-Za-z0-9]+$/.test(priceId)) return null;
+  if (
+    ["price_starter", "price_professional", "price_agency"].includes(priceId)
+  ) {
+    return null;
+  }
+  return priceId;
+}
+
+export function getStripeMode(secretKey: unknown): StripeMode {
+  if (typeof secretKey !== "string") return "unknown";
+  const value = secretKey.trim();
+  if (/^(?:sk|rk)_live_[A-Za-z0-9]+$/.test(value)) return "live";
+  if (/^(?:sk|rk)_test_[A-Za-z0-9]+$/.test(value)) return "test";
+  return "unknown";
+}
+
+function hasConfiguredWebhookSecret(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    /^whsec_[A-Za-z0-9]+$/.test(value.trim()) &&
+    value.trim() !== "whsec_example"
+  );
+}
+
+function hasConfiguredSupabaseUrl(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" && url.hostname.endsWith(".supabase.co");
+  } catch {
+    return false;
+  }
+}
+
+function hasConfiguredServiceRole(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    value.trim().length >= 32 &&
+    !value.toLowerCase().includes("service_role_example") &&
+    !value.toLowerCase().includes("your_supabase")
+  );
+}
+
+export function getBillingConfigurationStatus(
+  env: BillingEnvironment = process.env,
+): BillingConfigurationStatus {
+  const issues: string[] = [];
+  const mode = getStripeMode(env.STRIPE_SECRET_KEY);
+
+  if (env.ENABLE_PAID_CHECKOUT !== "true") {
+    issues.push("Paid checkout is disabled");
+  }
+  if (mode === "unknown") {
+    issues.push("Stripe secret key is missing or invalid");
+  }
+  if (env.VERCEL_ENV === "production" && mode !== "live") {
+    issues.push("Production requires a live-mode Stripe key");
+  }
+  if (!hasConfiguredWebhookSecret(env.STRIPE_WEBHOOK_SECRET)) {
+    issues.push("Stripe webhook signing secret is missing or invalid");
+  }
+  if (!getPlanPriceId("starter", env)) {
+    issues.push("Founding Agent Stripe price is missing or invalid");
+  }
+  if (!hasConfiguredSupabaseUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
+    issues.push("Supabase URL is missing or invalid");
+  }
+  if (!hasConfiguredServiceRole(env.SUPABASE_SERVICE_ROLE_KEY)) {
+    issues.push("Supabase service-role credential is missing or invalid");
+  }
+
+  return { checkoutEnabled: issues.length === 0, mode, issues };
 }
 
 export function isPaidCheckoutEnabled(
   env: BillingEnvironment = process.env,
 ): boolean {
-  return (
-    env.ENABLE_PAID_CHECKOUT === "true" &&
-    Boolean(env.STRIPE_SECRET_KEY?.trim()) &&
-    Boolean(env.STRIPE_WEBHOOK_SECRET?.trim()) &&
-    Boolean(env.NEXT_PUBLIC_SUPABASE_URL?.trim()) &&
-    Boolean(env.SUPABASE_SERVICE_ROLE_KEY?.trim()) &&
-    PAID_PLAN_IDS.some((plan) => Boolean(getPlanPriceId(plan, env)))
-  );
+  return getBillingConfigurationStatus(env).checkoutEnabled;
 }
 
 export function getPlanForPriceId(
@@ -207,11 +281,21 @@ export function getStripeClient(
   env: BillingEnvironment = process.env,
 ): Stripe | null {
   const secretKey = env.STRIPE_SECRET_KEY?.trim();
-  if (!secretKey) return null;
+  const mode = getStripeMode(secretKey);
+  if (!secretKey || mode === "unknown") return null;
+  if (env.VERCEL_ENV === "production" && mode !== "live") return null;
 
   return new Stripe(secretKey, {
     apiVersion: "2024-04-10",
   });
+}
+
+export function stripeEventMatchesConfiguredMode(
+  eventLivemode: boolean,
+  env: BillingEnvironment = process.env,
+): boolean {
+  const mode = getStripeMode(env.STRIPE_SECRET_KEY);
+  return mode !== "unknown" && eventLivemode === (mode === "live");
 }
 
 export function getBillingDataClient(fallback: SupabaseClient): SupabaseClient {
