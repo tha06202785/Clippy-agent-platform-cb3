@@ -26,6 +26,7 @@ const emptyProof = {
   calendarHealthy: false,
   inboundEmailCount: 0,
   linkedGmailEnquiryCount: 0,
+  propertyContextBlockerCount: 0,
   approvedEmailDraftCount: 0,
   deliveredApprovedEmailCount: 0,
   confirmedBookingCount: 0,
@@ -47,8 +48,12 @@ describe("pilot launch readiness", () => {
     });
 
     expect(result.score).toBe(0);
-    expect(result.steps.find((step) => step.key === "crm")?.complete).toBe(false);
-    expect(result.steps.find((step) => step.key === "calendar")?.complete).toBe(false);
+    expect(result.steps.find((step) => step.key === "crm")?.complete).toBe(
+      false,
+    );
+    expect(result.steps.find((step) => step.key === "calendar")?.complete).toBe(
+      false,
+    );
   });
 
   it("reports a complete pilot workspace at 100 percent", () => {
@@ -90,9 +95,9 @@ describe("pilot launch readiness", () => {
       reminderCount: 2,
     });
 
-    expect(
-      result.steps.find((step) => step.key === "calendar")?.complete,
-    ).toBe(false);
+    expect(result.steps.find((step) => step.key === "calendar")?.complete).toBe(
+      false,
+    );
   });
 });
 
@@ -108,6 +113,18 @@ describe("production proof gate", () => {
     expect(
       result.steps.find((step) => step.key === "gmail-intake")?.complete,
     ).toBe(false);
+  });
+
+  it("blocks launch when a property-specific enquiry is missing required context", () => {
+    const result = buildProductionProof({
+      ...emptyProof,
+      linkedGmailEnquiryCount: 2,
+      propertyContextBlockerCount: 1,
+    });
+
+    const context = result.steps.find((step) => step.key === "enquiry-context");
+    expect(context?.complete).toBe(false);
+    expect(context?.description).toContain("required property link");
   });
 
   it("does not accept historical evidence while a production sync is unhealthy", () => {
@@ -156,6 +173,7 @@ describe("production proof gate", () => {
       calendarHealthy: true,
       inboundEmailCount: 1,
       linkedGmailEnquiryCount: 1,
+      propertyContextBlockerCount: 0,
       approvedEmailDraftCount: 1,
       deliveredApprovedEmailCount: 1,
       confirmedBookingCount: 1,

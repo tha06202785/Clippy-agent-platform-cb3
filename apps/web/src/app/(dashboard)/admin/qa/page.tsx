@@ -56,7 +56,7 @@ const nextActions: Record<string, string> = {
   "google-oauth": "Correct the Google OAuth credentials and redirect URL.",
   "client-360-data": "Import or add one genuine client to exercise Client 360.",
   "property-separation":
-    "Repair active enquiries missing a client or property link.",
+    "Repair active property enquiries missing a client or required property link.",
   "copilot-context":
     "Review conversations with missing or mismatched CRM context.",
   "follow-up-workflow":

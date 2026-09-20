@@ -63,13 +63,29 @@ export function isActionablePropertyEnquiry(
   );
 }
 
+export function requiresPropertyContext(
+  enquiry: PropertyEnquiryDiagnosticRecord,
+) {
+  const metadata = enquiry.metadata || {};
+  return (
+    Boolean(enquiry.listing_id) ||
+    metadata.property_context_required === true ||
+    metadata.known_property === true ||
+    metadata.inspection_intent === true ||
+    (typeof metadata.property_address === "string" &&
+      metadata.property_address.trim().length > 0)
+  );
+}
+
 export function summarisePropertyContextHealth(
   enquiries: PropertyEnquiryDiagnosticRecord[],
 ) {
   const actionable = enquiries.filter(isActionablePropertyEnquiry);
   const excluded = enquiries.length - actionable.length;
   const invalid = actionable.filter(
-    (enquiry) => !enquiry.lead_id || !enquiry.listing_id,
+    (enquiry) =>
+      !enquiry.lead_id ||
+      (requiresPropertyContext(enquiry) && !enquiry.listing_id),
   );
   const propertiesByLead = new Map<string, Set<string>>();
 

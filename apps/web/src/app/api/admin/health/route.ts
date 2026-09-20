@@ -281,7 +281,7 @@ export async function GET() {
         message: enquiriesResult.error
           ? enquiriesResult.error.message
           : propertyContext.invalid.length
-            ? `${propertyContext.invalid.length} active enquiries are missing a client or property link`
+            ? `${propertyContext.invalid.length} active property enquiries are missing a client or required property link`
             : propertyContext.actionable.length
               ? `${propertyContext.actionable.length} active client-property links are valid; ${propertyContext.multiPropertyClients} multi-property clients kept separate${propertyContext.excluded ? `; ${propertyContext.excluded} closed, dismissed or test enquiries excluded` : ""}`
               : "No active property enquiries are available to exercise context separation",

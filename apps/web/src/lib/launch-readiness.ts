@@ -29,6 +29,7 @@ export type ProductionProofInput = {
   calendarHealthy: boolean;
   inboundEmailCount: number;
   linkedGmailEnquiryCount: number;
+  propertyContextBlockerCount: number;
   approvedEmailDraftCount: number;
   deliveredApprovedEmailCount: number;
   confirmedBookingCount: number;
@@ -41,9 +42,11 @@ export type ProductionProofInput = {
   bookingActivityCount: number;
 };
 
-export function buildLaunchReadiness(
-  input: LaunchReadinessInput,
-): { score: number; completed: number; steps: LaunchReadinessStep[] } {
+export function buildLaunchReadiness(input: LaunchReadinessInput): {
+  score: number;
+  completed: number;
+  steps: LaunchReadinessStep[];
+} {
   const steps: LaunchReadinessStep[] = [
     {
       key: "profile",
@@ -55,20 +58,24 @@ export function buildLaunchReadiness(
     },
     {
       key: "crm",
-      title: input.crmImportRequired ? "CRM selection and import" : "CRM selection",
+      title: input.crmImportRequired
+        ? "CRM selection and import"
+        : "CRM selection",
       description: !input.crmSelected
         ? "Choose an external CRM or use Clippy as your CRM."
         : input.crmImportRequired
           ? "A CRM is selected and the first duplicate-safe import is complete."
           : "Clippy is selected as the CRM; no external import is required.",
-      href: input.crmSelected && input.crmImportRequired ? "/import" : "/onboarding",
+      href:
+        input.crmSelected && input.crmImportRequired
+          ? "/import"
+          : "/onboarding",
       action:
         input.crmSelected && input.crmImportRequired
           ? "Import CRM data"
           : "Select a CRM",
       complete:
-        input.crmSelected &&
-        (!input.crmImportRequired || input.importComplete),
+        input.crmSelected && (!input.crmImportRequired || input.importComplete),
     },
     {
       key: "knowledge",
@@ -142,9 +149,11 @@ export function buildLaunchReadiness(
   };
 }
 
-export function buildProductionProof(
-  input: ProductionProofInput,
-): { score: number; completed: number; steps: LaunchReadinessStep[] } {
+export function buildProductionProof(input: ProductionProofInput): {
+  score: number;
+  completed: number;
+  steps: LaunchReadinessStep[];
+} {
   const recordedActivityTypes = [
     input.gmailActivityCount,
     input.replyActivityCount,
@@ -160,9 +169,7 @@ export function buildProductionProof(
           ? "Gmail is connected, but its latest production sync failed."
           : `${input.inboundEmailCount} inbound Gmail message${input.inboundEmailCount === 1 ? "" : "s"} imported into Clippy.`,
       href:
-        input.gmailConnected && input.gmailHealthy
-          ? "/inbox"
-          : "/integrations",
+        input.gmailConnected && input.gmailHealthy ? "/inbox" : "/integrations",
       action: !input.gmailConnected
         ? "Connect Gmail"
         : input.gmailHealthy
@@ -176,10 +183,15 @@ export function buildProductionProof(
     {
       key: "enquiry-context",
       title: "Client and property context linked",
-      description: `${input.linkedGmailEnquiryCount} Gmail enquir${input.linkedGmailEnquiryCount === 1 ? "y" : "ies"} linked to a client and property.`,
+      description:
+        input.propertyContextBlockerCount > 0
+          ? `${input.propertyContextBlockerCount} active propert${input.propertyContextBlockerCount === 1 ? "y enquiry needs" : "y enquiries need"} a client or required property link.`
+          : `${input.linkedGmailEnquiryCount} Gmail enquir${input.linkedGmailEnquiryCount === 1 ? "y" : "ies"} linked to a client and property; general enquiries without a named property remain valid.`,
       href: "/inbox",
       action: "Link a property enquiry",
-      complete: input.linkedGmailEnquiryCount > 0,
+      complete:
+        input.linkedGmailEnquiryCount > 0 &&
+        input.propertyContextBlockerCount === 0,
     },
     {
       key: "approved-delivery",
