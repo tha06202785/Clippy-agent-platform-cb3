@@ -62,13 +62,31 @@ describe("dashboard intelligence", () => {
 
   it("prioritises unresolved exceptions before general work", () => {
     const recommendations = buildDashboardRecommendations({
-      urgentTasks: 2,
-      dueTasks: 1,
+      tasks: [
+        {
+          id: "task-due",
+          type: "follow_up",
+          title: "Call Alex about the appraisal",
+          due_at: "2026-07-29T08:00:00.000Z",
+          lead_id: "lead-2",
+          lead_name: "Alex Morgan",
+        },
+        {
+          id: "task-urgent",
+          type: "urgent_follow_up",
+          title: "Reply to Jordan",
+          due_at: "2026-07-29T10:00:00.000Z",
+          lead_id: "lead-3",
+          listing_id: "listing-1",
+          lead_name: "Jordan Smith",
+          property_address: "25 Collins Street, Melbourne",
+        },
+      ],
       hotLeads: [
         { id: "lead-1", full_name: "Sam Lee", ai_score: 91, stage: "hot" },
       ],
-      pendingInspectionTasks: 3,
       newLeadsToday: 4,
+      now: new Date("2026-07-29T09:00:00.000Z"),
     });
 
     expect(recommendations.map((item) => item.kind)).toEqual([
@@ -77,12 +95,38 @@ describe("dashboard intelligence", () => {
       "hot_lead",
     ]);
     expect(recommendations[2].title).toBe("Contact Sam Lee");
+    expect(recommendations[0]).toMatchObject({
+      title: "Reply to Jordan",
+      detail: "Jordan Smith · 25 Collins Street, Melbourne · Due in 1h",
+      action: "Draft follow-up",
+      href: "/copilot?lead_id=lead-3&listing_id=listing-1",
+      task_id: "task-urgent",
+    });
+  });
+
+  it("does not duplicate a hot lead already represented by a task", () => {
+    const recommendations = buildDashboardRecommendations({
+      tasks: [
+        {
+          id: "task-1",
+          title: "Call Sam",
+          lead_id: "lead-1",
+          due_at: "2026-07-29T08:00:00.000Z",
+        },
+      ],
+      hotLeads: [
+        { id: "lead-1", full_name: "Sam Lee", ai_score: 91, stage: "hot" },
+      ],
+      newLeadsToday: 0,
+      now: new Date("2026-07-29T09:00:00.000Z"),
+    });
+
+    expect(recommendations).toHaveLength(1);
+    expect(recommendations[0].task_id).toBe("task-1");
   });
 
   it("uses the Melbourne reporting day", () => {
-    const window = getDashboardWindow(
-      new Date("2026-07-28T22:30:00.000Z"),
-    );
+    const window = getDashboardWindow(new Date("2026-07-28T22:30:00.000Z"));
 
     expect(window.today.toISOString()).toBe("2026-07-28T14:00:00.000Z");
   });

@@ -5,6 +5,7 @@ import {
   getDashboardWindow,
   type DashboardLead,
   type DashboardMessage,
+  type DashboardTask,
 } from "@/lib/dashboard-intelligence";
 import { createClient } from "@/lib/supabase/server";
 import { isMessageVisible } from "@/lib/conversations/message-visibility";
@@ -22,6 +23,10 @@ function requireResult(
   if (result.error) {
     throw new Error(`${label}: ${result.error.message || "query failed"}`);
   }
+}
+
+function firstRelated<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
 export async function GET(request: Request) {
@@ -97,9 +102,6 @@ export async function GET(request: Request) {
       totalLeadsCountResult,
       weekLeadsCountResult,
       pendingTasksResult,
-      dueTasksResult,
-      urgentTasksResult,
-      inspectionTasksResult,
       activityResult,
     ] = await Promise.all([
       supabase
@@ -158,33 +160,13 @@ export async function GET(request: Request) {
         .gte("created_at", weekIso),
       supabase
         .from("tasks")
-        .select("id, type, title, due_at, status, lead_id")
+        .select(
+          "id,type,title,due_at,status,lead_id,listing_id,leads(id,full_name),listings(id,address)",
+        )
         .eq("org_id", orgId)
         .eq("status", "pending")
         .order("due_at", { ascending: true })
         .limit(200),
-      supabase
-        .from("tasks")
-        .select("id, type, title, due_at, status, lead_id")
-        .eq("org_id", orgId)
-        .eq("status", "pending")
-        .lte("due_at", nowIso)
-        .order("due_at", { ascending: true })
-        .limit(100),
-      supabase
-        .from("tasks")
-        .select("id")
-        .eq("org_id", orgId)
-        .eq("status", "pending")
-        .eq("type", "urgent_follow_up")
-        .limit(100),
-      supabase
-        .from("tasks")
-        .select("id")
-        .eq("org_id", orgId)
-        .eq("status", "pending")
-        .in("type", ["schedule_inspection", "schedule_showing"])
-        .limit(100),
       supabase
         .from("clippy_activity_log")
         .select(
@@ -210,9 +192,6 @@ export async function GET(request: Request) {
       ["Total leads", totalLeadsCountResult],
       ["Weekly leads", weekLeadsCountResult],
       ["Pending tasks", pendingTasksResult],
-      ["Due tasks", dueTasksResult],
-      ["Urgent tasks", urgentTasksResult],
-      ["Inspection tasks", inspectionTasksResult],
     ];
     for (const [label, result] of coreResults) requireResult(label, result);
 
@@ -225,9 +204,31 @@ export async function GET(request: Request) {
       })) as DashboardMessage[];
     const performance = calculateMessagePerformance(messages);
     const hotLeads = (hotLeadsResult.data || []) as DashboardLead[];
-    const urgentTasks = urgentTasksResult.data?.length || 0;
-    const dueTasks = dueTasksResult.data?.length || 0;
-    const pendingInspectionTasks = inspectionTasksResult.data?.length || 0;
+    const pendingTasks = (pendingTasksResult.data || []).map((task) => {
+      const lead = firstRelated(task.leads);
+      const listing = firstRelated(task.listings);
+      return {
+        id: task.id,
+        type: task.type,
+        title: task.title,
+        due_at: task.due_at,
+        lead_id: task.lead_id,
+        listing_id: task.listing_id,
+        lead_name: lead?.full_name || null,
+        property_address: listing?.address || null,
+      } satisfies DashboardTask;
+    });
+    const urgentTasks = pendingTasks.filter(
+      (task) => task.type === "urgent_follow_up",
+    ).length;
+    const dueTasks = pendingTasks.filter(
+      (task) =>
+        task.due_at &&
+        new Date(task.due_at).getTime() <= reportingWindow.now.getTime(),
+    ).length;
+    const pendingInspectionTasks = pendingTasks.filter((task) =>
+      ["schedule_inspection", "schedule_showing"].includes(task.type || ""),
+    ).length;
     const newLeadsToday = todayLeadsResult.data?.length || 0;
     const activityAvailable = !activityResult.error;
     const activity = activityAvailable ? activityResult.data || [] : null;
@@ -260,11 +261,10 @@ export async function GET(request: Request) {
         : "no_evidence";
 
     const recommendations = buildDashboardRecommendations({
-      urgentTasks,
-      dueTasks,
+      tasks: pendingTasks,
       hotLeads,
-      pendingInspectionTasks,
       newLeadsToday,
+      now: reportingWindow.now,
     });
 
     return json({
@@ -305,7 +305,7 @@ export async function GET(request: Request) {
         new_leads_today: newLeadsToday,
         urgent_tasks: urgentTasks,
         due_tasks: dueTasks,
-        pending_tasks: pendingTasksResult.data?.length || 0,
+        pending_tasks: pendingTasks.length,
         pending_inspection_tasks: pendingInspectionTasks,
       },
       week: {
