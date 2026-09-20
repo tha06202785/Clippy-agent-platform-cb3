@@ -5,6 +5,7 @@ import {
   getGoogleOAuthRedirectUri,
 } from "@/lib/google-oauth-config";
 import { automationSecretIssues } from "@/lib/automation-security";
+import { getBillingConfigurationStatus } from "@/lib/billing";
 import { isLikelyRealEstateLead } from "@/lib/integrations/gmail-relevance";
 import { isOperationalIntegration } from "@/lib/integration-status";
 import {
@@ -458,6 +459,16 @@ export async function GET() {
       message: automationIssues.length
         ? `Automation securely disabled: ${automationIssues.join("; ")}`
         : "Strong, separate cron and internal API secrets configured",
+    });
+
+    const billingConfiguration = getBillingConfigurationStatus();
+    checks.push({
+      key: "paid-checkout",
+      name: "Paid checkout",
+      status: billingConfiguration.checkoutEnabled ? "healthy" : "warning",
+      message: billingConfiguration.checkoutEnabled
+        ? `Stripe ${billingConfiguration.mode}-mode checkout and signed webhooks are configured`
+        : `Paid launch is blocked: ${billingConfiguration.issues.join("; ")}`,
     });
 
     try {

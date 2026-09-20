@@ -488,9 +488,12 @@ export async function requestCopilotCompletion({
       }
     }
 
-    console.error(
+    // The caller decides whether provider exhaustion is fatal. Some workflows
+    // intentionally return a safe local draft, so record the provider failure
+    // as a warning here and let fatal callers emit the error-level event.
+    console.warn(
       JSON.stringify({
-        level: "error",
+        level: "warning",
         message: "All Copilot providers failed",
         attempted_providers: attemptedProviders,
         failures,

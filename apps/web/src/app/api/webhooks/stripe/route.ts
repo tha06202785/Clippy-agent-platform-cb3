@@ -7,6 +7,7 @@ import {
   getPlanForPriceId,
   getStripeClient,
   getVerifiedCheckoutIdentity,
+  stripeEventMatchesConfiguredMode,
   stripeCustomerMatchesBillingContact,
 } from "@/lib/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -100,6 +101,13 @@ async function syncCompletedCheckout(
   session: Stripe.Checkout.Session,
   eventId: string,
 ) {
+  if (
+    session.status !== "complete" ||
+    !["paid", "no_payment_required"].includes(session.payment_status)
+  ) {
+    throw new Error("Checkout session is not fully paid");
+  }
+
   const identity = getVerifiedCheckoutIdentity({
     clientReferenceId: session.client_reference_id,
     metadata: session.metadata || undefined,
@@ -377,6 +385,13 @@ export async function POST(req: NextRequest) {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  if (!stripeEventMatchesConfiguredMode(event.livemode)) {
+    return NextResponse.json(
+      { error: "Stripe event mode does not match this environment" },
+      { status: 400 },
+    );
   }
 
   const supabase = createAdminClient();

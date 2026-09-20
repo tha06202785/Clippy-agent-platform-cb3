@@ -44,5 +44,22 @@ describe("Stripe billing identity pipeline", () => {
     expect(webhook).toContain('inserted.error?.code !== "23505"');
     expect(webhook).toContain("hasCurrentBillingOwner");
     expect(webhook).toContain('billing_identity_status: "verified"');
+    expect(webhook).toContain("stripeEventMatchesConfiguredMode");
+    expect(webhook).toContain('session.status !== "complete"');
+    expect(webhook).toContain('["paid", "no_payment_required"]');
+  });
+
+  it("shows payment verification without blocking unverified accounts on invoices", () => {
+    const billingPage = readFileSync(
+      resolve(
+        repositoryRoot,
+        "apps/web/src/app/(dashboard)/admin/billing/page.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(billingPage).toContain("Payment received. Clippy is verifying");
+    expect(billingPage).toContain("if (billingVerified)");
+    expect(billingPage).toContain("attempt < 5");
   });
 });

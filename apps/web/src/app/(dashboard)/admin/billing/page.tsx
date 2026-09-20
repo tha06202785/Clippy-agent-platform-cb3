@@ -66,34 +66,89 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/subscription/current"),
-      fetch("/api/subscription/invoices"),
-    ])
-      .then(async ([subscriptionResponse, invoicesResponse]) => {
-        const [subData, invoicesData] = await Promise.all([
-          subscriptionResponse.json(),
-          invoicesResponse.json(),
-        ]);
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const checkoutSucceeded =
+      new URLSearchParams(window.location.search).get("checkout") === "success";
+
+    if (checkoutSucceeded) {
+      setCheckoutNotice(
+        "Payment received. Clippy is verifying the signed Stripe confirmation.",
+      );
+    }
+
+    const loadBilling = async (attempt = 0): Promise<void> => {
+      let retrying = false;
+      try {
+        const subscriptionResponse = await fetch("/api/subscription/current", {
+          cache: "no-store",
+        });
+        const subData = await subscriptionResponse.json();
         if (!subscriptionResponse.ok) {
           throw new Error(subData.error || "Failed to load subscription");
         }
-        if (!invoicesResponse.ok) {
-          throw new Error(invoicesData.error || "Failed to load invoices");
+
+        const nextSubscription = subData.subscription as Subscription;
+        if (cancelled) return;
+        setSubscription(nextSubscription);
+
+        const billingVerified =
+          nextSubscription.billing_identity_status === "verified";
+        const subscriptionActive = ["active", "trialing"].includes(
+          nextSubscription.status,
+        );
+
+        if (
+          checkoutSucceeded &&
+          (!billingVerified || !subscriptionActive) &&
+          attempt < 5
+        ) {
+          retrying = true;
+          retryTimer = setTimeout(() => void loadBilling(attempt + 1), 1500);
+          return;
         }
-        if (subData.subscription) setSubscription(subData.subscription);
-        if (invoicesData.invoices) setInvoices(invoicesData.invoices);
-      })
-      .catch((loadError) =>
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Failed to load billing data",
-        ),
-      )
-      .finally(() => setLoading(false));
+
+        if (checkoutSucceeded) {
+          setCheckoutNotice(
+            billingVerified && subscriptionActive
+              ? "Subscription active. Your agent billing identity has been verified."
+              : "Stripe confirmation is still processing. Refresh shortly if the plan has not updated.",
+          );
+        }
+
+        if (billingVerified) {
+          const invoicesResponse = await fetch("/api/subscription/invoices", {
+            cache: "no-store",
+          });
+          const invoicesData = await invoicesResponse.json();
+          if (!invoicesResponse.ok) {
+            throw new Error(invoicesData.error || "Failed to load invoices");
+          }
+          if (!cancelled) setInvoices(invoicesData.invoices || []);
+        } else if (!cancelled) {
+          setInvoices([]);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to load billing data",
+          );
+        }
+      } finally {
+        if (!cancelled && !retrying) setLoading(false);
+      }
+    };
+
+    void loadBilling();
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, []);
 
   const handleManageSubscription = async () => {
@@ -157,6 +212,13 @@ export default function BillingPage() {
           {error}
         </div>
       )}
+
+      {checkoutNotice ? (
+        <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          <CheckCircle className="h-4 w-4 flex-shrink-0" />
+          {checkoutNotice}
+        </div>
+      ) : null}
 
       {!loading && !isPaid && !isPastDue ? (
         <section className="rounded-xl border border-primary/20 bg-primary/5 p-5">
