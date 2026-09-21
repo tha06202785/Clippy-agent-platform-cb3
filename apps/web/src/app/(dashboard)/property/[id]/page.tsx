@@ -24,6 +24,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { CreateFollowUpButton } from "@/components/create-follow-up-button";
 import { FollowUpActions } from "@/components/follow-up-actions";
+import { buildFollowUpCopilotHref } from "@/lib/copilot-context";
 import { isMessageVisible } from "@/lib/conversations/message-visibility";
 
 export const dynamic = "force-dynamic";
@@ -752,9 +753,11 @@ export default async function Property360Page({
                         </p>
                         <FollowUpActions
                           taskId={task.id}
-                          copilotHref={`/copilot?listing_id=${listing.id}${
-                            task.lead_id ? `&lead_id=${task.lead_id}` : ""
-                          }`}
+                          copilotHref={buildFollowUpCopilotHref({
+                            taskId: task.id,
+                            leadId: task.lead_id,
+                            listingId: listing.id,
+                          })}
                         />
                       </div>
                     </div>

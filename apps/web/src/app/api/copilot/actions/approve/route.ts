@@ -15,7 +15,9 @@ const approvalSchema = z.object({
   content: z.string().trim().min(1).max(12_000),
   original_content: z.string().trim().min(1).max(12_000).optional(),
   lead_id: z.string().uuid().optional(),
+  listing_id: z.string().uuid().optional(),
   conversation_id: z.string().uuid().optional(),
+  task_id: z.string().uuid().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -146,6 +148,63 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+  let sourceTask: {
+    id: string;
+    status: string;
+    lead_id: string | null;
+    listing_id: string | null;
+  } | null = null;
+  if (parsed.data.task_id) {
+    const { data: task } = await admin
+      .from("tasks")
+      .select("id,status,lead_id,listing_id")
+      .eq("id", parsed.data.task_id)
+      .eq("org_id", membership.org_id)
+      .maybeSingle();
+    if (!task) {
+      return NextResponse.json(
+        { error: "The source follow-up task is unavailable." },
+        { status: 404 },
+      );
+    }
+    if (task.lead_id && leadId && task.lead_id !== leadId) {
+      return NextResponse.json(
+        { error: "The follow-up task and selected client do not match." },
+        { status: 400 },
+      );
+    }
+    if (
+      task.listing_id &&
+      parsed.data.listing_id &&
+      task.listing_id !== parsed.data.listing_id
+    ) {
+      return NextResponse.json(
+        { error: "The follow-up task and selected property do not match." },
+        { status: 400 },
+      );
+    }
+    sourceTask = task;
+  }
+
+  const completeSourceTask = async () => {
+    if (!sourceTask) return false;
+    if (sourceTask.status === "completed") return true;
+    const completedAt = new Date().toISOString();
+    const { data, error } = await admin
+      .from("tasks")
+      .update({ status: "completed", completed_at: completedAt })
+      .eq("id", sourceTask.id)
+      .eq("org_id", membership.org_id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      console.error("Approved message task completion failed", error.code);
+      return false;
+    }
+    return Boolean(data);
+  };
+
   const approvalPrefix = `approval:${parsed.data.draft_id};`;
   const { data: existing } = await admin
     .from("ai_actions")
@@ -166,6 +225,7 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
     if (delivered) {
+      const taskCompleted = await completeSourceTask();
       return NextResponse.json({
         approved: true,
         sent: true,
@@ -174,6 +234,7 @@ export async function POST(req: NextRequest) {
         recipient,
         duplicate: true,
         message: delivered,
+        task_completed: taskCompleted,
       });
     }
   } else if (existing) {
@@ -337,9 +398,11 @@ export async function POST(req: NextRequest) {
           channel: parsed.data.channel,
           conversation_id: parsed.data.conversation_id,
           message_id: sentMessage.id,
+          task_id: sourceTask?.id || null,
         },
         completedAt: sentAt,
       });
+      const taskCompleted = await completeSourceTask();
       return NextResponse.json({
         approved: true,
         sent: true,
@@ -349,6 +412,7 @@ export async function POST(req: NextRequest) {
         duplicate: false,
         message: sentMessage,
         adaptive_learning: adaptiveLearning,
+        task_completed: taskCompleted,
       });
     } catch (deliveryError) {
       console.error(

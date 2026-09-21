@@ -259,12 +259,16 @@ export default async function Copilot({
     calendarSource: firstParam(params.calendar_source) as
       "google" | "inspection" | undefined,
   };
+  const followUpLaunch = firstParam(params.launch) === "follow_up";
 
   return (
     <CopilotPage
       contextItems={items}
       initialContext={initialContext}
       initialPrompt={firstParam(params.prompt)}
+      initialTaskId={firstParam(params.task_id)}
+      autoSubmitInitialPrompt={followUpLaunch}
+      preferConversationContext={followUpLaunch}
       pilotFeedbackEnabled={pilotFeedbackEnabled}
     />
   );

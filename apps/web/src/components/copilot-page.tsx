@@ -3,6 +3,7 @@
 import {
   FormEvent,
   KeyboardEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -146,11 +147,17 @@ export function CopilotPage({
   contextItems,
   initialContext,
   initialPrompt = "",
+  initialTaskId,
+  autoSubmitInitialPrompt = false,
+  preferConversationContext = false,
   pilotFeedbackEnabled = false,
 }: {
   contextItems: CopilotContextItem[];
   initialContext: CopilotContextSelection;
   initialPrompt?: string;
+  initialTaskId?: string;
+  autoSubmitInitialPrompt?: boolean;
+  preferConversationContext?: boolean;
   pilotFeedbackEnabled?: boolean;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -161,16 +168,22 @@ export function CopilotPage({
         "G'day! I'm Clippy. Choose the client, property, enquiry or conversation I should work with, then tell me what you need.",
     },
   ]);
-  const [input, setInput] = useState(() => initialPrompt.slice(0, 12_000));
+  const [input, setInput] = useState(() =>
+    autoSubmitInitialPrompt ? "" : initialPrompt.slice(0, 12_000),
+  );
   const [loading, setLoading] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
   const [contextOpen, setContextOpen] = useState(false);
   const [contextSearch, setContextSearch] = useState("");
   const [activeContext, setActiveContext] = useState<CopilotContextItem | null>(
-    () => resolveInitialCopilotContextItem(contextItems, initialContext),
+    () =>
+      resolveInitialCopilotContextItem(contextItems, initialContext, {
+        preferConversation: preferConversationContext,
+      }),
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const initialPromptSentRef = useRef(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -237,6 +250,7 @@ export function CopilotPage({
           subject: action.subject,
           content: action.content,
           original_content: action.originalContent,
+          task_id: action.sourceTaskId,
           ...contextRequest(action.context),
         }),
       });
@@ -248,6 +262,7 @@ export function CopilotPage({
         status: "approved",
         approvedAt: result.approved_at,
         sent: Boolean(result.sent),
+        taskCompleted: Boolean(result.task_completed),
         recipient: result.recipient || action.recipient,
       });
     } catch (error) {
@@ -359,109 +374,127 @@ export function CopilotPage({
     }
   };
 
-  const sendMessage = async (text?: string) => {
-    const msg = (text ?? input).trim();
-    if (!msg || loading) return;
-
-    setMessages((previous) => [
-      ...previous,
-      {
-        id: `${Date.now()}-user`,
-        role: "user",
-        content: msg,
-        contextLabel: activeContext
-          ? `${activeContext.label} · ${activeContext.description}`
-          : undefined,
-      },
-    ]);
-    setInput("");
-    setLoading(true);
-    setThinkingStep(0);
-
-    let stepIndex = 0;
-    const stepInterval = window.setInterval(() => {
-      stepIndex += 1;
-      if (stepIndex >= thinkingSteps.length) {
-        window.clearInterval(stepInterval);
-      } else {
-        setThinkingStep(stepIndex);
-      }
-    }, 400);
-
-    try {
-      const response = await fetch("/api/copilot/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: msg,
-          ...contextRequest(activeContext?.context),
-        }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.error || `Request failed (${response.status})`);
-      }
-
-      window.clearInterval(stepInterval);
-      setThinkingStep(thinkingSteps.length);
-
-      const reply =
-        typeof data.reply === "string" && data.reply.trim()
-          ? data.reply
-          : "I received your message but don't have a response. Please try again.";
-      const proposedDraftAction =
-        data.proposed_action?.type === "message_draft"
-          ? (data.proposed_action as ProposedDraftAction)
-          : null;
-      const proposedSlotAction =
-        data.proposed_action?.type === "inspection_slot"
-          ? (data.proposed_action as ProposedInspectionSlotAction)
-          : null;
+  const sendMessage = useCallback(
+    async (text?: string) => {
+      const msg = (text ?? input).trim();
+      if (!msg || loading) return;
 
       setMessages((previous) => [
         ...previous,
         {
-          id: `${Date.now()}-assistant`,
-          role: "assistant",
-          content: proposedDraftAction
-            ? "I prepared an editable draft below. Review it carefully—nothing will be sent automatically."
-            : reply,
-          contextLabel: activeContext
-            ? `${activeContext.label} · ${activeContext.description}`
-            : undefined,
-          draftAction: proposedDraftAction
-            ? {
-                ...proposedDraftAction,
-                context: activeContext?.context || {},
-                status: "draft",
-              }
-            : undefined,
-          slotAction: proposedSlotAction
-            ? { ...proposedSlotAction, status: "pending" }
-            : undefined,
-        },
-      ]);
-    } catch (error) {
-      console.error("Copilot error:", error);
-      const message = error instanceof Error ? error.message : "Unknown error";
-      setMessages((previous) => [
-        ...previous,
-        {
-          id: `${Date.now()}-error`,
-          role: "assistant",
-          content: `I couldn't send that message: ${message}. Please try again.`,
+          id: `${Date.now()}-user`,
+          role: "user",
+          content: msg,
           contextLabel: activeContext
             ? `${activeContext.label} · ${activeContext.description}`
             : undefined,
         },
       ]);
-    } finally {
-      window.clearInterval(stepInterval);
-      setLoading(false);
+      setInput("");
+      setLoading(true);
       setThinkingStep(0);
+
+      let stepIndex = 0;
+      const stepInterval = window.setInterval(() => {
+        stepIndex += 1;
+        if (stepIndex >= thinkingSteps.length) {
+          window.clearInterval(stepInterval);
+        } else {
+          setThinkingStep(stepIndex);
+        }
+      }, 400);
+
+      try {
+        const response = await fetch("/api/copilot/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: msg,
+            task_id: initialTaskId,
+            ...contextRequest(activeContext?.context),
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || `Request failed (${response.status})`);
+        }
+
+        window.clearInterval(stepInterval);
+        setThinkingStep(thinkingSteps.length);
+
+        const reply =
+          typeof data.reply === "string" && data.reply.trim()
+            ? data.reply
+            : "I received your message but don't have a response. Please try again.";
+        const proposedDraftAction =
+          data.proposed_action?.type === "message_draft"
+            ? (data.proposed_action as ProposedDraftAction)
+            : null;
+        const proposedSlotAction =
+          data.proposed_action?.type === "inspection_slot"
+            ? (data.proposed_action as ProposedInspectionSlotAction)
+            : null;
+
+        setMessages((previous) => [
+          ...previous,
+          {
+            id: `${Date.now()}-assistant`,
+            role: "assistant",
+            content: proposedDraftAction
+              ? "I prepared an editable draft below. Review it carefully—nothing will be sent automatically."
+              : reply,
+            contextLabel: activeContext
+              ? `${activeContext.label} · ${activeContext.description}`
+              : undefined,
+            draftAction: proposedDraftAction
+              ? {
+                  ...proposedDraftAction,
+                  context: activeContext?.context || {},
+                  sourceTaskId: initialTaskId,
+                  status: "draft",
+                }
+              : undefined,
+            slotAction: proposedSlotAction
+              ? { ...proposedSlotAction, status: "pending" }
+              : undefined,
+          },
+        ]);
+      } catch (error) {
+        console.error("Copilot error:", error);
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        setMessages((previous) => [
+          ...previous,
+          {
+            id: `${Date.now()}-error`,
+            role: "assistant",
+            content: `I couldn't send that message: ${message}. Please try again.`,
+            contextLabel: activeContext
+              ? `${activeContext.label} · ${activeContext.description}`
+              : undefined,
+          },
+        ]);
+      } finally {
+        window.clearInterval(stepInterval);
+        setLoading(false);
+        setThinkingStep(0);
+      }
+    },
+    [activeContext, initialTaskId, input, loading],
+  );
+
+  useEffect(() => {
+    if (
+      !autoSubmitInitialPrompt ||
+      !initialPrompt ||
+      initialPromptSentRef.current
+    ) {
+      return;
     }
-  };
+    initialPromptSentRef.current = true;
+    void sendMessage(initialPrompt);
+  }, [autoSubmitInitialPrompt, initialPrompt, sendMessage]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

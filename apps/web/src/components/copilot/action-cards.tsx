@@ -25,6 +25,8 @@ export type InspectionSlotActionState = ProposedInspectionSlotAction & {
 
 export type DraftActionState = ProposedDraftAction & {
   context: CopilotContextSelection;
+  sourceTaskId?: string;
+  taskCompleted?: boolean;
   status: "draft" | "approving" | "approved";
   error?: string;
   approvedAt?: string;
@@ -66,6 +68,10 @@ export function DraftApprovalCard({
 }) {
   const [copied, setCopied] = useState(false);
   const launchUrl = buildDraftLaunchUrl(action);
+  const sendsOnApproval = Boolean(
+    action.context.conversationId &&
+    ["email", "whatsapp"].includes(action.channel),
+  );
   const channelLabel =
     action.channel === "sms"
       ? "Text"
@@ -219,7 +225,10 @@ export function DraftApprovalCard({
               })}
             </div>
             {action.feedbackMessage ? (
-              <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-300" role="status">
+              <p
+                className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-300"
+                role="status"
+              >
                 {action.feedbackMessage}
               </p>
             ) : null}
@@ -248,8 +257,9 @@ export function DraftApprovalCard({
                 role="status"
               >
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                Delivered successfully. Clippy recorded your final version for
-                learning.
+                {action.taskCompleted
+                  ? "Delivered successfully and the follow-up task was completed."
+                  : "Delivered successfully. Clippy recorded your final version for learning."}
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -282,15 +292,16 @@ export function DraftApprovalCard({
               variant="secondary"
               onClick={onApprove}
               isLoading={action.status === "approving"}
-              loadingText="Recording approval…"
+              loadingText={sendsOnApproval ? "Sending…" : "Recording approval…"}
               disabled={!action.content.trim()}
             >
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Approve
-              this draft
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              {sendsOnApproval ? "Approve and send" : "Approve this draft"}
             </Button>
             <p className="text-center text-[11px] text-muted-foreground">
-              Nothing is sent when you approve. You choose the final send in
-              your email or messaging app.
+              {sendsOnApproval
+                ? "This sends through the selected connected conversation and records delivery."
+                : "Nothing is sent when you approve. You choose the final send in your email or messaging app."}
             </p>
           </div>
         )}

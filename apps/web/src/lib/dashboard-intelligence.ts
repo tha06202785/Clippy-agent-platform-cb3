@@ -1,3 +1,5 @@
+import { buildFollowUpCopilotHref } from "@/lib/copilot-context";
+
 export const CLIPPY_TIME_ZONE = "Australia/Melbourne";
 
 export type DashboardMessage = {
@@ -196,14 +198,6 @@ function relativeDueLabel(dueAt: string | null | undefined, nowMs: number) {
   return `Due in ${days}d`;
 }
 
-function taskHref(task: DashboardTask) {
-  const params = [
-    task.lead_id ? `lead_id=${encodeURIComponent(task.lead_id)}` : "",
-    task.listing_id ? `listing_id=${encodeURIComponent(task.listing_id)}` : "",
-  ].filter(Boolean);
-  return params.length ? `/copilot?${params.join("&")}` : "/deals";
-}
-
 export function buildDashboardRecommendations(input: {
   tasks: DashboardTask[];
   hotLeads: DashboardLead[];
@@ -249,7 +243,11 @@ export function buildDashboardRecommendations(input: {
               ? "Inspection preparation"
               : "Scheduled follow-up",
       action: isInspection ? "Prepare inspection" : "Draft follow-up",
-      href: taskHref(task),
+      href: buildFollowUpCopilotHref({
+        taskId: task.id,
+        leadId: task.lead_id,
+        listingId: task.listing_id,
+      }),
       task_id: task.id,
       due_at: task.due_at || null,
     });
@@ -280,8 +278,8 @@ export function buildDashboardRecommendations(input: {
         ? `Highest-scoring hot lead${highestIntentLead.ai_score ? ` · Intent score ${highestIntentLead.ai_score}` : ""}`
         : "These leads have the strongest current intent recorded.",
       reason: "High-intent opportunity",
-      action: "Open client",
-      href: `/clients/${highestIntentLead.id}`,
+      action: "Draft first contact",
+      href: buildFollowUpCopilotHref({ leadId: highestIntentLead.id }),
       task_id: null,
       due_at: null,
     });
