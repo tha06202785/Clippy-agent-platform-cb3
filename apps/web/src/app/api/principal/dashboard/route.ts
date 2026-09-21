@@ -9,6 +9,7 @@ import {
 } from "@/lib/dashboard-intelligence";
 import { createClient } from "@/lib/supabase/server";
 import { isMessageVisible } from "@/lib/conversations/message-visibility";
+import { canViewTeamActivity } from "@/lib/team-access";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +84,10 @@ export async function GET(request: Request) {
         { error: "No organisation membership found" },
         { status: 403 },
       );
+    }
+
+    if (!canViewTeamActivity(membership.role)) {
+      return json({ error: "Manager access required" }, { status: 403 });
     }
 
     const orgId = membership.org_id;

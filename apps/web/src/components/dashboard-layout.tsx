@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
-import { Toaster } from "sonner";
+import { toast, Toaster } from "sonner";
 import {
   BarChart3,
   Brain,
@@ -41,6 +41,7 @@ import { PostHogProvider } from "@/components/posthog-provider";
 import { PostHogPageView } from "@/components/posthog-pageview";
 import { QueryProvider } from "@/components/query-provider";
 import { BrandLogo } from "@/components/brand-logo";
+import { AccountMenu, type AccountSummary } from "@/components/account-menu";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 
@@ -155,6 +156,7 @@ const pageTitles: Array<[string, string]> = [
   ["/integrations", "Connections"],
   ["/automation", "Automation"],
   ["/team", "Team"],
+  ["/principal", "Manager dashboard"],
   ["/import", "Import"],
   ["/onboarding", "Setup"],
   ["/pilot/setup", "Pilot setup"],
@@ -173,6 +175,8 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [account, setAccount] = useState<AccountSummary | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
   const previousUnread = useRef<number | null>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -186,6 +190,23 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         Notification.permission === "granted" &&
         !muted,
     );
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/me", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as AccountSummary;
+      })
+      .then((data) => {
+        if (active && data) setAccount(data);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -294,8 +315,17 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/sign-in");
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Sign out failed");
+      router.replace("/sign-in");
+      router.refresh();
+    } catch {
+      setSigningOut(false);
+      toast.error("Could not sign out. Please try again.");
+    }
   };
 
   const pageTitle =
@@ -446,6 +476,12 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
               <Moon className="h-4 w-4 text-foreground" aria-hidden="true" />
             )}
           </IconButton>
+          <AccountMenu
+            account={account}
+            compact
+            signingOut={signingOut}
+            onSignOut={handleLogout}
+          />
         </div>
       </div>
 
@@ -505,12 +541,19 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         <div className="border-t border-border p-4">
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => void handleLogout()}
+            disabled={signingOut}
             tabIndex={sidebarInteractive ? undefined : -1}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-muted-foreground transition-all duration-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-muted-foreground transition-all duration-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/30"
           >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium text-sm">Sign Out</span>
+            {signingOut ? (
+              <LoaderCircle className="h-5 w-5 animate-spin" />
+            ) : (
+              <LogOut className="h-5 w-5" />
+            )}
+            <span className="text-sm font-medium">
+              {signingOut ? "Signing out…" : "Sign out / switch account"}
+            </span>
           </button>
         </div>
       </aside>
@@ -578,12 +621,11 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
                   />
                 )}
               </IconButton>
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-card bg-gradient-to-br from-pastel-blue to-pastel-mint shadow-soft dark:from-primary/20 dark:to-secondary/20"
-                aria-hidden="true"
-              >
-                <UserRound className="h-5 w-5 text-neutral-700 dark:text-foreground" />
-              </div>
+              <AccountMenu
+                account={account}
+                signingOut={signingOut}
+                onSignOut={handleLogout}
+              />
             </div>
           </div>
         </header>
