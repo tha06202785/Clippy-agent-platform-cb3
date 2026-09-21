@@ -294,7 +294,7 @@ export async function POST(req: NextRequest) {
       const { data: conversation, error } = await supabase
         .from("conversations")
         .select(
-          "id,lead_id,listing_id,enquiry_id,channel,status,last_message_at,created_at",
+          "id,lead_id,listing_id,enquiry_id,channel,last_message_at,created_at",
         )
         .eq("id", conversationId)
         .eq("org_id", orgId)
@@ -312,7 +312,6 @@ export async function POST(req: NextRequest) {
       );
       conversationContext = {
         channel: conversation.channel,
-        status: conversation.status,
         last_message_at: conversation.last_message_at,
         opened_at: conversation.created_at,
       };
