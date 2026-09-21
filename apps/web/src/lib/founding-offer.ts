@@ -6,6 +6,11 @@ export function getRequestedFoundingPlan(search: string): "starter" | null {
 }
 
 export function getSignupCompletionPath(search: string): string {
+  const requested = new URLSearchParams(search).get("next");
+  if (requested?.startsWith("/") && !requested.startsWith("//")) {
+    return requested;
+  }
+
   const plan = getRequestedFoundingPlan(search);
   return plan ? `/onboarding?plan=${plan}` : "/onboarding";
 }
