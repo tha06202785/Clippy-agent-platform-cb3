@@ -207,6 +207,18 @@ export function shouldCreateDraftAction(message: string) {
   return DRAFT_INTENT.test(message);
 }
 
+export function buildSafeFollowUpFallback({
+  recipientName,
+  agentName,
+}: {
+  recipientName?: string | null;
+  agentName?: string | null;
+}) {
+  const greeting = recipientName?.trim() || "there";
+  const signOff = agentName?.trim() || "Your real estate agent";
+  return `Hi ${greeting},\n\nI’m following up on our recent conversation. Please let me know if you’d like to continue the conversation or if there’s anything I can clarify.\n\nKind regards,\n${signOff}`;
+}
+
 export function resolveDraftChannel({
   message,
   conversationChannel,

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { retrieveForAIResponse } from "@/lib/rag/embeddings";
 import {
+  buildSafeFollowUpFallback,
   resolveDraftChannel,
   parseInspectionSlotRequests,
   shouldCreateDraftAction,
@@ -581,19 +582,55 @@ export async function POST(req: NextRequest) {
         "\n13. The agent requested a communication draft. Return only the ready-to-send message body, without analysis, labels, quotation marks or a claim that it was sent.";
     }
 
-    const completion = await requestCopilotCompletion({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message },
-      ],
-      userId: user.id,
-      // Ollama Cloud can queue or cold-start large models such as kimi-k2.6.
-      // Keep enough headroom for the request while staying within maxDuration.
-      attemptTimeoutMs: 25_000,
-      providerBudgetMs: 40_000,
-      maxAttempts: 1,
-      maxTokens: 650,
-    });
+    let completion: Awaited<ReturnType<typeof requestCopilotCompletion>>;
+    try {
+      completion = await requestCopilotCompletion({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message },
+        ],
+        userId: user.id,
+        // Ollama Cloud can queue or cold-start large models such as kimi-k2.6.
+        // Keep enough headroom for the request while staying within maxDuration.
+        attemptTimeoutMs: 25_000,
+        providerBudgetMs: 40_000,
+        maxAttempts: 1,
+        maxTokens: 650,
+      });
+    } catch (error) {
+      // A follow-up draft must remain useful even when the configured model is
+      // temporarily unavailable. This template is intentionally factual-free:
+      // it never invents a property, price, date, or claim about the client.
+      if (
+        !(error instanceof CopilotProviderUnavailableError) ||
+        !draftActionRequested
+      ) {
+        throw error;
+      }
+      const fallbackReply = buildSafeFollowUpFallback({
+        recipientName: firstText(clientContext, ["name"]),
+        agentName,
+      });
+      console.warn(
+        JSON.stringify({
+          level: "warning",
+          message: "Using deterministic follow-up draft fallback",
+          provider_attempts: error.providerAttempts,
+        }),
+      );
+      completion = {
+        data: {
+          choices: [{ message: { content: fallbackReply } }],
+          usage: { prompt_tokens: 0, completion_tokens: 0, cached_tokens: 0 },
+          model: "deterministic-follow-up-template",
+        },
+        model: "deterministic-follow-up-template",
+        provider: "ollama",
+        attempts: 0,
+        usedRetry: false,
+        providerAttempts: error.providerAttempts,
+      };
+    }
     const ollamaData = completion.data;
     const model = completion.model;
     const rawReply =
