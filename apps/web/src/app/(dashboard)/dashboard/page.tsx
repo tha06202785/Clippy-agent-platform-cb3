@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   Activity,
   AlertCircle,
-  ArrowRight,
   Calendar,
   CheckCircle,
   Clock,
@@ -15,17 +14,9 @@ import {
   Sparkles,
   TrendingUp,
   Users,
-  Zap,
 } from "lucide-react";
-
-type Recommendation = {
-  kind: string;
-  priority: "urgent" | "high" | "normal";
-  title: string;
-  detail: string;
-  action: string;
-  href: string;
-};
+import { NextBestActions } from "@/components/next-best-actions";
+import type { DashboardRecommendation } from "@/lib/dashboard-intelligence";
 
 type ActivityEvidence = {
   id: string;
@@ -46,7 +37,7 @@ interface DashboardData {
   clippy: {
     state: "evidence_unavailable" | "evidenced" | "no_evidence";
     headline: string;
-    recommendations: Recommendation[];
+    recommendations: DashboardRecommendation[];
     completed: {
       verified_outbound_deliveries: number;
       outbound_messages_recorded: number;
@@ -98,6 +89,7 @@ export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -134,7 +126,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [router, reloadKey]);
 
   const greeting = useMemo(() => {
     const hour = Number(
@@ -312,85 +304,10 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-emerald-700">
-              Priority actions
-            </p>
-            <h2 className="mt-1 text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-neutral-900">
-              Tasks requiring attention
-            </h2>
-            <p className="mt-1 text-[13px] font-normal leading-5 text-neutral-500">
-              Ordered by urgency from unresolved tasks and current
-              opportunities.
-            </p>
-          </div>
-          <div className="rounded-xl bg-emerald-50 p-3">
-            <Zap className="h-5 w-5 text-emerald-600" />
-          </div>
-        </div>
-        <div className="mt-5 grid gap-3 lg:grid-cols-3">
-          {dashboard.clippy.recommendations.map((item, index) => (
-            <article
-              key={`${item.kind}-${item.title}`}
-              className={`rounded-xl border border-neutral-200 bg-neutral-50 p-4 ${
-                dashboard.clippy.recommendations.length === 1
-                  ? "lg:col-span-3 lg:grid lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4"
-                  : ""
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-                  {index + 1}
-                </div>
-                {item.priority !== "normal" && (
-                  <span
-                    className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.05em] ${
-                      item.priority === "urgent"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {item.priority}
-                  </span>
-                )}
-              </div>
-              <div>
-                <h3
-                  className={`mt-3 text-base font-semibold leading-[1.3] text-neutral-900 ${
-                    dashboard.clippy.recommendations.length === 1
-                      ? "lg:mt-0"
-                      : ""
-                  }`}
-                >
-                  {item.title}
-                </h3>
-                <p
-                  className={`mt-1 text-sm font-normal leading-[1.5] text-neutral-600 ${
-                    dashboard.clippy.recommendations.length === 1
-                      ? ""
-                      : "min-h-10"
-                  }`}
-                >
-                  {item.detail}
-                </p>
-              </div>
-              <Link
-                href={item.href}
-                className={`mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-emerald-700 hover:text-emerald-800 ${
-                  dashboard.clippy.recommendations.length === 1
-                    ? "lg:mt-0 lg:whitespace-nowrap"
-                    : ""
-                }`}
-              >
-                {item.action}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </article>
-          ))}
-        </div>
-      </section>
+      <NextBestActions
+        items={dashboard.clippy.recommendations}
+        onTaskCompleted={() => setReloadKey((current) => current + 1)}
+      />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map(({ label, value, detail, icon: Icon }) => (
@@ -497,7 +414,7 @@ export default function DashboardPage() {
             className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-emerald-700"
           >
             Ask Clippy what to do next
-            <ArrowRight className="h-4 w-4" />
+            <span aria-hidden="true">→</span>
           </Link>
         </article>
       </section>
