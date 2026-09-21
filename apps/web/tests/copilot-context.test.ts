@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFollowUpCopilotHref,
   resolveInitialCopilotContextItem,
   type CopilotContextItem,
 } from "@/lib/copilot-context";
@@ -67,5 +68,33 @@ describe("Copilot initial working context", () => {
         conversationId: "thread-1",
       })?.key,
     ).toBe("conversation:thread-1");
+  });
+
+  it("prefers the exact conversation for a follow-up launch", () => {
+    expect(
+      resolveInitialCopilotContextItem(
+        items,
+        { leadId: "client-1", listingId: "property-1" },
+        { preferConversation: true },
+      )?.key,
+    ).toBe("conversation:thread-1");
+  });
+
+  it("builds an auto-draft launch with its source task", () => {
+    const href = buildFollowUpCopilotHref({
+      taskId: "task-1",
+      leadId: "client-1",
+      listingId: "property-1",
+    });
+    const url = new URL(href, "https://useclippy.com");
+
+    expect(url.pathname).toBe("/copilot");
+    expect(url.searchParams.get("launch")).toBe("follow_up");
+    expect(url.searchParams.get("task_id")).toBe("task-1");
+    expect(url.searchParams.get("lead_id")).toBe("client-1");
+    expect(url.searchParams.get("listing_id")).toBe("property-1");
+    expect(url.searchParams.get("prompt")).toContain(
+      "Draft a personalised follow-up",
+    );
   });
 });

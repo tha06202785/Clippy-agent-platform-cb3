@@ -94,14 +94,21 @@ describe("dashboard intelligence", () => {
       "due_task",
       "hot_lead",
     ]);
-    expect(recommendations[2].title).toBe("Contact Sam Lee");
+    expect(recommendations[2]).toMatchObject({
+      title: "Contact Sam Lee",
+      action: "Draft first contact",
+    });
     expect(recommendations[0]).toMatchObject({
       title: "Reply to Jordan",
       detail: "Jordan Smith · 25 Collins Street, Melbourne · Due in 1h",
       action: "Draft follow-up",
-      href: "/copilot?lead_id=lead-3&listing_id=listing-1",
       task_id: "task-urgent",
     });
+    const launch = new URL(recommendations[0].href, "https://useclippy.com");
+    expect(launch.searchParams.get("launch")).toBe("follow_up");
+    expect(launch.searchParams.get("task_id")).toBe("task-urgent");
+    expect(launch.searchParams.get("lead_id")).toBe("lead-3");
+    expect(launch.searchParams.get("listing_id")).toBe("listing-1");
   });
 
   it("does not duplicate a hot lead already represented by a task", () => {

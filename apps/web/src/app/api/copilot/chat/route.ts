@@ -47,6 +47,7 @@ const copilotRequestSchema = z.object({
   conversation_id: z.string().uuid().optional(),
   calendar_event_id: z.string().uuid().optional(),
   calendar_source: z.enum(["google", "inspection"]).optional(),
+  task_id: z.string().uuid().optional(),
 });
 
 class ContextConflictError extends Error {}
@@ -199,7 +200,28 @@ export async function POST(req: NextRequest) {
     let enquiryId = parsed.data.enquiry_id;
     let conversationId = parsed.data.conversation_id;
     let calendarContext: RecordValue | null = null;
+    let taskContext: RecordValue | null = null;
     let relationshipVerified = false;
+
+    if (parsed.data.task_id) {
+      const { data: task, error } = await supabase
+        .from("tasks")
+        .select("id,type,title,due_at,status,lead_id,listing_id")
+        .eq("id", parsed.data.task_id)
+        .eq("org_id", orgId)
+        .maybeSingle();
+      if (error) console.error("Copilot task context failed:", error.code);
+      if (!task) return contextNotFound(requestId);
+      leadId = reconcileId(leadId, task.lead_id, "client");
+      listingId = reconcileId(listingId, task.listing_id, "property");
+      relationshipVerified = Boolean(task.lead_id && task.listing_id);
+      taskContext = {
+        type: task.type,
+        title: task.title,
+        due_at: task.due_at,
+        status: task.status,
+      };
+    }
 
     if (parsed.data.calendar_event_id) {
       let calendarFound = false;
@@ -527,6 +549,7 @@ export async function POST(req: NextRequest) {
       calendarContext
         ? `CALENDAR EVENT:\n${contextJson(calendarContext)}`
         : null,
+      taskContext ? `FOLLOW-UP TASK:\n${contextJson(taskContext)}` : null,
     ].filter(Boolean);
     if (structuredContext.length > 0) {
       systemPrompt += `AGENT-SELECTED WORKING CONTEXT:\n${structuredContext.join(
@@ -757,6 +780,7 @@ export async function POST(req: NextRequest) {
         enquiry_id: enquiryId || null,
         conversation_id: conversationId || null,
         calendar_event_id: parsed.data.calendar_event_id || null,
+        task_id: parsed.data.task_id || null,
         rag_context_used: Boolean(ragContext),
         adaptive_intelligence_used: adaptiveContext.enabled,
         adaptive_examples_used: adaptiveContext.explanation.examplesUsed,
