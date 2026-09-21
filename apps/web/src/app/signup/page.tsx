@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -21,6 +21,11 @@ function authCallbackUrl(): string {
   return callback.toString();
 }
 
+function signInPath(): string {
+  const params = new URLSearchParams({ next: onboardingPath() });
+  return `/sign-in?${params.toString()}`;
+}
+
 export default function SignUpPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -29,6 +34,27 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resendNotice, setResendNotice] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const supabase = createClient();
+
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (active && data.session) {
+          router.replace(onboardingPath());
+          router.refresh();
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,12 +79,62 @@ export default function SignUpPage() {
         router.push(onboardingPath());
       } else {
         setConfirmationEmail(email);
+        setResendNotice("");
         setLoading(false);
       }
     } catch {
       setError("Authentication is not configured for this environment.");
       setLoading(false);
     }
+  };
+
+  const continueToSignIn = () => {
+    try {
+      window.sessionStorage.setItem("clippy-sign-in-email", confirmationEmail);
+    } catch {
+      // Sign-in still works when browser storage is unavailable.
+    }
+    router.push(signInPath());
+  };
+
+  const handleResendConfirmation = async () => {
+    setResending(true);
+    setError("");
+    setResendNotice("");
+
+    try {
+      const supabase = createClient();
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: confirmationEmail,
+        options: { emailRedirectTo: authCallbackUrl() },
+      });
+
+      if (
+        resendError?.status === 429 ||
+        resendError?.message.toLowerCase().includes("rate limit")
+      ) {
+        setError("Please wait a minute before requesting another email.");
+        return;
+      }
+
+      setResendNotice(
+        "If this account still needs confirmation, a new link is on its way. If it is already confirmed, continue to sign in.",
+      );
+    } catch {
+      setError(
+        "We could not request another email. Please continue to sign in.",
+      );
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const resetSignUp = () => {
+    setConfirmationEmail("");
+    setPassword("");
+    setResendNotice("");
+    setError("");
   };
 
   const handleGoogleSignUp = async () => {
@@ -101,56 +177,99 @@ export default function SignUpPage() {
           </div>
         )}
 
-        {confirmationEmail && (
-          <div
-            className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-foreground"
-            role="status"
-          >
-            <p className="font-semibold tracking-[-0.01em]">Check your email</p>
+        {confirmationEmail ? (
+          <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-foreground">
+            <p className="font-semibold tracking-[-0.01em]">
+              Continue your account setup
+            </p>
             <p className="mt-1 text-muted-foreground">
-              We sent a confirmation link to{" "}
+              If this is a new account, use the confirmation link sent to{" "}
               <span className="font-dashboard-mono text-xs text-foreground">
                 {confirmationEmail}
               </span>
-              . Open the newest email to finish creating your account.
+              . If you already confirmed this address, sign in now—there is no
+              need to wait for another email.
             </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Check Spam or Promotions and always open the newest Clippy email.
+            </p>
+
+            {resendNotice && (
+              <p
+                className="mt-3 rounded-lg border border-emerald-500/20 bg-background/60 p-3 text-xs text-foreground"
+                role="status"
+              >
+                {resendNotice}
+              </p>
+            )}
+
+            <div className="mt-4 space-y-2">
+              <button
+                type="button"
+                onClick={continueToSignIn}
+                className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Continue to sign in
+              </button>
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={resending}
+                className="w-full rounded-xl border border-border bg-background py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                {resending
+                  ? "Requesting email..."
+                  : "Resend confirmation email"}
+              </button>
+              <button
+                type="button"
+                onClick={resetSignUp}
+                className="w-full py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                Use a different email
+              </button>
+            </div>
           </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleGoogleSignUp}
+              className="mb-6 flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              Continue with Google
+            </button>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  or
+                </span>
+              </div>
+            </div>
+          </>
         )}
-
-        <button
-          type="button"
-          onClick={handleGoogleSignUp}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted transition-colors text-sm font-medium text-foreground mb-6"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-            />
-          </svg>
-          Continue with Google
-        </button>
-
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">or</span>
-          </div>
-        </div>
 
         <form
           onSubmit={handleSignUp}
@@ -237,6 +356,10 @@ export default function SignUpPage() {
           Already have an account?{" "}
           <Link
             href="/sign-in"
+            onClick={(event) => {
+              event.preventDefault();
+              router.push(signInPath());
+            }}
             className="text-primary font-medium hover:underline"
           >
             Sign in

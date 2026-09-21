@@ -29,4 +29,20 @@ describe("founding offer navigation", () => {
   it("takes invited pilot agents to their automatic setup checklist", () => {
     expect(getOnboardingCompletionPath("?pilot=1")).toBe("/pilot/setup");
   });
+
+  it("preserves a safe destination through account creation", () => {
+    expect(getSignupCompletionPath("?next=%2Fpilot%2Faccept")).toBe(
+      "/pilot/accept",
+    );
+    expect(getSignupCompletionPath("?next=%2Fintegrations")).toBe(
+      "/integrations",
+    );
+  });
+
+  it("rejects external signup destinations", () => {
+    expect(getSignupCompletionPath("?next=//evil.example")).toBe("/onboarding");
+    expect(getSignupCompletionPath("?next=https%3A%2F%2Fevil.example")).toBe(
+      "/onboarding",
+    );
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -22,6 +22,20 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    try {
+      const pendingEmail = window.sessionStorage.getItem(
+        "clippy-sign-in-email",
+      );
+      if (pendingEmail) {
+        setEmail(pendingEmail);
+        window.sessionStorage.removeItem("clippy-sign-in-email");
+      }
+    } catch {
+      // The form remains usable when browser storage is unavailable.
+    }
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,6 +189,11 @@ export default function SignInPage() {
           Don&apos;t have an account?{" "}
           <Link
             href="/signup"
+            onClick={(event) => {
+              event.preventDefault();
+              const params = new URLSearchParams({ next: safeNextPath() });
+              router.push(`/signup?${params.toString()}`);
+            }}
             className="text-primary font-medium hover:underline"
           >
             Get started free
