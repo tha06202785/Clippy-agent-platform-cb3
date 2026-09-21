@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSafeFollowUpFallback,
   buildDraftLaunchUrl,
   parseInspectionSlotRequest,
   parseInspectionSlotRequests,
@@ -60,6 +61,18 @@ describe("Copilot draft actions", () => {
     expect(url).toContain("subject=Inspection+follow-up");
     expect(url).toContain("body=Thanks+for+attending.");
   });
+
+  it("creates a factual-free fallback when the AI provider is unavailable", () => {
+    const draft = buildSafeFollowUpFallback({
+      recipientName: "Alice Buyer",
+      agentName: "Teddy Thamel",
+    });
+
+    expect(draft).toContain("Hi Alice Buyer,");
+    expect(draft).toContain("our recent conversation");
+    expect(draft).toContain("Kind regards,\nTeddy Thamel");
+    expect(draft).not.toMatch(/property|price|inspection|sent/i);
+  });
 });
 
 describe("Copilot inspection slot actions", () => {
@@ -95,14 +108,24 @@ describe("Copilot inspection slot actions", () => {
   });
 
   it("parses several inspection times on the same selected day", () => {
-    expect(parseInspectionSlotRequests(
-      "Create Saturday inspection slots at 10:00 am, 11:30 am and 2:00 pm",
-      now,
-    )).toEqual([
-      { startsAt: "2026-08-15T00:00:00.000Z", endsAt: "2026-08-15T00:30:00.000Z" },
-      { startsAt: "2026-08-15T01:30:00.000Z", endsAt: "2026-08-15T02:00:00.000Z" },
-      { startsAt: "2026-08-15T04:00:00.000Z", endsAt: "2026-08-15T04:30:00.000Z" },
+    expect(
+      parseInspectionSlotRequests(
+        "Create Saturday inspection slots at 10:00 am, 11:30 am and 2:00 pm",
+        now,
+      ),
+    ).toEqual([
+      {
+        startsAt: "2026-08-15T00:00:00.000Z",
+        endsAt: "2026-08-15T00:30:00.000Z",
+      },
+      {
+        startsAt: "2026-08-15T01:30:00.000Z",
+        endsAt: "2026-08-15T02:00:00.000Z",
+      },
+      {
+        startsAt: "2026-08-15T04:00:00.000Z",
+        endsAt: "2026-08-15T04:30:00.000Z",
+      },
     ]);
   });
-
 });
