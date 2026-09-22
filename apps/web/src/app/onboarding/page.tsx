@@ -11,13 +11,15 @@ interface ImportResults {
   contacts: number;
   listings: number;
   inspections: number;
+  writing_examples: number;
   calendar_events: number;
 }
 
-interface ImportProgressItem {
-  name: string;
-  count: number;
-  done: boolean;
+interface ImportSource {
+  id: string;
+  label: string;
+  status: "synced" | "not_connected" | "failed";
+  message: string;
 }
 
 const agencyTypes = [
@@ -57,14 +59,11 @@ export default function OnboardingWizard() {
     contacts: 0,
     listings: 0,
     inspections: 0,
+    writing_examples: 0,
     calendar_events: 0,
   });
-  const [importProgress, setImportProgress] = useState<ImportProgressItem[]>([
-    { name: "Contacts & Leads", count: 0, done: false },
-    { name: "Listings", count: 0, done: false },
-    { name: "Inspections", count: 0, done: false },
-    { name: "Calendar Events", count: 0, done: false },
-  ]);
+  const [importSources, setImportSources] = useState<ImportSource[]>([]);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [importError, setImportError] = useState("");
@@ -111,12 +110,15 @@ export default function OnboardingWizard() {
   const handleImport = async () => {
     setImporting(true);
     setImportError("");
+    setImportWarnings([]);
     try {
       const response = await fetch("/api/import", { method: "POST" });
       const data = (await response.json().catch(() => ({}))) as {
         success?: boolean;
         error?: string;
         results?: ImportResults;
+        sources?: ImportSource[];
+        warnings?: string[];
       };
       if (!response.ok || !data.success || !data.results) {
         throw new Error(data.error || "Business data could not be imported");
@@ -124,25 +126,13 @@ export default function OnboardingWizard() {
 
       const results = data.results;
       setImportResults(results);
+      setImportSources(data.sources || []);
+      setImportWarnings(data.warnings || []);
       setImportCompleted(true);
-      setImportProgress([
-        {
-          name: "Contacts & Leads",
-          count: results.contacts,
-          done: true,
-        },
-        { name: "Listings", count: results.listings, done: true },
-        { name: "Inspections", count: results.inspections, done: true },
-        {
-          name: "Calendar Events",
-          count: results.calendar_events,
-          done: true,
-        },
-      ]);
       window.setTimeout(() => {
         setImporting(false);
         setPhase(5);
-      }, 1500);
+      }, 500);
     } catch (error) {
       console.error("Import failed:", error);
       setImportError(
@@ -626,7 +616,8 @@ export default function OnboardingWizard() {
               Import Existing Data
             </h2>
             <p className="text-sm text-muted-foreground">
-              I&apos;ll learn from your current business
+              Sync connected email and calendars, then organise data already in
+              your workspace.
             </p>
           </div>
 
@@ -635,27 +626,15 @@ export default function OnboardingWizard() {
               <div className="bg-card border border-border rounded-xl p-6 space-y-3">
                 <div className="flex items-center gap-3">
                   <Loader className="w-5 h-5 animate-spin text-primary" />
-                  <span className="font-medium">Importing your data...</span>
+                  <span className="font-medium">
+                    Syncing your connected sources…
+                  </span>
                 </div>
-                <div className="space-y-2">
-                  {importProgress.map((item) => (
-                    <div
-                      key={item.name}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className="text-muted-foreground">{item.name}</span>
-                      <span
-                        className={
-                          item.done
-                            ? "text-emerald-600"
-                            : "text-muted-foreground"
-                        }
-                      >
-                        {item.done ? "✓ " + item.count : "Scanning..."}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  This may take a minute while Clippy checks email, calendar,
+                  contacts and listings. You can safely retry if your connection
+                  is interrupted.
+                </p>
               </div>
             </div>
           ) : (
@@ -663,20 +642,33 @@ export default function OnboardingWizard() {
               {[
                 {
                   item: "Contacts & Leads",
-                  count: importResults.contacts || "Auto-detect",
+                  count: importCompleted
+                    ? `${importResults.contacts} found`
+                    : "Ready to check",
                 },
                 {
                   item: "Listings",
-                  count: importResults.listings || "Auto-detect",
+                  count: importCompleted
+                    ? `${importResults.listings} found`
+                    : "Ready to check",
                 },
                 {
                   item: "Inspection History",
-                  count: importResults.inspections || "Auto-detect",
+                  count: importCompleted
+                    ? `${importResults.inspections} found`
+                    : "Ready to check",
                 },
-                { item: "Email Templates", count: "Auto-detect" },
+                {
+                  item: "Writing Style",
+                  count: importCompleted
+                    ? `${importResults.writing_examples} examples learned`
+                    : "From connected sent email",
+                },
                 {
                   item: "Calendar Events",
-                  count: importResults.calendar_events || "Auto-detect",
+                  count: importCompleted
+                    ? `${importResults.calendar_events} found`
+                    : "From connected calendar",
                 },
               ].map((item) => (
                 <div
@@ -689,6 +681,14 @@ export default function OnboardingWizard() {
                   </span>
                 </div>
               ))}
+
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                <p className="text-sm text-blue-800">
+                  CRM selection saves your preference only. Connect a supported
+                  account or upload a CSV before Clippy can import data from
+                  that system.
+                </p>
+              </div>
             </div>
           )}
 
@@ -709,7 +709,7 @@ export default function OnboardingWizard() {
                 className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Start Import
-                <Loader className="h-4 w-4" />
+                <Database className="h-4 w-4" />
               </button>
               <button
                 type="button"
@@ -748,6 +748,8 @@ export default function OnboardingWizard() {
                   ? formData.otherCrmName
                   : crmName(formData.primaryCrm),
               importResults,
+              importSources,
+              importWarnings,
             }).map((item) => (
               <div key={item} className="flex items-center gap-3">
                 <Check className="h-4 w-4 shrink-0 text-emerald-600" />
@@ -755,6 +757,22 @@ export default function OnboardingWizard() {
               </div>
             ))}
           </div>
+
+          {importWarnings.length > 0 && (
+            <div
+              role="status"
+              className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-left"
+            >
+              <p className="mb-2 text-sm font-semibold text-amber-900">
+                Import completed with a warning
+              </p>
+              {importWarnings.map((warning) => (
+                <p key={warning} className="text-sm text-amber-800">
+                  {warning}
+                </p>
+              ))}
+            </div>
+          )}
 
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-left">
             <p className="text-sm text-blue-800">
