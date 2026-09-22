@@ -30,7 +30,7 @@ describe("onboarding foundations", () => {
 
     expect(summary).toContain("No business data imported yet");
     expect(summary).toContain(
-      "Integrations remain disconnected until their OAuth connection completes",
+      "No connected email or calendar account was synced",
     );
     expect(summary.join(" ")).not.toMatch(
       /326 contacts|41 listings|Gmail connected|Facebook connected/i,
@@ -41,10 +41,26 @@ describe("onboarding foundations", () => {
     const summary = buildOnboardingSummary({
       primaryCrmName: "Rex",
       importResults: { contacts: 3, listings: 0, calendar_events: 2 },
+      importSources: [
+        { label: "Google (agent@example.com)", status: "synced" },
+      ],
     });
 
     expect(summary).toContain("3 contacts imported");
     expect(summary).toContain("2 calendar events imported");
+    expect(summary).toContain("Google (agent@example.com) synced");
     expect(summary).not.toContain("0 listings imported");
+  });
+
+  it("reports learned writing examples and partial import warnings", () => {
+    const summary = buildOnboardingSummary({
+      primaryCrmName: "No CRM yet",
+      importResults: { writing_examples: 12 },
+      importSources: [{ label: "Microsoft 365", status: "failed" }],
+      importWarnings: ["Microsoft 365 needs to be reconnected"],
+    });
+
+    expect(summary).toContain("12 writing examples imported");
+    expect(summary).toContain("1 import warning needs attention");
   });
 });
