@@ -22,8 +22,14 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset") === "success") {
+      setNotice("Password updated. Sign in with your new password.");
+    }
+
     try {
       const pendingEmail = window.sessionStorage.getItem(
         "clippy-sign-in-email",
@@ -41,6 +47,7 @@ export default function SignInPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setNotice("");
 
     try {
       const supabase = createClient();
@@ -104,6 +111,15 @@ export default function SignInPage() {
           </div>
         )}
 
+        {notice && (
+          <div
+            className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300"
+            role="status"
+          >
+            {notice}
+          </div>
+        )}
+
         <button
           type="button"
           onClick={handleGoogleSignIn}
@@ -159,12 +175,24 @@ export default function SignInPage() {
             />
           </div>
           <div>
-            <label
-              htmlFor="sign-in-password"
-              className="text-sm font-medium text-foreground"
-            >
-              Password
-            </label>
+            <div className="flex items-center justify-between gap-4">
+              <label
+                htmlFor="sign-in-password"
+                className="text-sm font-medium text-foreground"
+              >
+                Password
+              </label>
+              <Link
+                href={
+                  email
+                    ? `/forgot-password?email=${encodeURIComponent(email)}`
+                    : "/forgot-password"
+                }
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <input
               id="sign-in-password"
               type="password"

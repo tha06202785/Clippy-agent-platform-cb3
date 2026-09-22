@@ -108,7 +108,7 @@ export async function updateSession(request: NextRequest) {
     return applySecurityHeaders(redirect);
   }
 
-  const authPaths = ["/sign-in", "/signup"];
+  const authPaths = ["/sign-in", "/signup", "/forgot-password"];
   const isAuthPage = authPaths.some((p) => pathname.startsWith(p));
   if (isAuthPage && (hasVerifiedIdentity || authDisabledForTesting)) {
     const url = request.nextUrl.clone();

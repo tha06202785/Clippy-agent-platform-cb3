@@ -17,12 +17,17 @@ describe("workspace route protection", () => {
     expect(isProtectedPath(pathname)).toBe(true);
   });
 
-  it.each(["/", "/pricing", "/security", "/sign-in", "/signup"])(
-    "keeps %s public",
-    (pathname) => {
-      expect(isProtectedPath(pathname)).toBe(false);
-    },
-  );
+  it.each([
+    "/",
+    "/pricing",
+    "/security",
+    "/sign-in",
+    "/signup",
+    "/forgot-password",
+    "/reset-password",
+  ])("keeps %s public", (pathname) => {
+    expect(isProtectedPath(pathname)).toBe(false);
+  });
 
   it("does not protect unrelated prefix collisions", () => {
     expect(isProtectedPath("/dashboard-public")).toBe(false);
