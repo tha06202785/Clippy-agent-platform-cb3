@@ -3,9 +3,7 @@ import { getAppOrigin } from "@/lib/app-origin";
 export const PASSWORD_RESET_PATH = "/reset-password";
 
 export function getPasswordResetRedirectUrl(appUrl?: string): string {
-  const callback = new URL("/api/auth/callback", getAppOrigin(appUrl));
-  callback.searchParams.set("next", PASSWORD_RESET_PATH);
-  return callback.toString();
+  return new URL(PASSWORD_RESET_PATH, getAppOrigin(appUrl)).toString();
 }
 
 export function validateNewPassword(

@@ -13,10 +13,15 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    const requestedEmail = new URLSearchParams(window.location.search).get(
-      "email",
-    );
+    const searchParams = new URLSearchParams(window.location.search);
+    const requestedEmail = searchParams.get("email");
     if (requestedEmail) setEmail(requestedEmail);
+
+    if (searchParams.get("error") === "invalid_recovery_link") {
+      setError(
+        "That reset link is invalid or expired. Request a fresh link below.",
+      );
+    }
   }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

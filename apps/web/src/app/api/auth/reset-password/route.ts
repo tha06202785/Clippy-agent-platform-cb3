@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { emailSchema, validate } from "@/lib/validation";
 import { getPasswordResetRedirectUrl } from "@/lib/password-reset";
+import { createPasswordResetEmailClient } from "@/lib/supabase/password-recovery";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
     const validation = validate(emailSchema, await req.json());
 
     if (!validation.success) {
@@ -36,6 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { email } = validation.data!;
+    const supabase = createPasswordResetEmailClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: getPasswordResetRedirectUrl(),
     });
