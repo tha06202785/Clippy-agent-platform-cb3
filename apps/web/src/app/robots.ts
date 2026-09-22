@@ -5,7 +5,15 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/dashboard/", "/admin/", "/api/", "/sign-in/", "/signup/"],
+      disallow: [
+        "/dashboard/",
+        "/admin/",
+        "/api/",
+        "/sign-in/",
+        "/signup/",
+        "/forgot-password/",
+        "/reset-password/",
+      ],
     },
     sitemap: "https://useclippy.com/sitemap.xml",
   };
