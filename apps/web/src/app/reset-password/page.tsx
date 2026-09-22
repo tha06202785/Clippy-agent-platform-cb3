@@ -3,8 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
-import { createClient } from "@/lib/supabase/client";
 import { validateNewPassword } from "@/lib/password-reset";
+import { getPasswordRecoveryClient } from "@/lib/supabase/password-recovery";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 
@@ -19,7 +19,7 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     let active = true;
-    const supabase = createClient();
+    const supabase = getPasswordRecoveryClient();
 
     void supabase.auth.getUser().then(({ data, error: userError }) => {
       if (!active) return;
@@ -43,7 +43,7 @@ export default function ResetPasswordPage() {
     setError("");
 
     try {
-      const supabase = createClient();
+      const supabase = getPasswordRecoveryClient();
       const { error: updateError } = await supabase.auth.updateUser({
         password,
       });

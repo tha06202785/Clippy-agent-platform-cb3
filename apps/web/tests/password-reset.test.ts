@@ -8,7 +8,7 @@ import { isProtectedPath } from "@/lib/supabase/middleware";
 describe("password recovery", () => {
   it("returns recovery emails to the password update screen", () => {
     expect(getPasswordResetRedirectUrl("https://useclippy.com/")).toBe(
-      "https://useclippy.com/api/auth/callback?next=%2Freset-password",
+      "https://useclippy.com/reset-password",
     );
   });
 
